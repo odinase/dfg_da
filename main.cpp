@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     // Add unary track factors
     // Reward matrix
     // R = [ vertcat( l^{11}, l^{21}, l^{31} , [m^1, -infty, -infty ; -infty, m^2 , -infty ; -infty, -infty, m^3].
-    // Three tracks and "three" measurements plus misdetection
+    // Three tracks and one measurement plus three misdetections
     constexpr double inf = std::numeric_limits<double>::infinity();
     Eigen::MatrixXd R(3, 4);
     R << 4.78, -0.46, -inf, -inf,
