@@ -1,0 +1,36 @@
+graph {
+  size="5,5";
+
+  varT0[label="T0"];
+  vara1[label="a1"];
+  vara2[label="a2"];
+  vara3[label="a3"];
+  varb0[label="b0"];
+
+  factor0[label="", shape=point];
+  varT0--factor0;
+  factor1[label="", shape=point];
+  varT0--factor1;
+  vara1--factor1;
+  factor2[label="", shape=point];
+  varT0--factor2;
+  vara2--factor2;
+  factor3[label="", shape=point];
+  varT0--factor3;
+  vara3--factor3;
+  factor4[label="", shape=point];
+  vara1--factor4;
+  varb0--factor4;
+  factor5[label="", shape=point];
+  vara2--factor5;
+  varb0--factor5;
+  factor6[label="", shape=point];
+  vara3--factor6;
+  varb0--factor6;
+  factor7[label="", shape=point];
+  vara1--factor7;
+  factor8[label="", shape=point];
+  vara2--factor8;
+  factor9[label="", shape=point];
+  vara3--factor9;
+}

@@ -8,6 +8,7 @@ find_package(Eigen3 REQUIRED)
 find_package(dcsam REQUIRED)
 find_package(idbt REQUIRED)
 
+find_package (glog REQUIRED)
 
 include_directories(
     ${GTSAM_INCLUDE_DIR}
@@ -24,6 +25,8 @@ target_link_libraries(${PROJECT_NAME}
     dcsam
     idbt
     Eigen3::Eigen
+    glog::glog
 )
 
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY})
+
+set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
