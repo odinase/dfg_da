@@ -25,8 +25,12 @@ int main(int argc, char **argv)
     google::InitGoogleLogging(argv[0]);
     google::InstallFailureSignalHandler();
 
+    gtsam::DiscreteKeys all_keys;
+
     // Initialize discrete prior hypothesis variable theta
     gtsam::DiscreteKey theta(gtsam::symbol('T', 0), 2);
+    all_keys.push_back(theta);
+
     double w_a = 0.5;
     double w_b = 1.0 - w_a;
     std::vector<std::vector<int>> prior_hypotheses = {
@@ -43,6 +47,7 @@ int main(int argc, char **argv)
     for (int i = 1; i <= 3; i++)
     {
         as.emplace_back(gtsam::DiscreteKey(A(i), 3)); // Cardinality is 3 because one measurement => misdetection, measurement, non-existence
+        all_keys.push_back(as.back());
     }
 
     // Add factors between theta and the tracks
@@ -77,6 +82,8 @@ int main(int argc, char **argv)
     // track-to-measurement factors
     // Define b variable
     gtsam::DiscreteKey b(gtsam::symbol('b', 0), 4); // Cardinality 4 because three different tracks or misdetection??
+    all_keys.push_back(b);
+
     // a1
     gtsam::DiscreteKeys phi_X_keys = {as[0], b};
     std::vector<double> phi_X_table = {
@@ -110,13 +117,17 @@ int main(int argc, char **argv)
     // Add unary track factors
     // Reward matrix
     // R = [ vertcat( l^{11}, l^{21}, l^{31} , [m^1, -infty, -infty ; -infty, m^2 , -infty ; -infty, -infty, m^3].
-    // Three tracks and "three" measurements pluss misdetection
+    // Three tracks and "three" measurements plus misdetection
     constexpr double inf = std::numeric_limits<double>::infinity();
     Eigen::MatrixXd R(3, 4);
     R << -0.46, 4.78, -inf, -inf,
          -0.52, -inf, 5.37, -inf,
          -0.60, -inf, -inf, 6.58;
     
+    double min_val = R(2, 0); // visual inspection
+    R.array() -= min_val;
+    std::cout << R << "\n";
+
     double l_11 = R(0,0);
     double l_21 = R(1,0);
     double l_31 = R(2,0);
@@ -140,7 +151,16 @@ int main(int argc, char **argv)
     dcsam::DiscretePriorFactor phi_F(as[2], phi_F_table);
     dfg.push_back(phi_F);
 
-    dfg.saveGraph("graph.txt");
+    dcsam::DiscreteValues solution = dfg.optimize();
+    gtsam::DiscreteMarginals marginals(dfg);
 
-    
+    for (const auto& key : all_keys) {
+        std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginals.marginalProbabilities(key).transpose() << "\n";
+    }
+
+    for (const auto& [dkey, cardinality] : all_keys) {
+        std::cout << "Optimal value for " << gtsam::Symbol(dkey) << ": " << solution[dkey] << "\n";
+    }    
+
+    dfg.saveGraph("graph.txt");
 }
