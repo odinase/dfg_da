@@ -17,6 +17,8 @@
 #include <fstream>
 
 #include <glog/logging.h>
+#include <cmath>
+
 
 using gtsam::symbol_shorthand::A;
 
@@ -120,21 +122,18 @@ int main(int argc, char **argv)
     // Three tracks and "three" measurements plus misdetection
     constexpr double inf = std::numeric_limits<double>::infinity();
     Eigen::MatrixXd R(3, 4);
-    R << -0.46, 4.78, -inf, -inf,
-         -0.52, -inf, 5.37, -inf,
-         -0.60, -inf, -inf, 6.58;
-    
-    double min_val = R(2, 0); // visual inspection
-    R.array() -= min_val;
-    std::cout << R << "\n";
+    R << 4.78, -0.46, -inf, -inf,
+         5.37, -inf, -0.52, -inf,
+         6.58, -inf, -inf, -0.60;
 
-    double l_11 = R(0,0);
-    double l_21 = R(1,0);
-    double l_31 = R(2,0);
+    // exp to convert log into actual probabilities. Is this properly normalized?? Does it need to??
+    double l_11 = exp(R(0,0));
+    double l_21 = exp(R(1,0));
+    double l_31 = exp(R(2,0));
 
-    double m_1 = R(0, 1);
-    double m_2 = R(1, 2);
-    double m_3 = R(2, 3);
+    double m_1 = exp(R(0, 1));
+    double m_2 = exp(R(1, 2));
+    double m_3 = exp(R(2, 3));
 
     // phi D
     std::vector<double> phi_D_table{m_1, l_11, 1};
