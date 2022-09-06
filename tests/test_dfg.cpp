@@ -1,4 +1,6 @@
-#include <iostream>
+// Include for test suite
+#include <gtest/gtest.h>
+
 #include <gtsam/discrete/DiscreteConditional.h>
 #include <gtsam/discrete/DiscreteFactorGraph.h>
 #include <gtsam/discrete/DiscreteMarginals.h>
@@ -8,31 +10,13 @@
 #include <dcsam/DCSAM_types.h>
 #include <dcsam/DiscretePriorFactor.h>
 
-#include <idbt/iDBT.h>
-
-#include <Eigen/Core>
-#include <Eigen/Sparse>
-
-#include <limits>
-#include <fstream>
-
-#include <glog/logging.h>
-#include <cmath>
-
 
 using gtsam::symbol_shorthand::A;
 
 
-int main(int argc, char **argv)
-{
-    google::InitGoogleLogging(argv[0]);
-    google::InstallFailureSignalHandler();
-
-    gtsam::DiscreteKeys all_keys;
-
+gtsam::DiscreteFactorGraph build_test_factor_graph() {
     // Initialize discrete prior hypothesis variable theta
     gtsam::DiscreteKey theta(gtsam::symbol('T', 0), 2);
-    all_keys.push_back(theta);
 
     double w_a = 0.5;
     double w_b = 1.0 - w_a;
@@ -50,7 +34,6 @@ int main(int argc, char **argv)
     for (int i = 1; i <= 3; i++)
     {
         as.emplace_back(gtsam::DiscreteKey(A(i), 3)); // Cardinality is 3 because one measurement => misdetection, measurement, non-existence
-        all_keys.push_back(as.back());
     }
 
     // Add factors between theta and the tracks
@@ -85,7 +68,6 @@ int main(int argc, char **argv)
     // track-to-measurement factors
     // Define b variable
     gtsam::DiscreteKey b(gtsam::symbol('b', 0), 4); // Cardinality 4 because three different tracks or misdetection??
-    all_keys.push_back(b);
 
     // a1
     gtsam::DiscreteKeys phi_X_keys = {as[0], b};
@@ -151,16 +133,24 @@ int main(int argc, char **argv)
     dcsam::DiscretePriorFactor phi_F(as[2], phi_F_table);
     dfg.push_back(phi_F);
 
-    dcsam::DiscreteValues solution = dfg.optimize();
-    gtsam::DiscreteMarginals marginals(dfg);
 
-    for (const auto& key : all_keys) {
-        std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginals.marginalProbabilities(key).transpose() << "\n";
+    return dfg;
+}
+
+
+
+TEST(TestSuite, test_compile)
+{
+    EXPECT_EQ(1, 1);
+}
+
+TEST(TestSuite, test_loop_factors)
+{
+    gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
+
+    for (auto&& df : dfg) {
+        df->print();
     }
 
-    for (const auto& [dkey, cardinality] : all_keys) {
-        std::cout << "Optimal value for " << gtsam::Symbol(dkey) << ": " << solution[dkey] << "\n";
-    }    
-
-    dfg.saveGraph("graph.txt");
+    EXPECT_EQ(1, 1);
 }

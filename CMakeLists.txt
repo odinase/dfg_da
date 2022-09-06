@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 project(discrete_factor_graph)
 
 set(CMAKE_CXX_STANDARD 17)
+add_compile_options(-Wall -Wpedantic -Wextra)
+
+
+# Add option to enable testing
+option(ENABLE_TESTS "Enable tests" OFF)
 
 find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -27,6 +32,14 @@ target_link_libraries(${PROJECT_NAME}
     Eigen3::Eigen
     glog::glog
 )
+
+
+# Include unit tests directory to the project.
+if (${ENABLE_TESTS})
+message(STATUS "Testing enabled. Building tests.")
+enable_testing()
+add_subdirectory(tests)
+endif()
 
 
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
