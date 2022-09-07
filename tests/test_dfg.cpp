@@ -162,7 +162,7 @@ TEST(TestSuite, test_lbp)
 {
     gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
 
-    auto marginals = lbp(dfg, 26);
+    auto marginals = lbp(dfg, 50);
 
     std::cout << "Marginals:\n";
     for (const auto &[k, marginal] : marginals) {

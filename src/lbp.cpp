@@ -3,6 +3,24 @@
 
 #include <iostream>
 
+
+void normalize_message(gtsam::DecisionTreeFactor& message) {
+    assert(message.discreteKeys().size() == 1); // There should be only one key in this list
+    gtsam::DiscreteKey dk = message.discreteKeys()[0]; 
+    gtsam::DiscreteDistribution p(message);
+    std::vector pmf = p.pmf();
+    double s = 0.0;
+    for (auto pp : pmf) {
+        s += pp;
+    }
+    for (auto& pp : pmf) {
+        pp /= s;
+    }
+
+    message = gtsam::DecisionTreeFactor({dk}, pmf);    
+}
+
+
 std::unordered_map<gtsam::Key, std::vector<double>> lbp(
     const gtsam::DiscreteFactorGraph &dfg,
     const size_t max_iters,
@@ -91,6 +109,7 @@ std::unordered_map<gtsam::Key, std::vector<double>> lbp(
                 // We now have m_i, compute i -> a
                 const auto &m_a_i = prev_outgoing_messages[df][k];
                 ingoing_messages[df][k] = m_i / m_a_i;
+                normalize_message(ingoing_messages[df][k]);
 
                 // Use fa to compute
 
@@ -100,6 +119,7 @@ std::unordered_map<gtsam::Key, std::vector<double>> lbp(
 
                 const auto &m_i_a = prev_ingoing_messages[df][k];
                 outgoing_messages[df][k] = *(fa / m_i_a).sum(vars_to_sum);
+                normalize_message(outgoing_messages[df][k]);
 
                 key_set.insert(k); // Reinsert key for next iteration
             }
