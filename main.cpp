@@ -3,12 +3,13 @@
 #include <gtsam/discrete/DiscreteFactorGraph.h>
 #include <gtsam/discrete/DiscreteMarginals.h>
 #include <gtsam/discrete/DecisionTreeFactor.h>
+#include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
 
-#include <dcsam/DCSAM_types.h>
-#include <dcsam/DiscretePriorFactor.h>
+// #include <dcsam/DCSAM_types.h>
+// #include <dcsam/DiscretePriorFactor.h>
 
-#include <idbt/iDBT.h>
+// #include <idbt/iDBT.h>
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
@@ -29,6 +30,8 @@ int main(int argc, char **argv)
     google::InstallFailureSignalHandler();
 
     gtsam::DiscreteKeys all_keys;
+    gtsam::DiscreteFactorGraph dfg{};
+
 
     // Initialize discrete prior hypothesis variable theta
     gtsam::DiscreteKey theta(gtsam::symbol('T', 0), 2);
@@ -40,9 +43,8 @@ int main(int argc, char **argv)
         {1, 2},
         {1, 3}}; // Tracks
     std::vector<double> theta_prior_probs{w_a, w_b};
-    dcsam::DiscretePriorFactor phi_H(theta, theta_prior_probs);
+    gtsam::DiscreteDistribution phi_H(theta, theta_prior_probs);
 
-    gtsam::DiscreteFactorGraph dfg{};
     dfg.push_back(phi_H);
 
     // Add Bernoulli components (tracks??)
@@ -138,20 +140,20 @@ int main(int argc, char **argv)
 
     // phi D
     std::vector<double> phi_D_table{m_1, l_11, 1};
-    dcsam::DiscretePriorFactor phi_D(as[0], phi_D_table);
+    gtsam::DiscreteDistribution phi_D(as[0], phi_D_table);
     dfg.push_back(phi_D);
 
     // phi E
     std::vector<double> phi_E_table{m_2, l_21, 1};
-    dcsam::DiscretePriorFactor phi_E(as[1], phi_E_table);
+    gtsam::DiscreteDistribution phi_E(as[1], phi_E_table);
     dfg.push_back(phi_E);
 
     // phi F
     std::vector<double> phi_F_table{m_3, l_31, 1};
-    dcsam::DiscretePriorFactor phi_F(as[2], phi_F_table);
+    gtsam::DiscreteDistribution phi_F(as[2], phi_F_table);
     dfg.push_back(phi_F);
 
-    dcsam::DiscreteValues solution = dfg.optimize();
+    gtsam::DiscreteFactor::Values solution = dfg.optimize();
     gtsam::DiscreteMarginals marginals(dfg);
 
     for (const auto& key : all_keys) {

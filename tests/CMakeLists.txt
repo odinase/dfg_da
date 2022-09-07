@@ -19,6 +19,10 @@ else()
 endif()
 
 
-target_link_libraries(test_dfg gtsam dcsam idbt ${GTEST_LIBS})
+target_link_libraries(test_dfg
+  gtsam
+  lbp
+  ${GTEST_LIBS}
+)
 
 add_test(TestDFG test_dfg)

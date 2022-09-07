@@ -10,15 +10,26 @@ option(ENABLE_TESTS "Enable tests" OFF)
 
 find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(dcsam REQUIRED)
-find_package(idbt REQUIRED)
+# find_package(dcsam REQUIRED)
+# find_package(idbt REQUIRED)
 
 find_package (glog REQUIRED)
 
 include_directories(
     ${GTSAM_INCLUDE_DIR}
     ${Eigen3_INCLUDE_DIR}
+    include
 )
+
+add_library(lbp
+    src/lbp.cpp
+)
+
+target_link_libraries(lbp
+    gtsam
+    Eigen3::Eigen 
+)
+
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -26,9 +37,10 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     gtsam
-    gtsam_unstable
-    dcsam
-    idbt
+    lbp
+    # gtsam_unstable
+    # dcsam
+    # idbt
     Eigen3::Eigen
     glog::glog
 )

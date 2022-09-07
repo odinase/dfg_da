@@ -5,11 +5,14 @@
 #include <gtsam/discrete/DiscreteFactorGraph.h>
 #include <gtsam/discrete/DiscreteMarginals.h>
 #include <gtsam/discrete/DecisionTreeFactor.h>
+#include <gtsam/discrete/DiscreteDistribution.h>
+
 #include <gtsam/inference/Symbol.h>
 
-#include <dcsam/DCSAM_types.h>
-#include <dcsam/DiscretePriorFactor.h>
+// #include <dcsam/DCSAM_types.h>
+// #include <dcsam/DiscretePriorFactor.h>
 
+#include "discrete_factor_graph/lbp.h"
 
 using gtsam::symbol_shorthand::A;
 
@@ -24,7 +27,7 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
         {1, 2},
         {1, 3}}; // Tracks
     std::vector<double> theta_prior_probs{w_a, w_b};
-    dcsam::DiscretePriorFactor phi_H(theta, theta_prior_probs);
+    gtsam::DiscreteDistribution phi_H(theta, theta_prior_probs);
 
     gtsam::DiscreteFactorGraph dfg{};
     dfg.push_back(phi_H);
@@ -120,17 +123,17 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 
     // phi D
     std::vector<double> phi_D_table{m_1, l_11, 1};
-    dcsam::DiscretePriorFactor phi_D(as[0], phi_D_table);
+    gtsam::DiscreteDistribution phi_D(as[0], phi_D_table);
     dfg.push_back(phi_D);
 
     // phi E
     std::vector<double> phi_E_table{m_2, l_21, 1};
-    dcsam::DiscretePriorFactor phi_E(as[1], phi_E_table);
+    gtsam::DiscreteDistribution phi_E(as[1], phi_E_table);
     dfg.push_back(phi_E);
 
     // phi F
     std::vector<double> phi_F_table{m_3, l_31, 1};
-    dcsam::DiscretePriorFactor phi_F(as[2], phi_F_table);
+    gtsam::DiscreteDistribution phi_F(as[2], phi_F_table);
     dfg.push_back(phi_F);
 
 
@@ -139,17 +142,35 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 
 
 
-TEST(TestSuite, test_compile)
-{
-    EXPECT_EQ(1, 1);
-}
+// TEST(TestSuite, test_compile)
+// {
+//     EXPECT_EQ(1, 1);
+// }
 
-TEST(TestSuite, test_loop_factors)
+// // TEST(TestSuite, test_loop_factors)
+// // {
+// //     gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
+
+// //     for (auto&& df : dfg) {
+// //         df->print();
+// //     }
+
+// //     EXPECT_EQ(1, 1);
+// // }
+
+TEST(TestSuite, test_lbp)
 {
     gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
 
-    for (auto&& df : dfg) {
-        df->print();
+    auto marginals = lbp(dfg, 26);
+
+    std::cout << "Marginals:\n";
+    for (const auto &[k, marginal] : marginals) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (auto p : marginal) {
+            std::cout << p << " ";
+        }
+        std::cout << std::endl;
     }
 
     EXPECT_EQ(1, 1);
