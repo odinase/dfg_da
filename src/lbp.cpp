@@ -5,19 +5,8 @@
 
 
 void normalize_message(gtsam::DecisionTreeFactor& message) {
-    assert(message.discreteKeys().size() == 1); // There should be only one key in this list
-    gtsam::DiscreteKey dk = message.discreteKeys()[0]; 
-    gtsam::DiscreteDistribution p(message);
-    std::vector pmf = p.pmf();
-    double s = 0.0;
-    for (auto pp : pmf) {
-        s += pp;
-    }
-    for (auto& pp : pmf) {
-        pp /= s;
-    }
-
-    message = gtsam::DecisionTreeFactor({dk}, pmf);    
+    assert(message.discreteKeys().size() == 1); // There should be only one key in this list  
+    message = message / *message.sum(1);
 }
 
 
@@ -46,7 +35,7 @@ std::unordered_map<gtsam::Key, std::vector<double>> lbp(
         // All factors in the dfg should be castable to DecisionTreeFactor, if not, something is seriously wrong
         gtsam::DecisionTreeFactor df = fac->toDecisionTreeFactor();
 
-        for (const auto dk : df.discreteKeys())
+        for (const auto& dk : df.discreteKeys())
         {
             neighbors[dk.first].push_back(fac);
             outgoing_messages[fac][dk.first] = gtsam::DecisionTreeFactor{{dk}, std::vector<double>(dk.second, 1.0)};
@@ -140,23 +129,9 @@ std::unordered_map<gtsam::Key, std::vector<double>> lbp(
             mtf = mtf * outgoing_messages[f][k];
         }
 
-        // Recast to discrete marginal
+        normalize_message(mtf);
         gtsam::DiscreteDistribution m(mtf);
-        std::vector<double> marginal;
-        double s = 0.0;
-        for (size_t xi = 0; xi < c; xi++)
-        {
-            marginal.push_back(m(xi));
-            s += m(xi);
-        }
-
-        // Normalize
-        for (auto &p : marginal)
-        {
-            p /= s;
-        }
-
-        marginals[k] = marginal;
+        marginals[k] = m.pmf();
     }
 
     return marginals;
