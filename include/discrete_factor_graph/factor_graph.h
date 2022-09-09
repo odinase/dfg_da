@@ -13,6 +13,7 @@ struct Message
     gtsam::DecisionTreeFactor m_;
     size_t cardinality_;
 
+    Message() = default;
     explicit Message(const gtsam::DecisionTreeFactor& m);
     Message(gtsam::DiscreteKey dk) : m_({dk}, std::vector<double>(dk.second, 1.0)) {}
 
@@ -20,6 +21,11 @@ struct Message
 
     Message operator*(const Message& m) const {
         return Message(m_ * m.m_);
+    }
+
+    Message& operator*=(const Message& m) {
+        *this = (*this)*m;
+        return *this;
     }
 
     Message operator/(const Message& m) const {
@@ -53,9 +59,14 @@ public:
         const std::vector<Node::shared_ptr> &neighbors() const { return neighbors_; }
         inline size_t num_neighbors() const { return neighbors_.size(); }
 
+        // Belief is product of incoming messages normalized
+        Message belief() const;
+        // Get message from this node into the node calling the method
+        const Message& incoming_message(const Node::shared_ptr& node) const;
+
         virtual void init_messages() = 0;
         virtual Message::ConvergenceStatus update_messages() = 0;
-        virtual ~Node() {}
+        virtual ~Node() = 0;
     };
 
     FactorGraph() = default;
@@ -71,6 +82,6 @@ private:
     inline void sort_nodes()
     {
         std::sort(nodes_.begin(), nodes_.end(), [](const auto &lhs, const auto &rhs)
-                  { lhs->num_neighbors() < lhs->num_neighbors(); });
+                  { return lhs->num_neighbors() < rhs->num_neighbors(); });
     } 
 };

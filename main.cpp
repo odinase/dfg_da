@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
     for (const auto& [dkey, cardinality] : all_keys) {
         std::cout << "Optimal value for " << gtsam::Symbol(dkey) << ": " << solution[dkey] << "\n";
-    }    
+    }
 
     dfg.saveGraph("graph.txt");
 }

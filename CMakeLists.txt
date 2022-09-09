@@ -21,6 +21,18 @@ include_directories(
     include
 )
 
+
+add_library(factor_graph
+    src/factor_graph.cpp
+    src/nodes.cpp
+)
+
+
+target_link_libraries(factor_graph
+    gtsam
+    Eigen3::Eigen 
+)
+
 add_library(lbp
     src/lbp.cpp
 )
@@ -38,6 +50,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     gtsam
     lbp
+    factor_graph
     # gtsam_unstable
     # dcsam
     # idbt

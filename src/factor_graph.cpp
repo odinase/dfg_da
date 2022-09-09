@@ -1,11 +1,33 @@
 #include "discrete_factor_graph/factor_graph.h"
 #include "discrete_factor_graph/nodes.h"
 
+
 Message::Message(const gtsam::DecisionTreeFactor& m) {
     assert(m.size() == 1);
     cardinality_ = m.discreteKeys()[0].second;
     m_ = m;
 }
+
+
+Message FactorGraph::Node::belief() const {
+    Message m;
+    for (const auto& n : neighbors_) {
+        m *= n->incoming_message(n);
+    }
+
+    return m;
+}
+
+
+const Message& FactorGraph::Node::incoming_message(const Node::shared_ptr& node) const {
+    auto message_iter = std::find(neighbors_.begin(), neighbors_.end(), node);
+    // We don't accept input that is not a neighbor
+    assert(message_iter != neighbors_.end());
+    
+    size_t message_index = std::distance(neighbors_.begin(), message_iter);
+    return outgoing_messages_[message_index];
+}
+
 
 
 FactorGraph::FactorGraph(const gtsam::DiscreteFactorGraph &dfg)
