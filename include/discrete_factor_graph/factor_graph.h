@@ -51,13 +51,12 @@ public:
         typedef std::shared_ptr<Node> shared_ptr;
 
     protected:
-        std::vector<Message> outgoing_messages_;
-        std::vector<Node::shared_ptr> neighbors_;
-        inline void add_neighbor(Node::shared_ptr node) { neighbors_.push_back(node); }
+        std::unordered_map<Node::shared_ptr, Message> outgoing_messages_;
+        inline void add_neighbor(Node::shared_ptr node) { outgoing_messages_.insert({node, {}}); }
 
     public:
-        const std::vector<Node::shared_ptr> &neighbors() const { return neighbors_; }
-        inline size_t num_neighbors() const { return neighbors_.size(); }
+        std::vector<Node::shared_ptr> neighbors() const;
+        inline size_t num_neighbors() const { return outgoing_messages_.size(); }
 
         // Belief is product of incoming messages normalized
         Message belief() const;

@@ -1,6 +1,6 @@
 #include "discrete_factor_graph/factor_graph.h"
 #include "discrete_factor_graph/nodes.h"
-
+#include <ranges>
 
 Message::Message(const gtsam::DecisionTreeFactor& m) {
     assert(m.size() == 1);
@@ -26,6 +26,16 @@ const Message& FactorGraph::Node::incoming_message(const Node::shared_ptr& node)
     
     size_t message_index = std::distance(neighbors_.begin(), message_iter);
     return outgoing_messages_[message_index];
+}
+
+
+std::vector<Node::shared_ptr> FactorGraph::Node::neighbors() const { 
+    std::vector<Node::shared_ptr> v;
+    for (auto& p : outgoing_messages_) {
+        v.push_back(p.first);
+    }
+
+    return v;
 }
 
 
