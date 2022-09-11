@@ -17,9 +17,6 @@
     
 // };
 
-using Messages = std::unordered_map<gtsam::DiscreteKey, std::vector<double>>;
-using Marginals = std::unordered_map<gtsam::DiscreteKey, std::vector<double>>;
-
 std::unordered_map<gtsam::Key, std::vector<double>> lbp(
     const gtsam::DiscreteFactorGraph& dfg,
     const size_t max_iters = 100,

@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 
+// #include "discrete_factor_graph/nodes.h"
 
 struct Message
 {    
@@ -15,6 +16,8 @@ struct Message
 
     Message() = default;
     explicit Message(const gtsam::DecisionTreeFactor& m);
+    // explicit Message(const Factor& f) : Message(f.factor()) {}
+    
     Message(gtsam::DiscreteKey dk) : m_({dk}, std::vector<double>(dk.second, 1.0)) {}
 
     inline void normalize() { m_ = m_ / *(m_.sum(1)); }
@@ -31,6 +34,8 @@ struct Message
     Message operator/(const Message& m) const {
         return Message(m_ / m.m_);
     }
+
+    std::vector<double> pmf();
 
     enum class ConvergenceStatus {
         Converged,
@@ -58,29 +63,35 @@ public:
         std::vector<Node::shared_ptr> neighbors() const;
         inline size_t num_neighbors() const { return outgoing_messages_.size(); }
 
-        // Belief is product of incoming messages normalized
-        Message belief() const;
         // Get message from this node into the node calling the method
         const Message& incoming_message(const Node::shared_ptr& node) const;
+        std::unordered_map<Node::shared_ptr, const Message* const> incoming_messages() const;
 
         virtual void init_messages() = 0;
         virtual Message::ConvergenceStatus update_messages() = 0;
+        virtual Message belief() const;
+
+        virtual void print() {}
         virtual ~Node() = 0;
     };
 
-    FactorGraph() = default;
-    explicit FactorGraph(const gtsam::DiscreteFactorGraph &dfg);
-
-    Marginals lbp();
-
 private:
     std::vector<Node::shared_ptr> nodes_;
-    void add_node(Node::shared_ptr node);
+    inline void add_node(Node::shared_ptr node) { nodes_.push_back(node); }
     
     // Sort nodes from fewest to most edges
     inline void sort_nodes()
     {
         std::sort(nodes_.begin(), nodes_.end(), [](const auto &lhs, const auto &rhs)
                   { return lhs->num_neighbors() < rhs->num_neighbors(); });
-    } 
+    }
+
+public:
+
+    FactorGraph() = default;
+    explicit FactorGraph(const gtsam::DiscreteFactorGraph &dfg);
+
+    Marginals lbp(const size_t max_iters = 100, const double kl_threshold = 1.0);
+    const std::vector<Node::shared_ptr>& nodes() const { return nodes_; }
+
 };

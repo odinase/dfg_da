@@ -18,6 +18,11 @@ public:
         gtsam::DecisionTreeFactor::shared_ptr fac = boost::make_shared<gtsam::DecisionTreeFactor>(*factor_ / m.m_);
         return Factor(fac);
     }
+    
+    Factor operator*(const Message& m) const {
+        gtsam::DecisionTreeFactor::shared_ptr fac = boost::make_shared<gtsam::DecisionTreeFactor>(*factor_ * m.m_);
+        return Factor(fac);
+    }
 
     template<class Iterator>
     Factor sum(Iterator first, Iterator last) {
@@ -30,9 +35,11 @@ public:
         return sum(kv.begin(), kv.end());
     }
 
+    inline gtsam::DecisionTreeFactor factor() const { return *factor_; }
+
     virtual void init_messages();
     virtual Message::ConvergenceStatus update_messages();
-
+    virtual void print();
 };
 
 class Variable : public FactorGraph::Node
@@ -51,4 +58,12 @@ public:
 
     virtual void init_messages();
     virtual Message::ConvergenceStatus update_messages();
+    virtual void print();
+    // void add_neighbor(Node::shared_ptr node);
 };
+
+
+// void Variable::add_neighbor(Node::shared_ptr node) {
+//     std::cout << gtsam::Symbol(dk_.first) << " added node\n";
+//     node->print();
+// }

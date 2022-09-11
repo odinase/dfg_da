@@ -1,44 +1,66 @@
 #include "discrete_factor_graph/factor_graph.h"
 #include "discrete_factor_graph/nodes.h"
-#include <ranges>
 
-Message::Message(const gtsam::DecisionTreeFactor& m) {
+
+Message::Message(const gtsam::DecisionTreeFactor &m)
+{
     assert(m.size() == 1);
     cardinality_ = m.discreteKeys()[0].second;
     m_ = m;
 }
 
+std::vector<double> Message::pmf() {
+    normalize();
+    gtsam::DiscreteDistribution m(m_);
+    return m.pmf();
+}
 
-Message FactorGraph::Node::belief() const {
-    Message m;
-    for (const auto& n : neighbors_) {
-        m *= n->incoming_message(n);
+
+FactorGraph::Node::~Node() {}
+
+const Message &FactorGraph::Node::incoming_message(const FactorGraph::Node::shared_ptr &node) const
+{
+    auto node_iter = std::find_if(node->outgoing_messages_.begin(), node->outgoing_messages_.end(), [this](const auto &n)
+                                  { return n.first.get() == this; });
+
+    // // We don't accept input that is not a neighbor
+    assert(node_iter != outgoing_messages_.end());
+
+    return node_iter->second;
+}
+
+std::unordered_map<FactorGraph::Node::shared_ptr, const Message *const> FactorGraph::Node::incoming_messages() const
+{
+    std::unordered_map<FactorGraph::Node::shared_ptr, const Message *const> m_in;
+    for (const auto &n : outgoing_messages_)
+    {
+        m_in.insert({n.first, &incoming_message(n.first)});
     }
 
-    return m;
+    return m_in;
 }
 
-
-const Message& FactorGraph::Node::incoming_message(const Node::shared_ptr& node) const {
-    auto message_iter = std::find(neighbors_.begin(), neighbors_.end(), node);
-    // We don't accept input that is not a neighbor
-    assert(message_iter != neighbors_.end());
-    
-    size_t message_index = std::distance(neighbors_.begin(), message_iter);
-    return outgoing_messages_[message_index];
-}
-
-
-std::vector<Node::shared_ptr> FactorGraph::Node::neighbors() const { 
+std::vector<FactorGraph::Node::shared_ptr> FactorGraph::Node::neighbors() const
+{
     std::vector<Node::shared_ptr> v;
-    for (auto& p : outgoing_messages_) {
+    for (auto &p : outgoing_messages_)
+    {
         v.push_back(p.first);
     }
 
     return v;
 }
 
+Message FactorGraph::Node::belief() const
+{
+    Message m;
+    for (const auto& m_in : incoming_messages())
+    {
+        m *= *m_in.second;
+    }
 
+    return m;
+}
 
 FactorGraph::FactorGraph(const gtsam::DiscreteFactorGraph &dfg)
 {
@@ -74,14 +96,38 @@ FactorGraph::FactorGraph(const gtsam::DiscreteFactorGraph &dfg)
     }
 
     // Initialize for LBP
-    for (const auto& node : nodes_) {
+    for (const auto &node : nodes_)
+    {
         node->init_messages();
     }
 }
 
-Marginals FactorGraph::lbp()
+Marginals FactorGraph::lbp(const size_t max_iters, const double kl_threshold)
 {
+    sort_nodes();
 
+    bool converged = false;
+    size_t iter = 0;
+
+    while (!converged && iter < max_iters)
+    {
+        for (auto &node : nodes_)
+        {
+            node->update_messages();
+        }
+
+        iter++;
+    }
+
+    Marginals marginals;
+    for (const auto &node : nodes_)
+    {
+        if (Variable::shared_ptr v = std::dynamic_pointer_cast<Variable>(node))
+        {
+            Message b = v->belief();
+            marginals[v->key()] = b.pmf();
+        }
+    }
+
+    return marginals;
 }
-
-void FactorGraph::add_node(FactorGraph::Node::shared_ptr node) {}

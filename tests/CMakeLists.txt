@@ -5,6 +5,7 @@ endif()
 
 # Include tests here...
 add_executable(test_dfg test_dfg.cpp)
+add_executable(test_own_fg test_own_fg.cpp)
 
 if (APPLE)
   set(GTEST_LIBS
@@ -26,3 +27,13 @@ target_link_libraries(test_dfg
 )
 
 add_test(TestDFG test_dfg)
+
+
+target_link_libraries(test_own_fg
+  gtsam
+  lbp
+  factor_graph
+  ${GTEST_LIBS}
+)
+
+add_test(Test_own_FG test_own_fg)

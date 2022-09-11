@@ -58,6 +58,21 @@ target_link_libraries(${PROJECT_NAME}
     glog::glog
 )
 
+add_executable(test_fg_lbp
+    fg_lbp.cpp
+)
+
+target_link_libraries(test_fg_lbp
+    gtsam
+    lbp
+    factor_graph
+    # gtsam_unstable
+    # dcsam
+    # idbt
+    Eigen3::Eigen
+    glog::glog
+)
+
 
 # Include unit tests directory to the project.
 if (${ENABLE_TESTS})
@@ -68,3 +83,4 @@ endif()
 
 
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+set_target_properties(test_fg_lbp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
