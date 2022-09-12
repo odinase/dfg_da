@@ -69,7 +69,6 @@ public:
 
         virtual void init_messages() = 0;
         virtual Message::ConvergenceStatus update_messages() = 0;
-        virtual Message belief() const;
 
         virtual void print() {}
         virtual ~Node() = 0;

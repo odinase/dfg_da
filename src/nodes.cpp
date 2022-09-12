@@ -15,8 +15,12 @@ void Factor::init_messages() {
 }
 
 Message::ConvergenceStatus Factor::update_messages() {
-    Factor f = *this * belief();
+    Factor f(factor_);
     auto m_in = incoming_messages();
+
+    for (const auto& m : m_in) {
+        f = f*(*m.second);
+    }
 
     gtsam::KeySet neighbor_keys;
     for (const auto& n : outgoing_messages_) {
@@ -32,8 +36,6 @@ Message::ConvergenceStatus Factor::update_messages() {
         neighbor_keys.erase(v->key());
         
         gtsam::DecisionTreeFactor dtf = (f / *message).sum(neighbor_keys.begin(), neighbor_keys.end()).factor();
-        std::cout << dtf.size() << "\n";
-        assert(dtf.size() == 1);
         outgoing_messages_[node] = Message(dtf);
         outgoing_messages_[node].normalize();
 
@@ -70,4 +72,17 @@ Message::ConvergenceStatus Variable::update_messages() {
 
 void Variable::print() {
     std::cout << "Variable: " << gtsam::Symbol(dk_.first) << std::endl;
+}
+
+
+
+Message Variable::belief() const
+{
+    Message m;
+    for (const auto& m_in : incoming_messages())
+    {
+        m *= *m_in.second;
+    }
+
+    return m;
 }

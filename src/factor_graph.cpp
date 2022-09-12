@@ -51,16 +51,6 @@ std::vector<FactorGraph::Node::shared_ptr> FactorGraph::Node::neighbors() const
     return v;
 }
 
-Message FactorGraph::Node::belief() const
-{
-    Message m;
-    for (const auto& m_in : incoming_messages())
-    {
-        m *= *m_in.second;
-    }
-
-    return m;
-}
 
 FactorGraph::FactorGraph(const gtsam::DiscreteFactorGraph &dfg)
 {

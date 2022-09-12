@@ -59,6 +59,7 @@ public:
     virtual void init_messages();
     virtual Message::ConvergenceStatus update_messages();
     virtual void print();
+    Message belief() const;
     // void add_neighbor(Node::shared_ptr node);
 };
 
