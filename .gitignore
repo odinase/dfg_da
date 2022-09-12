@@ -1,4 +1,5 @@
 /build
 /.vscode
 /discrete_factor_graph
+/test_fg_lbp
 graph.txt

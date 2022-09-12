@@ -33,14 +33,14 @@ target_link_libraries(factor_graph
     Eigen3::Eigen 
 )
 
-add_library(lbp
-    src/lbp.cpp
-)
+# add_library(lbp
+#     src/lbp.cpp
+# )
 
-target_link_libraries(lbp
-    gtsam
-    Eigen3::Eigen 
-)
+# target_link_libraries(lbp
+#     gtsam
+#     Eigen3::Eigen 
+# )
 
 
 add_executable(${PROJECT_NAME}
@@ -49,7 +49,7 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     gtsam
-    lbp
+    # lbp
     factor_graph
     # gtsam_unstable
     # dcsam
@@ -64,7 +64,7 @@ add_executable(test_fg_lbp
 
 target_link_libraries(test_fg_lbp
     gtsam
-    lbp
+    # lbp
     factor_graph
     # gtsam_unstable
     # dcsam
