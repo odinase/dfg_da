@@ -12,7 +12,10 @@
 // #include <dcsam/DCSAM_types.h>
 // #include <dcsam/DiscretePriorFactor.h>
 
-#include "discrete_factor_graph/lbp.h"
+// #include "discrete_factor_graph/lbp.h"
+#include "discrete_factor_graph/hypothesis.h"
+#include "discrete_factor_graph/factor_graph.h"
+
 
 using gtsam::symbol_shorthand::A;
 
@@ -158,20 +161,40 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 // //     EXPECT_EQ(1, 1);
 // // }
 
+// TEST(TestSuite, test_lbp)
+// {
+//     gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
+
+//     auto marginals = lbp(dfg, 32);
+
+//     std::cout << "Marginals:\n";
+//     for (const auto &[k, marginal] : marginals) {
+//         std::cout << gtsam::Symbol(k) << ": ";
+//         for (auto p : marginal) {
+//             std::cout << p << " ";
+//         }
+//         std::cout << std::endl;
+//     }
+
+//     EXPECT_EQ(1, 1);
+// }
+
+
 TEST(TestSuite, test_lbp)
 {
-    gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
+    Eigen::MatrixXd R(3, 3 + 1);
+    constexpr double inf = std::numeric_limits<double>::infinity();
+    R << 4.78, -0.46, -inf, -inf,
+         5.37, -inf, -0.52, -inf,
+         6.58, -inf, -inf, -0.60;
 
-    auto marginals = lbp(dfg, 32);
+    Hypothesis h1({1, 2}, log(0.5));
+    Hypothesis h2({1, 3}, log(0.5));
 
-    std::cout << "Marginals:\n";
-    for (const auto &[k, marginal] : marginals) {
-        std::cout << gtsam::Symbol(k) << ": ";
-        for (auto p : marginal) {
-            std::cout << p << " ";
-        }
-        std::cout << std::endl;
-    }
+    Hypotheses h{{h1, h2}};
 
-    EXPECT_EQ(1, 1);
+    gtsam::DiscreteFactorGraph dfg_test = dfg_from_reward_mat_hyp_prior(R, h);
+    gtsam::DiscreteFactorGraph dfg_correct = build_test_factor_graph();
+
+    EXPECT_TRUE(dfg_test.equals(dfg_correct));
 }

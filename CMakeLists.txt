@@ -21,6 +21,17 @@ include_directories(
     include
 )
 
+add_library(hypothesis
+    src/hypothesis.cpp
+)
+
+
+target_link_libraries(hypothesis
+    gtsam
+    Eigen3::Eigen 
+)
+
+
 
 add_library(factor_graph
     src/factor_graph.cpp
@@ -30,7 +41,8 @@ add_library(factor_graph
 
 target_link_libraries(factor_graph
     gtsam
-    Eigen3::Eigen 
+    Eigen3::Eigen
+    hypothesis
 )
 
 # add_library(lbp

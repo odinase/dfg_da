@@ -6,8 +6,11 @@
 #include <unordered_map>
 #include <vector>
 #include <set>
+#include "discrete_factor_graph/hypothesis.h"
 
-// #include "discrete_factor_graph/nodes.h"
+
+gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd& R, const Hypotheses& prior_hypotheses);
+
 
 struct Message
 {    
