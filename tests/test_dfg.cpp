@@ -196,5 +196,10 @@ TEST(TestSuite, test_lbp)
     gtsam::DiscreteFactorGraph dfg_test = dfg_from_reward_mat_hyp_prior(R, h);
     gtsam::DiscreteFactorGraph dfg_correct = build_test_factor_graph();
 
+    std::cout << "dfg_test:\n";
+    dfg_test.print();
+    std::cout << "dfg_correct:\n";
+    dfg_correct.print();
+
     EXPECT_TRUE(dfg_test.equals(dfg_correct));
 }
