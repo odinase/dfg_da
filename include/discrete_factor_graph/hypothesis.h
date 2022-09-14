@@ -72,3 +72,6 @@ public:
     auto cbegin() const { return hypos_.cbegin(); }
     auto cend() const { return hypos_.cend(); }
 };
+
+
+std::vector<std::vector<int>> hypothesis_enumeration(const Eigen::MatrixXd& reward_matrix);
