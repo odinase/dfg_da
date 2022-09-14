@@ -24,6 +24,7 @@ target_link_libraries(test_dfg
   gtsam
   hypothesis
   factor_graph
+  glog
   # lbp
   ${GTEST_LIBS}
 )

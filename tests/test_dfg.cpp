@@ -17,12 +17,16 @@
 #include "discrete_factor_graph/factor_graph.h"
 
 
+#include <glog/logging.h>
+
+
+
 using gtsam::symbol_shorthand::A;
 
 
 gtsam::DiscreteFactorGraph build_test_factor_graph() {
     // Initialize discrete prior hypothesis variable theta
-    gtsam::DiscreteKey theta(gtsam::symbol('T', 0), 2);
+    gtsam::DiscreteKey theta(gtsam::symbol('t', 0), 2);
 
     double w_a = 0.5;
     double w_b = 1.0 - w_a;
@@ -73,7 +77,7 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 
     // track-to-measurement factors
     // Define b variable
-    gtsam::DiscreteKey b(gtsam::symbol('b', 0), 4); // Cardinality 4 because three different tracks or misdetection??
+    gtsam::DiscreteKey b(gtsam::symbol('b', 1), 4); // Cardinality 4 because three different tracks or misdetection??
 
     // a1
     gtsam::DiscreteKeys phi_X_keys = {as[0], b};
@@ -182,6 +186,9 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 
 TEST(TestSuite, test_lbp)
 {
+    google::InstallFailureSignalHandler();
+
+
     Eigen::MatrixXd R(3, 3 + 1);
     constexpr double inf = std::numeric_limits<double>::infinity();
     R << 4.78, -0.46, -inf, -inf,
@@ -196,10 +203,9 @@ TEST(TestSuite, test_lbp)
     gtsam::DiscreteFactorGraph dfg_test = dfg_from_reward_mat_hyp_prior(R, h);
     gtsam::DiscreteFactorGraph dfg_correct = build_test_factor_graph();
 
-    std::cout << "dfg_test:\n";
-    dfg_test.print();
-    std::cout << "dfg_correct:\n";
-    dfg_correct.print();
+    // GTSAM checks the order as well, so we sort first
+    std::sort(dfg_test.begin(), dfg_test.end(), [](const auto& lhs, const auto& rhs) { return lhs->size() < rhs->size(); });
+    std::sort(dfg_correct.begin(), dfg_correct.end(), [](const auto& lhs, const auto& rhs) { return lhs->size() < rhs->size(); });
 
     EXPECT_TRUE(dfg_test.equals(dfg_correct));
 }

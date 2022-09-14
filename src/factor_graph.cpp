@@ -68,7 +68,7 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
         std::vector<double> prior_table;
 
         size_t t_idx = track - 1; // The rows are 0-indexed, so we need to offset the track index.
-        size_t misdetection_idx = num_measurements + track; // The first num_measurement columns are actual measurements, and since track is 1-indexed, this gives correct column
+        size_t misdetection_idx = num_measurements + t_idx;
         // Add misdetection
         double m = exp(R(t_idx, misdetection_idx));
         prior_table.push_back(m);
@@ -105,11 +105,11 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
                 for (size_t i = 0; i <= num_tracks; i++) {
                     // The compatibility here is the fact that we must assign bt to at for at == bt and no other ats, or otherwise the opposite
                     // Here we see the benefit of using 1-indexed measurements: Since the tracks assume that measurement 0 is misdetection, c will automatically point to correct measurement
-                    // This logic is based on Williams paper
-                    double compatibility = (
-                           ((ai == j) && (bj != i))
-                        || ((bj == i) && (ai != j))
-                    ) ? 0.0 : 1.0;
+                    
+                    double compatibility = 1.0;
+                    if (i == ai || j == bj) {
+                        compatibility = i == ai && j == bj;
+                    }
                     compatibility_table.push_back(compatibility);
                 }
             }
