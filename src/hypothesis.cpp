@@ -91,14 +91,14 @@ std::vector<std::unordered_map<size_t, size_t>> hypothesis_enumeration(const Eig
         unclaimed_measurements.insert(j);
     }
 
-    std::vector<std::unordered_map<size_t, size_t>> hypotheses;
+    // std::vector<std::unordered_map<size_t, size_t>> hypotheses;
     std::unordered_map<size_t, std::vector<size_t>> gated_tracks_ = gated_tracks(reward_matrix);
 
-    traverse_hypothesis_tree(hypotheses, unclaimed_measurements, gated_tracks_, 1, m);
+    std::vector<std::vector<size_t>> traverse_hypothesis_tree({}, unclaimed_measurements, gated_tracks_, 1, m);
 }
 
-void traverse_hypothesis_tree(
-    std::vector<std::unordered_map<size_t, size_t>> &hypotheses,
+std::vector<std::vector<size_t>> traverse_hypothesis_tree(
+    const std::vector<size_t> &parent_hypothesis,
     std::set<size_t> &unclaimed_measurements,
     const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
     size_t j,
@@ -111,11 +111,16 @@ void traverse_hypothesis_tree(
         return;
     }
 
+
+    // Make copy of parent hypothesis that we add new association to
+    std::vector<size_t> inherited_hypothesis = parent_hypothesis;
+
     // First consider misdetection
-    
+    inherited_hypothesis.push_back(0);
+
 
     // Loop over all tracks that can claim measurements
-    for (const auto& track : gated_tracks_[j]) {
+    for (const auto& track : gated_tracks_.at(j)) {
 
     }
 }
