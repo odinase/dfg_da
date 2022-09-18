@@ -74,10 +74,10 @@ public:
 };
 
 
-std::vector<std::unordered_map<size_t, size_t>> hypothesis_enumeration(const Eigen::MatrixXd& reward_matrix);
-std::vector<std::vector<size_t>> traverse_hypothesis_tree(
-    const std::vector<size_t> &parent_hypothesis,
-    std::set<size_t> &unclaimed_measurements,
+std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix);
+void traverse_hypothesis_tree(
+    std::vector<std::vector<size_t>>& hypotheses,
+    std::vector<size_t> &parent_hypothesis,
     const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
     size_t j,
     const size_t M

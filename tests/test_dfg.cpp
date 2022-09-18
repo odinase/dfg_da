@@ -209,3 +209,28 @@ TEST(TestSuite, test_lbp)
 
     EXPECT_TRUE(dfg_test.equals(dfg_correct));
 }
+
+
+TEST(TestSuite, test_hypothesis_tree)
+{
+    google::InstallFailureSignalHandler();
+
+    Eigen::MatrixXd R(3, 3 + 1);
+    constexpr double inf = std::numeric_limits<double>::infinity();
+    R << 4.78, -0.46, -inf, -inf,
+         5.37, -inf, -0.52, -inf,
+         6.58, -inf, -inf, -0.60;
+
+
+    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R);
+
+    std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
+    for (const auto& hypothesis : hypotheses) {
+        for (const auto& association : hypothesis) {
+            std::cout << association << " ";
+        }
+        std::cout << "\n";
+    }
+
+    EXPECT_TRUE(true);
+}

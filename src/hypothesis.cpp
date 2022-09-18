@@ -4,6 +4,8 @@
 #include <numeric>
 #include <functional>
 #include <set>
+#include <iostream>
+
 
 Hypotheses::Hypotheses(std::vector<Hypothesis> &&hypos) : hypos_(hypos)
 {
@@ -58,7 +60,7 @@ std::unordered_map<size_t, std::vector<size_t>> gated_tracks(const Eigen::Matrix
     std::unordered_map<size_t, std::vector<size_t>> gated_tracks_;
 
     size_t n = reward_matrix.rows();
-    size_t m = reward_matrix.cols() - m;
+    size_t m = reward_matrix.cols() - n;
 
     if (m > 0)
     {
@@ -77,7 +79,7 @@ std::unordered_map<size_t, std::vector<size_t>> gated_tracks(const Eigen::Matrix
     return gated_tracks_;
 }
 
-std::vector<std::unordered_map<size_t, size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix)
+std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix)
 {
     // We wish to traverse the hypothesis tree
     // Make set of all unclaimed measurements
@@ -85,43 +87,53 @@ std::vector<std::unordered_map<size_t, size_t>> hypothesis_enumeration(const Eig
     size_t n = reward_matrix.rows();
     size_t m = reward_matrix.cols() - n;
 
-    std::set<size_t> unclaimed_measurements;
-    for (size_t j = 1; j <= m; j++)
-    {
-        unclaimed_measurements.insert(j);
-    }
-
     // std::vector<std::unordered_map<size_t, size_t>> hypotheses;
     std::unordered_map<size_t, std::vector<size_t>> gated_tracks_ = gated_tracks(reward_matrix);
+    for (const auto& [j, ts] : gated_tracks_) {
+        std::cout << "Measurement " << j << " gated tracks ";
+        for (const auto& t : ts) {
+            std::cout << t << " ";
+        }
+        std::cout << "\n";
+    }
+    assert(gated_tracks_.size() == m);
 
-    std::vector<std::vector<size_t>> traverse_hypothesis_tree({}, unclaimed_measurements, gated_tracks_, 1, m);
+    std::vector<std::vector<size_t>> hypotheses;
+    std::vector<size_t> parent_hypothesis;
+    traverse_hypothesis_tree(hypotheses, parent_hypothesis, gated_tracks_, 1, m);
+
+    return hypotheses;
 }
 
-std::vector<std::vector<size_t>> traverse_hypothesis_tree(
-    const std::vector<size_t> &parent_hypothesis,
-    std::set<size_t> &unclaimed_measurements,
+void traverse_hypothesis_tree(
+    std::vector<std::vector<size_t>>& hypotheses,
+    std::vector<size_t> &parent_hypothesis,
     const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
     size_t j,
     const size_t M)
 {
     // We are currently considering measurement j \in {1, ..., M}.
     // If we have considered all measurements, return
-    if (j > M)
+    if (j == M)
     {
+        assert(parent_hypothesis.size() == M);
+        hypotheses.push_back(parent_hypothesis);
         return;
     }
 
-
-    // Make copy of parent hypothesis that we add new association to
-    std::vector<size_t> inherited_hypothesis = parent_hypothesis;
-
     // First consider misdetection
-    inherited_hypothesis.push_back(0);
-
+    parent_hypothesis.push_back(0);
+    traverse_hypothesis_tree(hypotheses, parent_hypothesis, gated_tracks_, j + 1, M);
+    parent_hypothesis.pop_back();
 
     // Loop over all tracks that can claim measurements
     for (const auto& track : gated_tracks_.at(j)) {
-
+        // Track is not claimed yet if it is not contained in parent hypothesis
+        if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end()) {
+            parent_hypothesis.push_back(track);
+            traverse_hypothesis_tree(hypotheses, parent_hypothesis, gated_tracks_, j + 1, M);
+            parent_hypothesis.pop_back();
+        }
     }
 }
 

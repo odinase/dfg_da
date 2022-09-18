@@ -146,29 +146,22 @@ int main(int argc, char **argv)
     google::InstallFailureSignalHandler();
 
 
+
     Eigen::MatrixXd R(3, 3 + 1);
     constexpr double inf = std::numeric_limits<double>::infinity();
     R << 4.78, -0.46, -inf, -inf,
          5.37, -inf, -0.52, -inf,
          6.58, -inf, -inf, -0.60;
 
-    Hypothesis h1({1, 2}, log(0.5));
-    Hypothesis h2({1, 3}, log(0.5));
 
-    Hypotheses h{{h1, h2}};
+    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R);
 
-    gtsam::DiscreteFactorGraph dfg_test = dfg_from_reward_mat_hyp_prior(R, h);
-    gtsam::DiscreteFactorGraph dfg_correct = build_test_factor_graph();
-
-    std::cout << "dfg_test:\n";
-    for (const auto& df : dfg_test) {
-        df->print();
-        df->printKeys();
-    }
-    std::cout << "\n\ndfg_correct:\n";
-    for (const auto& df : dfg_correct) {
-        df->print();
-        df->printKeys();
+    std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
+    for (const auto& hypothesis : hypotheses) {
+        for (const auto& association : hypothesis) {
+            std::cout << association << " ";
+        }
+        std::cout << "\n";
     }
 
 
