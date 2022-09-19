@@ -153,7 +153,9 @@ int main(int argc, char **argv)
          5.37, 5.00, 3.50, -inf, -0.52;
 
 
-    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R);
+    Hypothesis h({2}, log(1.0));
+
+    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R, h);
 
     std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
     for (const auto& hypothesis : hypotheses) {

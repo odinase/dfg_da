@@ -221,8 +221,9 @@ TEST(TestSuite, test_hypothesis_tree)
          5.37, -inf, -0.52, -inf,
          6.58, -inf, -inf, -0.60;
 
+    Hypothesis h({1, 2, 3}, log(1.0));
 
-    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R);
+    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R, h);
 
     std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
     for (const auto& hypothesis : hypotheses) {

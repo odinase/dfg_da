@@ -30,6 +30,7 @@ public:
 
     inline bool contains(const Track track_id) const { return std::find(tracks_.begin(), tracks_.end(), track_id) != tracks_.end(); }
     inline double probability() const { return exp(log_prob_); }
+    inline size_t size() const { return tracks_.size(); }
 };
 
 class Hypotheses
@@ -76,11 +77,16 @@ public:
 };
 
 
-std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix);
+std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix, const Hypothesis& prior_hypothesis);
 void traverse_hypothesis_tree(
     std::vector<std::vector<size_t>>& hypotheses,
     std::vector<size_t> &parent_hypothesis,
+    const Hypothesis& prior_hypothesis,
     const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
     size_t j,
     const size_t M
 );
+
+std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix);
+
+std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis);

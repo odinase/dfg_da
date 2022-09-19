@@ -80,7 +80,7 @@ std::unordered_map<size_t, std::vector<size_t>> gated_tracks(const Eigen::Matrix
     return gated_tracks_;
 }
 
-std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix)
+std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix, const Hypothesis& prior_hypothesis)
 {
     size_t n = reward_matrix.rows();
     size_t m = reward_matrix.cols() - n;
@@ -90,7 +90,7 @@ std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &r
 
     std::vector<std::vector<size_t>> hypotheses;
     std::vector<size_t> parent_hypothesis;
-    traverse_hypothesis_tree(hypotheses, parent_hypothesis, gated_tracks_, 1, m);
+    traverse_hypothesis_tree(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
 
     return hypotheses;
 }
@@ -98,6 +98,7 @@ std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &r
 void traverse_hypothesis_tree(
     std::vector<std::vector<size_t>>& hypotheses,
     std::vector<size_t> &parent_hypothesis,
+    const Hypothesis& prior_hypothesis,
     const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
     size_t j,
     const size_t M)
@@ -113,16 +114,56 @@ void traverse_hypothesis_tree(
 
     // First consider misdetection
     parent_hypothesis.push_back(0);
-    traverse_hypothesis_tree(hypotheses, parent_hypothesis, gated_tracks_, j + 1, M);
+    traverse_hypothesis_tree(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, j + 1, M);
     parent_hypothesis.pop_back();
 
     // Loop over all tracks that can claim measurements
     for (const auto& track : gated_tracks_.at(j)) {
         // Track is not claimed yet if it is not contained in parent hypothesis
-        if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end()) {
+        if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end() && prior_hypothesis.contains(track)) {
             parent_hypothesis.push_back(track);
-            traverse_hypothesis_tree(hypotheses, parent_hypothesis, gated_tracks_, j + 1, M);
+            traverse_hypothesis_tree(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, j + 1, M);
             parent_hypothesis.pop_back();
         }
     }
+}
+
+
+
+std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix)
+    {
+
+    const size_t N = reward_matrix.rows();
+    const size_t M = reward_matrix.cols() - N;
+
+    std::set<size_t> track_idxs;
+    for (size_t i = 1; i <= N; i++) {
+        track_idxs.insert(i);
+    }
+
+    // First compute joint posterior
+    std::vector<double> association_joint_posterior;
+
+
+    for (const auto& hypothesis : hypotheses) {
+        double log_p = 0.0;
+        // Convert hypothesis into TO to easily get all factors we need
+    }
+}
+
+std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks) {
+    std::vector<size_t> to_hypothesis(num_tracks);
+
+    for (size_t i = 0; i < num_tracks; i++) {
+        const auto asso_iter = std::find(mo_hypothesis.begin(), mo_hypothesis.end(), i + 1);
+        // Unassociated track => misdetection
+        if (asso_iter == mo_hypothesis.end()) {
+            to_hypothesis.push_back(0);
+        } else {
+            size_t meas_idx = std::distance(mo_hypothesis.begin(), asso_iter) + 1;
+            to_hypothesis.push_back(meas_idx);
+        }
+    }
+
+    return to_hypothesis;
 }
