@@ -147,11 +147,10 @@ int main(int argc, char **argv)
 
 
 
-    Eigen::MatrixXd R(3, 3 + 1);
+    Eigen::MatrixXd R(2, 3 + 2);
     constexpr double inf = std::numeric_limits<double>::infinity();
-    R << 4.78, -0.46, -inf, -inf,
-         5.37, -inf, -0.52, -inf,
-         6.58, -inf, -inf, -0.60;
+    R << 4.78, -inf, -inf, -0.46, -inf,
+         5.37, 5.00, 3.50, -inf, -0.52;
 
 
     std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R);

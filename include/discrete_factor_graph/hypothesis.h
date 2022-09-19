@@ -3,7 +3,9 @@
 #include <vector>
 #include <cmath>
 #include <iterator>
+#include <unordered_map>
 #include <Eigen/Core>
+
 
 class Hypotheses;
 

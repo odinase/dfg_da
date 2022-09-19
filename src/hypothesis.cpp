@@ -5,6 +5,7 @@
 #include <functional>
 #include <set>
 #include <iostream>
+#include <unordered_map>
 
 
 Hypotheses::Hypotheses(std::vector<Hypothesis> &&hypos) : hypos_(hypos)
@@ -81,21 +82,10 @@ std::unordered_map<size_t, std::vector<size_t>> gated_tracks(const Eigen::Matrix
 
 std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix)
 {
-    // We wish to traverse the hypothesis tree
-    // Make set of all unclaimed measurements
-
     size_t n = reward_matrix.rows();
     size_t m = reward_matrix.cols() - n;
 
-    // std::vector<std::unordered_map<size_t, size_t>> hypotheses;
     std::unordered_map<size_t, std::vector<size_t>> gated_tracks_ = gated_tracks(reward_matrix);
-    for (const auto& [j, ts] : gated_tracks_) {
-        std::cout << "Measurement " << j << " gated tracks ";
-        for (const auto& t : ts) {
-            std::cout << t << " ";
-        }
-        std::cout << "\n";
-    }
     assert(gated_tracks_.size() == m);
 
     std::vector<std::vector<size_t>> hypotheses;
@@ -114,7 +104,7 @@ void traverse_hypothesis_tree(
 {
     // We are currently considering measurement j \in {1, ..., M}.
     // If we have considered all measurements, return
-    if (j == M)
+    if (j > M)
     {
         assert(parent_hypothesis.size() == M);
         hypotheses.push_back(parent_hypothesis);
@@ -136,33 +126,3 @@ void traverse_hypothesis_tree(
         }
     }
 }
-
-// std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd& reward_matrix) {
-//     // We first need containers for the possible associations for each track and also the number of possible associations for each track
-//     std::vector<std::vector<size_t>> tracks_possible_associations;
-//     std::vector<size_t> track_num_possible_associations;
-
-//     size_t N_tracks = reward_matrix.rows();
-//     size_t N_measurements = reward_matrix.cols() - N_tracks;
-
-//     for (size_t i = 0; i < N_tracks; i++) {
-//         size_t num_possible_associations = 0;
-
-//         tracks_possible_associations.emplace_back();
-//         std::vector<size_t>& track_possible_associations = tracks_possible_associations.back();
-
-//         track_possible_associations.push_back(0); // Misdetection is always possible
-
-//         // Find gated measurements. This would mean sweep all measurements in reward matrix for each track and find the finite elements
-//         for (size_t j = 0; j < N_measurements; j++) {
-//             double loglikelihood = std::isfinite(reward_matrix(i, j));
-//             if (std::isfinite(loglikelihood)) {
-//                 track_possible_associations.push_back(j);
-//                 num_possible_associations += 1;
-//             }
-//         }
-
-//         track_num_possible_associations.push_back(num_possible_associations);
-
-//     }
-// }
