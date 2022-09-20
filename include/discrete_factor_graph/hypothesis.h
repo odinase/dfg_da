@@ -29,7 +29,8 @@ public:
     }
 
     inline bool contains(const Track track_id) const { return std::find(tracks_.begin(), tracks_.end(), track_id) != tracks_.end(); }
-    inline double probability() const { return exp(log_prob_); }
+    inline double log_prob() const { return log_prob_; }
+    inline double probability() const { return exp(log_prob()); }
     inline size_t size() const { return tracks_.size(); }
 };
 

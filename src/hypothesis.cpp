@@ -130,25 +130,44 @@ void traverse_hypothesis_tree(
 
 
 
-std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix)
+std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix,
+const double PD,
+const double clutter_intensity,
+const double arrival_intensity
+)
     {
 
     const size_t N = reward_matrix.rows();
     const size_t M = reward_matrix.cols() - N;
 
-    std::set<size_t> track_idxs;
-    for (size_t i = 1; i <= N; i++) {
-        track_idxs.insert(i);
+    std::vector<std::pair<std::vector<size_t>, double>> log_joint_distribution; // List over pairs with associations and corresponding probability
+
+    // These are inside the reward matrix
+    // double log_intensity = log(clutter_intensity + PD*arrival_intensity);
+    // double log_PD = log(PD);
+    // double log_PND = log(1.0 - PD);
+
+    // For each prior hypothesis, find all valid posterior hypotheses
+    for (auto prior_hypothesis_iter = prior_hypotheses.cbegin(); prior_hypothesis_iter != prior_hypotheses.cend(); ++prior_hypothesis_iter) {
+        std::vector<std::vector<size_t>> conditional_posterior_hypotheses = hypothesis_enumeration(reward_matrix, *prior_hypothesis_iter);
+        double log_prior_prob = prior_hypothesis_iter->log_prob();
+        double log_prob = log_prior_prob;
+        for (const std::vector<size_t>& cond_posterior_hypothesis : conditional_posterior_hypotheses) {
+            std::vector<size_t> to_cond_posterior_hypothesis = mo_to_to_hypothesis(cond_posterior_hypothesis, N);
+            for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++) {
+                // Unassociated tracks
+                if (to_cond_posterior_hypothesis[i] == 0) {
+                    log_prob += reward_matrix(i, M + i);
+                } else {
+                    // Index of associated measurement
+                    size_t j = to_cond_posterior_hypothesis[i] - 1;
+                    log_prob += reward_matrix(i, j);
+                }
+            }
+            log_joint_distribution.push_back({to_cond_posterior_hypothesis, log_prob});
+        }
     }
-
-    // First compute joint posterior
-    std::vector<double> association_joint_posterior;
-
-
-    for (const auto& hypothesis : hypotheses) {
-        double log_p = 0.0;
-        // Convert hypothesis into TO to easily get all factors we need
-    }
+    // Then, use the probability 
 }
 
 std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks) {
