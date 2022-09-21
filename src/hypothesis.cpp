@@ -168,26 +168,28 @@ Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypothes
                 if (!prior_hypothesis_iter->contains(t))
                 {
                     std::cout << "NONEXISTENCE: Accessing index " << i << ", " << nonexistence_idx << "\n"; 
-                    association_marginals(i, nonexistence_idx) += log_prior_prob; // log(1.0 * prior_prob) = log_prior_prob
+                    association_marginals(i, nonexistence_idx) += exp(log_prior_prob); // log(1.0 * prior_prob) = log_prior_prob
                 }
                 else
                 {
-                    if (to_cond_posterior_hypothesis[i] == misdetection_idx)
-                    {
-                        std::cout << "MISDETECTION: Accessing index " << i << ", " << misdetection_idx << "\n"; 
-                        association_marginals(i, misdetection_idx) += log_p + log_prior_prob;
-                    }
-                    else {
-                        std::cout << "DETECTION: Accessing index " << i << ", " << to_cond_posterior_hypothesis[i] << "\n"; 
-                        association_marginals(i, to_cond_posterior_hypothesis[i]) += log_p + log_prior_prob;
-                    }
+                        association_marginals(i, to_cond_posterior_hypothesis[i]) += exp(log_p + log_prior_prob);
+                    // if (to_cond_posterior_hypothesis[i] == misdetection_idx)
+                    // {
+                    //     std::cout << "MISDETECTION: Accessing index " << i << ", " << misdetection_idx << "\n"; 
+                    //     association_marginals(i, misdetection_idx) += exp(log_p + log_prior_prob);
+                    // }
+                    // else {
+                    //     std::cout << "DETECTION: Accessing index " << i << ", " << to_cond_posterior_hypothesis[i] << "\n"; 
+                    // }
                 }
             }
         }
     }
 
-    Eigen::VectorXd normalizing_constant = logsumexp(association_marginals);
-    association_marginals = (association_marginals.colwise() - normalizing_constant).array().exp();
+    Eigen::VectorXd normalizing_constant = association_marginals.rowwise().sum();
+    association_marginals = association_marginals.array().colwise() / normalizing_constant.array(); 
+    // Eigen::VectorXd normalizing_constant = logsumexp(association_marginals);
+    // association_marginals = (association_marginals.colwise() - normalizing_constant).array().exp();
 
     return association_marginals;
 }
@@ -231,7 +233,7 @@ double prior_hypothesis_conditional_association_probability(const std::vector<si
         // Detection, use likelihood
         if (to_hypothesis[i] > 0)
         {
-            log_prob += reward_matrix(i, to_hypothesis[i]);
+            log_prob += reward_matrix(i, to_hypothesis[i] - 1);
         }
         // Misdetection
         else
