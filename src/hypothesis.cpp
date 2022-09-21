@@ -130,7 +130,7 @@ void traverse_hypothesis_tree(
 
 
 
-std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix,
+Eigen::MatrixXd association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix,
 const double PD,
 const double clutter_intensity,
 const double arrival_intensity
@@ -140,15 +140,12 @@ const double arrival_intensity
     const size_t N = reward_matrix.rows();
     const size_t M = reward_matrix.cols() - N;
 
-    std::vector<std::pair<std::vector<size_t>, double>> log_joint_distribution; // List over pairs with associations and corresponding probability
-
-    // These are inside the reward matrix
-    // double log_intensity = log(clutter_intensity + PD*arrival_intensity);
-    // double log_PD = log(PD);
-    // double log_PND = log(1.0 - PD);
+    Eigen::MatrixXd association_marginals;
 
     // For each prior hypothesis, find all valid posterior hypotheses
     for (auto prior_hypothesis_iter = prior_hypotheses.cbegin(); prior_hypothesis_iter != prior_hypotheses.cend(); ++prior_hypothesis_iter) {
+
+        // Compute new posterior hypotheses conditioned on the prior hypothesis
         std::vector<std::vector<size_t>> conditional_posterior_hypotheses = hypothesis_enumeration(reward_matrix, *prior_hypothesis_iter);
         double log_prior_prob = prior_hypothesis_iter->log_prob();
         double log_prob = log_prior_prob;
@@ -164,7 +161,7 @@ const double arrival_intensity
                     log_prob += reward_matrix(i, j);
                 }
             }
-            log_joint_distribution.push_back({to_cond_posterior_hypothesis, log_prob});
+            // log_joint_distribution.push_back({to_cond_posterior_hypothesis, log_prob});
         }
     }
     // Then, use the probability 

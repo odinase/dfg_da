@@ -145,25 +145,39 @@ int main(int argc, char **argv)
     google::InitGoogleLogging(argv[0]);
     google::InstallFailureSignalHandler();
 
+    gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
 
+    FactorGraph fg(dfg);
 
-    Eigen::MatrixXd R(2, 3 + 2);
-    constexpr double inf = std::numeric_limits<double>::infinity();
-    R << 4.78, -inf, -inf, -0.46, -inf,
-         5.37, 5.00, 3.50, -inf, -0.52;
+    Marginals marginals = fg.lbp(32);
 
-
-    Hypothesis h({2}, log(1.0));
-
-    std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R, h);
-
-    std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
-    for (const auto& hypothesis : hypotheses) {
-        for (const auto& association : hypothesis) {
-            std::cout << association << " ";
+    std::cout << "Marginals:\n";
+    for (const auto &[k, marginal] : marginals) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (auto p : marginal) {
+            std::cout << p << " ";
         }
-        std::cout << "\n";
+        std::cout << std::endl;
     }
+
+
+    // Eigen::MatrixXd R(2, 3 + 2);
+    // constexpr double inf = std::numeric_limits<double>::infinity();
+    // R << 4.78, -inf, -inf, -0.46, -inf,
+    //      5.37, 5.00, 3.50, -inf, -0.52;
+
+
+    // Hypothesis h({2}, log(1.0));
+
+    // std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R, h);
+
+    // std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
+    // for (const auto& hypothesis : hypotheses) {
+    //     for (const auto& association : hypothesis) {
+    //         std::cout << association << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
 
 
 }
