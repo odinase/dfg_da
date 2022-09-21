@@ -159,7 +159,7 @@ int main(int argc, char **argv)
         }
         std::cout << std::endl;
     }
-
+        
 
     // Eigen::MatrixXd R(2, 3 + 2);
     // constexpr double inf = std::numeric_limits<double>::infinity();

@@ -32,6 +32,7 @@ public:
     inline double log_prob() const { return log_prob_; }
     inline double probability() const { return exp(log_prob()); }
     inline size_t size() const { return tracks_.size(); }
+    const std::vector<Track>& tracks() const { return tracks_; }
 };
 
 class Hypotheses
@@ -88,6 +89,8 @@ void traverse_hypothesis_tree(
     const size_t M
 );
 
-std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix);
+Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypotheses, const Eigen::MatrixXd &reward_matrix);
 
 std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks);
+
+double prior_hypothesis_conditional_association_probability(const std::vector<size_t>& to_hypothesis, const Hypothesis& prior_hypothesis, const Eigen::MatrixXd& reward_matrix);
