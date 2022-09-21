@@ -90,4 +90,4 @@ void traverse_hypothesis_tree(
 
 std::unordered_map<size_t, std::vector<double>> association_marginal_posteriors(const Hypotheses& prior_hypotheses, const Eigen::MatrixXd& reward_matrix);
 
-std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis);
+std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks);
