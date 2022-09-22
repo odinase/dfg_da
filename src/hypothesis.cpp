@@ -136,27 +136,17 @@ Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypothes
     const size_t M = reward_matrix.cols() - N;
 
     Eigen::MatrixXd association_marginals = Eigen::MatrixXd::Zero(N, M + 2); // misdetection + num measurements + nonexistence
-    std::cout << "We have " << N << " x " << M + 2 << "\n";
-    const size_t misdetection_idx = 0;
     const size_t nonexistence_idx = M + 1;
 
     // For each prior hypothesis, find all valid posterior hypotheses
     for (auto prior_hypothesis_iter = prior_hypotheses.cbegin(); prior_hypothesis_iter != prior_hypotheses.cend(); ++prior_hypothesis_iter)
     {
-        std::cout << "Looking at prior hypothesis\n";
-        for (const auto track : prior_hypothesis_iter->tracks()) {
-            std::cout << track << " ";
-        }
-        std::cout << "\n";
         // Compute new posterior hypotheses conditioned on the prior hypothesis
         std::vector<std::vector<size_t>> conditional_posterior_hypotheses = hypothesis_enumeration(reward_matrix, *prior_hypothesis_iter);
         double log_prior_prob = prior_hypothesis_iter->log_prob();
+
         for (const std::vector<size_t> &cond_posterior_hypothesis : conditional_posterior_hypotheses)
         {
-            std::cout << "conditional posterior hypothesis:\n";
-            for (size_t i = 0, j = 1; i < cond_posterior_hypothesis.size(); i++, j++) {
-                std::cout << "Measurement " << j << " associated to track " << cond_posterior_hypothesis[i] << "\n";
-            }
             // Convert hypothesis to be over all tracks we know of
             std::vector<size_t> to_cond_posterior_hypothesis = mo_to_to_hypothesis(cond_posterior_hypothesis, N);
 
@@ -164,32 +154,14 @@ Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypothes
             double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, *prior_hypothesis_iter, reward_matrix);
             for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++)
             {
-                // Track does not exist
-                if (!prior_hypothesis_iter->contains(t))
-                {
-                    std::cout << "NONEXISTENCE: Accessing index " << i << ", " << nonexistence_idx << "\n"; 
-                    association_marginals(i, nonexistence_idx) += exp(log_prior_prob); // log(1.0 * prior_prob) = log_prior_prob
-                }
-                else
-                {
-                        association_marginals(i, to_cond_posterior_hypothesis[i]) += exp(log_p + log_prior_prob);
-                    // if (to_cond_posterior_hypothesis[i] == misdetection_idx)
-                    // {
-                    //     std::cout << "MISDETECTION: Accessing index " << i << ", " << misdetection_idx << "\n"; 
-                    //     association_marginals(i, misdetection_idx) += exp(log_p + log_prior_prob);
-                    // }
-                    // else {
-                    //     std::cout << "DETECTION: Accessing index " << i << ", " << to_cond_posterior_hypothesis[i] << "\n"; 
-                    // }
-                }
+                size_t idx = prior_hypothesis_iter->contains(t) ? to_cond_posterior_hypothesis[i] : nonexistence_idx;
+                association_marginals(i, idx) += exp(log_p + log_prior_prob);
             }
         }
     }
 
     Eigen::VectorXd normalizing_constant = association_marginals.rowwise().sum();
     association_marginals = association_marginals.array().colwise() / normalizing_constant.array(); 
-    // Eigen::VectorXd normalizing_constant = logsumexp(association_marginals);
-    // association_marginals = (association_marginals.colwise() - normalizing_constant).array().exp();
 
     return association_marginals;
 }
