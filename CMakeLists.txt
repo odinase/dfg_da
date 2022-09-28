@@ -76,6 +76,7 @@ add_executable(test_fg_lbp
 
 target_link_libraries(test_fg_lbp
     gtsam
+    hypothesis
     # lbp
     factor_graph
     # gtsam_unstable

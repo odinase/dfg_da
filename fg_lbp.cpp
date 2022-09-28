@@ -145,31 +145,39 @@ int main(int argc, char **argv)
     google::InitGoogleLogging(argv[0]);
     google::InstallFailureSignalHandler();
 
+    gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
 
-    Eigen::MatrixXd R(3, 3 + 1);
-    constexpr double inf = std::numeric_limits<double>::infinity();
-    R << 4.78, -0.46, -inf, -inf,
-         5.37, -inf, -0.52, -inf,
-         6.58, -inf, -inf, -0.60;
+    FactorGraph fg(dfg);
 
-    Hypothesis h1({1, 2}, log(0.5));
-    Hypothesis h2({1, 3}, log(0.5));
+    Marginals marginals = fg.lbp(32);
 
-    Hypotheses h{{h1, h2}};
-
-    gtsam::DiscreteFactorGraph dfg_test = dfg_from_reward_mat_hyp_prior(R, h);
-    gtsam::DiscreteFactorGraph dfg_correct = build_test_factor_graph();
-
-    std::cout << "dfg_test:\n";
-    for (const auto& df : dfg_test) {
-        df->print();
-        df->printKeys();
+    std::cout << "Marginals:\n";
+    for (const auto &[k, marginal] : marginals) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (auto p : marginal) {
+            std::cout << p << " ";
+        }
+        std::cout << std::endl;
     }
-    std::cout << "\n\ndfg_correct:\n";
-    for (const auto& df : dfg_correct) {
-        df->print();
-        df->printKeys();
-    }
+        
+
+    // Eigen::MatrixXd R(2, 3 + 2);
+    // constexpr double inf = std::numeric_limits<double>::infinity();
+    // R << 4.78, -inf, -inf, -0.46, -inf,
+    //      5.37, 5.00, 3.50, -inf, -0.52;
+
+
+    // Hypothesis h({2}, log(1.0));
+
+    // std::vector<std::vector<size_t>> hypotheses = hypothesis_enumeration(R, h);
+
+    // std::cout << "Length hypotheses: " << hypotheses.size() << "\n";
+    // for (const auto& hypothesis : hypotheses) {
+    //     for (const auto& association : hypothesis) {
+    //         std::cout << association << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
 
 
 }

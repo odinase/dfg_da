@@ -106,10 +106,7 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
                     // The compatibility here is the fact that we must assign bt to at for at == bt and no other ats, or otherwise the opposite
                     // Here we see the benefit of using 1-indexed measurements: Since the tracks assume that measurement 0 is misdetection, c will automatically point to correct measurement
                     
-                    double compatibility = 1.0;
-                    if (i == ai || j == bj) {
-                        compatibility = i == ai && j == bj;
-                    }
+                    double compatibility = xnor(i == ai, j == bj);
                     compatibility_table.push_back(compatibility);
                 }
             }

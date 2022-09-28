@@ -3,7 +3,9 @@
 #include <vector>
 #include <cmath>
 #include <iterator>
+#include <unordered_map>
 #include <Eigen/Core>
+
 
 class Hypotheses;
 
@@ -27,7 +29,10 @@ public:
     }
 
     inline bool contains(const Track track_id) const { return std::find(tracks_.begin(), tracks_.end(), track_id) != tracks_.end(); }
-    inline double probability() const { return exp(log_prob_); }
+    inline double log_prob() const { return log_prob_; }
+    inline double probability() const { return exp(log_prob()); }
+    inline size_t size() const { return tracks_.size(); }
+    const std::vector<Track>& tracks() const { return tracks_; }
 };
 
 class Hypotheses
@@ -72,3 +77,20 @@ public:
     auto cbegin() const { return hypos_.cbegin(); }
     auto cend() const { return hypos_.cend(); }
 };
+
+
+std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix, const Hypothesis& prior_hypothesis);
+void traverse_hypothesis_tree(
+    std::vector<std::vector<size_t>>& hypotheses,
+    std::vector<size_t> &parent_hypothesis,
+    const Hypothesis& prior_hypothesis,
+    const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
+    size_t j,
+    const size_t M
+);
+
+Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypotheses, const Eigen::MatrixXd &reward_matrix);
+
+std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks);
+
+double prior_hypothesis_conditional_association_probability(const std::vector<size_t>& to_hypothesis, const Hypothesis& prior_hypothesis, const Eigen::MatrixXd& reward_matrix);

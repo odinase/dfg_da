@@ -20,6 +20,8 @@
 #include <glog/logging.h>
 #include <cmath>
 
+#include "discrete_factor_graph/hypothesis.h"
+
 
 using gtsam::symbol_shorthand::A;
 
@@ -157,12 +159,21 @@ int main(int argc, char **argv)
     gtsam::DiscreteMarginals marginals(dfg);
 
     for (const auto& key : all_keys) {
-        std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginals.marginalProbabilities(key).transpose() << "\n";
+        gtsam::Vector marginal = marginals.marginalProbabilities(key);
+        if (gtsam::symbolChr(key.first) == 'a') {
+        std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginal.transpose() << "\n";
+        }
     }
 
-    for (const auto& [dkey, cardinality] : all_keys) {
-        std::cout << "Optimal value for " << gtsam::Symbol(dkey) << ": " << solution[dkey] << "\n";
-    }
+    Hypothesis h1({1, 2}, log(0.5));
+    Hypothesis h2({1, 3}, log(0.5));
+
+    Hypotheses h{{h1, h2}};
+
+    Eigen::MatrixXd probs = association_marginal_posteriors(h, R);
+
+    std::cout << probs << "\n";
+    
 
     dfg.saveGraph("graph.txt");
 }

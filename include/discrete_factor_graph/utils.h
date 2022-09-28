@@ -76,3 +76,9 @@ inline std::vector<double> expNormalize(const std::vector<double> &logProbs)
 
     return probs;
 }
+
+
+inline Eigen::VectorXd logsumexp(const Eigen::MatrixXd& log_m) {
+    Eigen::VectorXd b = log_m.rowwise().maxCoeff();
+    return (log_m.colwise() - b).array().exp().rowwise().sum().log().matrix() + b;
+}
