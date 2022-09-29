@@ -170,7 +170,11 @@ int main(int argc, char **argv)
 
     Hypotheses h{{h1, h2}};
 
+    auto start = std::chrono::high_resolution_clock::now();
     Eigen::MatrixXd probs = association_marginal_posteriors(h, R);
+    auto stop = std::chrono::high_resolution_clock::now();
+
+    std::cout << "Spent " << std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count() * 1e-6 << " ms\n";
 
     std::cout << probs << "\n";
     
