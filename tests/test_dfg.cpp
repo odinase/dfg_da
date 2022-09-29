@@ -16,9 +16,9 @@
 #include "discrete_factor_graph/hypothesis.h"
 #include "discrete_factor_graph/factor_graph.h"
 
-
+#ifdef GLOG_AVAILABLE
 #include <glog/logging.h>
-
+#endif // GLOG_AVAILABLE
 
 
 using gtsam::symbol_shorthand::A;
@@ -186,8 +186,9 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 
 TEST(TestSuite, test_lbp)
 {
+    #ifdef GLOG_AVAILABLE
     google::InstallFailureSignalHandler();
-
+    #endif // GLOG_AVAILABLE
 
     Eigen::MatrixXd R(3, 3 + 1);
     constexpr double inf = std::numeric_limits<double>::infinity();
@@ -213,7 +214,9 @@ TEST(TestSuite, test_lbp)
 
 TEST(TestSuite, test_hypothesis_tree)
 {
+    #ifdef GLOG_AVAILABLE
     google::InstallFailureSignalHandler();
+    #endif // GLOG_AVAILABLE
 
     Eigen::MatrixXd R(3, 3 + 1);
     constexpr double inf = std::numeric_limits<double>::infinity();

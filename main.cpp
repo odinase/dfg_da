@@ -17,7 +17,9 @@
 #include <limits>
 #include <fstream>
 
+#ifdef GLOG_AVAILABLE
 #include <glog/logging.h>
+#endif // GLOG_AVAILABLE
 #include <cmath>
 
 #include "discrete_factor_graph/hypothesis.h"
@@ -28,8 +30,10 @@ using gtsam::symbol_shorthand::A;
 
 int main(int argc, char **argv)
 {
+    #ifdef GLOG_AVAILABLE
     google::InitGoogleLogging(argv[0]);
     google::InstallFailureSignalHandler();
+    #endif // GLOG_AVAILABLE
 
     gtsam::DiscreteKeys all_keys;
     gtsam::DiscreteFactorGraph dfg{};
