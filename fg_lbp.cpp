@@ -9,6 +9,7 @@
 
 #include <glog/logging.h>
 #include <cmath>
+#include <numeric>
 
 
 using gtsam::symbol_shorthand::A;
@@ -147,18 +148,38 @@ int main(int argc, char **argv)
 
     gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
 
-    FactorGraph fg(dfg);
 
-    Marginals marginals = fg.lbp(32);
-
-    std::cout << "Marginals:\n";
-    for (const auto &[k, marginal] : marginals) {
-        std::cout << gtsam::Symbol(k) << ": ";
-        for (auto p : marginal) {
-            std::cout << p << " ";
-        }
-        std::cout << std::endl;
+    std::vector<double> v;
+    size_t trials = 1e4;
+    for (size_t i = 0; i < trials; i++) {
+        auto start = std::chrono::high_resolution_clock::now();
+        FactorGraph fg(dfg);
+        auto stop = std::chrono::high_resolution_clock::now();
+        double duration_us = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count() * 1e-3;
+        v.push_back(duration_us);
     }
+
+
+    double sum = std::accumulate(v.begin(), v.end(), 0.0);
+    double mean = sum / v.size();
+
+    std::vector<double> diff(v.size());
+    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) { return x - mean; });
+    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+    double stdev = std::sqrt(sq_sum / v.size());
+
+    std::cout << "Average time: " << mean << " \u00b1 " << stdev << " us\n";
+    
+    // Marginals marginals = fg.lbp(32);
+
+    // std::cout << "Marginals:\n";
+    // for (const auto &[k, marginal] : marginals) {
+    //     std::cout << gtsam::Symbol(k) << ": ";
+    //     for (auto p : marginal) {
+    //         std::cout << p << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
         
 
     // Eigen::MatrixXd R(2, 3 + 2);
