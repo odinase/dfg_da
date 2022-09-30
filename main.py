@@ -1,6 +1,6 @@
 import numpy as np
 import factorgraph as fg
-from marginal_association_Odin import exact_marginal
+from marginal_association_Odin import exact_marginal, lbp_marginal
 from time import time
 
 
@@ -128,3 +128,27 @@ if __name__ == "__main__":
     print(f"Spent {(stop - start)*1e3} ms")
 
     print(marginal_total)
+
+    lbp_marginal_total = np.zeros((n, m + 1 + 1))
+
+    conditioned_marginals = np.empty((n, m + 2))
+
+    for tracks, p in prior_hypotheses:
+        R_sub = R_LC[tracks-1, :]
+        lbp_probs, notTrackProb, s = lbp_marginal(R_sub)
+
+        # We need to concatenate the JPDAprobs with all tracks and existence probs
+        existing_tracks_idx = tracks - 1
+        non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+
+        existing_probs = np.hstack((lbp_probs, np.zeros((lbp_probs.shape[0], 1))))
+        nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
+
+        conditioned_marginals[existing_tracks_idx] = existing_probs
+        conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
+
+        lbp_marginal_total += conditioned_marginals*s*p
+
+    lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
+
+    print(lbp_marginal_total)

@@ -21,6 +21,7 @@
 #include <cmath>
 
 #include "discrete_factor_graph/hypothesis.h"
+#include "discrete_factor_graph/factor_graph.h"
 
 
 using gtsam::symbol_shorthand::A;
@@ -178,6 +179,19 @@ int main(int argc, char **argv)
 
     std::cout << probs << "\n";
     
+    FactorGraph fg(dfg);
+
+    Marginals lbp_marginals = fg.lbp(32);
+
+    std::cout << "Marginals from LBP:\n";
+    for (const auto &[k, marginal] : lbp_marginals) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (auto p : marginal) {
+            std::cout << p << " ";
+        }
+        std::cout << std::endl;
+    }
+
 
     dfg.saveGraph("graph.txt");
 }

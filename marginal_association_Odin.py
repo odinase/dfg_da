@@ -111,7 +111,7 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     assert DEBUG or (np.all(np.isfinite(prob)) and np.all(np.isfinite(not_track_prob))),\
         'not finite probs'
 
-    return prob, not_track_prob
+    return prob, not_track_prob, s
 
 
 def exact_rec_marginal(llr_or_lr: np.ndarray, is_log: bool = True, **kwargs,
