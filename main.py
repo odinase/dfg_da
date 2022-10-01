@@ -96,6 +96,7 @@ if __name__ == "__main__":
         (np.array([1, 2]), 0.5),
         (np.array([1, 3]), 0.5)
     ]
+
     start = time()
     stop = time()
 
@@ -107,7 +108,9 @@ if __name__ == "__main__":
 
     conditioned_marginals = np.empty((n, m + 2))
 
-    for tracks, p in prior_hypotheses:
+    exact_normalizing_constant = np.empty(len(prior_hypotheses))
+
+    for k, (tracks, p) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
         JPDAprobs, notTrackProb, loglikelihood = exact_marginal(R_sub, False)
 
@@ -121,10 +124,13 @@ if __name__ == "__main__":
         conditioned_marginals[existing_tracks_idx] = existing_probs
         conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
+        normalizing_constant = np.exp(loglikelihood)
+
+        exact_normalizing_constant[k] = normalizing_constant
+
         marginal_total += conditioned_marginals*np.exp(loglikelihood)*p
 
     marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
-
 
     print(marginal_total)
 
@@ -132,7 +138,9 @@ if __name__ == "__main__":
 
     conditioned_marginals = np.empty((n, m + 2))
 
-    for tracks, p in prior_hypotheses:
+    approx_normalizing_constant = np.empty(len(prior_hypotheses))
+
+    for k, (tracks, p) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
         lbp_probs, notTrackProb = lbp_marginal(R_sub)
 
@@ -148,8 +156,19 @@ if __name__ == "__main__":
 
         normalizing_constant = np.exp(R_sub[:, 1:]).sum(axis=0).prod()
 
+        approx_normalizing_constant[k] = normalizing_constant
+
         lbp_marginal_total += conditioned_marginals * normalizing_constant * p
 
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
 
     print(lbp_marginal_total)
+
+    print(exact_normalizing_constant)
+    print(approx_normalizing_constant)
+
+    exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
+    approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
+
+    print(exact_normalizing_constant)
+    print(approx_normalizing_constant)

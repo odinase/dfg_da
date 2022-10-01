@@ -35,9 +35,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
 
     gtsam::DiscreteKeys ais; // Track variables and measurement variables
     ais.reserve(num_tracks);
-    // bts.reserve(num_measurements);
-
-    std::cout << "Came here!\n";
 
     // Hard compatability constraints are basically: 1 everywhere except nonexistence if it exists in the prior hypothesis
     for (size_t track = 1; track <= num_tracks; track++)
@@ -50,7 +47,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
         std::vector<double> compatibility_table;
         for (size_t hypo = 0; hypo < num_prior_hypotheses; hypo++)
         {
-                std::cout << "Came here! 34334\n";
             bool contained_in_hypo = prior_hypotheses[hypo].contains(track);
             for (size_t meas = 0; meas <= num_measurements + 1; meas++)
             {
@@ -62,24 +58,10 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
                 // The above constraints should be NXOR (XNOR?)
             }
         }
-        
-            std::cout << "Came here! 777777\n";
-
-        for (const auto& c : compatibility_table) {
-            std::cout << c << " ";
-        }
-        std::cout << "\n";
-
-
-        for (const auto& k : keys) {
-            std::cout << gtsam::Symbol(k.first) << " " << k.second << "\n";
-        }
-        std::cout << "\n"; 
 
         gtsam::DecisionTreeFactor hyp_to_track_factor(keys, compatibility_table);
         dfg.push_back(hyp_to_track_factor);
 
-    std::cout << "Came here! 9999\n";
 
         // Add prior factors
         // We assume that the reward matrix is the logarithm of probabilities, as this is common to use
@@ -103,8 +85,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
         gtsam::DiscreteDistribution prior_factor(ai, prior_table);
         dfg.push_back(prior_factor);
     }
-
-    std::cout << "Came here! 2222\n";
 
     // Final stretch, add measurement variables
     // Lets 1-index measurements as well for consistency

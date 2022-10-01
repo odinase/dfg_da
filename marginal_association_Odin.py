@@ -100,6 +100,8 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
             alpha = (np.log(1 + w_star * d) - log1p_w_star) / np.log(d)
             conv_val = alpha * (d + stop_crit)
 
+    print(f"Spent {it} iterations")
+
     prob = np.empty(llr.shape)
     w_times_msg = w_nmd * b2a_msg
     s = 1 + w_times_msg.sum(axis=1, keepdims=True)
