@@ -96,14 +96,16 @@ if __name__ == "__main__":
         (np.array([1, 2]), 0.5),
         (np.array([1, 3]), 0.5)
     ]
+    start = time()
+    stop = time()
+
+    print(f"Spent {(stop - start)*1e3} ms")
 
     marginal_total = np.zeros((n, m + 1 + 1))
 
     all_tracks_idx = np.arange(n)
 
     conditioned_marginals = np.empty((n, m + 2))
-
-    start = time()
 
     for tracks, p in prior_hypotheses:
         R_sub = R_LC[tracks-1, :]
@@ -122,10 +124,7 @@ if __name__ == "__main__":
         marginal_total += conditioned_marginals*np.exp(loglikelihood)*p
 
     marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
-    
-    stop = time()
 
-    print(f"Spent {(stop - start)*1e3} ms")
 
     print(marginal_total)
 
@@ -135,7 +134,7 @@ if __name__ == "__main__":
 
     for tracks, p in prior_hypotheses:
         R_sub = R_LC[tracks-1, :]
-        lbp_probs, notTrackProb, s = lbp_marginal(R_sub)
+        lbp_probs, notTrackProb = lbp_marginal(R_sub)
 
         # We need to concatenate the JPDAprobs with all tracks and existence probs
         existing_tracks_idx = tracks - 1
@@ -147,7 +146,9 @@ if __name__ == "__main__":
         conditioned_marginals[existing_tracks_idx] = existing_probs
         conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
-        lbp_marginal_total += conditioned_marginals*s*p
+        normalizing_constant = np.exp(R_sub[:, 1:]).sum(axis=0).prod()
+
+        lbp_marginal_total += conditioned_marginals * normalizing_constant * p
 
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
 
