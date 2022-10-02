@@ -15,6 +15,24 @@ using gtsam::symbol_shorthand::T;
 
 constexpr bool xnor(const bool x, const bool y) { return !(x != y);}
 
+
+
+
+double approx_normalizing_constant(const Eigen::MatrixXd& R, const std::vector<size_t>& tracks) {
+    // [333.96721775 839.64367929]
+    // normalizing_constant = np.exp(R_sub[:, 1:]).sum(axis=0).prod()   
+    const size_t n = R.rows();
+    const size_t m = R.cols() - n;
+
+    Eigen::Map<const Eigen::Array<size_t, Eigen::Dynamic, 1>> track_idxs(tracks.data(), tracks.size());
+
+    std::cout << m << "\n" << R(track_idxs - 1, Eigen::seqN(0, m)) << "\n";
+
+    return R(track_idxs - 1, Eigen::seqN(0, m)).array().exp().colwise().sum().prod();
+}
+
+
+
 gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const Hypotheses &prior_hypotheses)
 {
     gtsam::DiscreteFactorGraph dfg;
@@ -23,6 +41,10 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
     const size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
     gtsam::DiscreteKey th{T(0), num_prior_hypotheses};
     std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
+    for (size_t i = 0; i < prior_hypotheses.num_hypotheses(); i++) {
+        double c = approx_normalizing_constant(R, prior_hypotheses[i].tracks());
+        theta_table[i] *= c;
+    }
     gtsam::DiscreteDistribution th_factor(th, theta_table);
     dfg.push_back(th_factor);
 

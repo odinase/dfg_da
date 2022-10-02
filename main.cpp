@@ -27,16 +27,6 @@
 using gtsam::symbol_shorthand::A;
 
 
-double approx_normalizing_constant(const Eigen::MatrixXd& R) {
-    // [333.96721775 839.64367929]
-    // normalizing_constant = np.exp(R_sub[:, 1:]).sum(axis=0).prod()   
-    const size_t n = R.rows();
-    const size_t m = R.cols() - n;
-    
-    return R(Eigen::all, Eigen::seqN(0, m)).array().exp().rowwise().sum().prod();
-}
-
-
 
 int main(int argc, char **argv)
 {
@@ -82,10 +72,9 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
 
-    for (const auto& ph : h) {
-        Eigen::Map<const Eigen::Array<size_t, Eigen::Dynamic, 1>> tracks(ph.tracks().data(), ph.tracks().size());
-        std::cout << approx_normalizing_constant(R(tracks - 1, Eigen::all)) << " ";
-    }
+    // for (const auto& ph : h) {
+    //     std::cout << approx_normalizing_constant(R, ph.tracks()) << " ";
+    // }
 
 
     dfg.saveGraph("graph.txt");

@@ -154,6 +154,8 @@ if __name__ == "__main__":
         conditioned_marginals[existing_tracks_idx] = existing_probs
         conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
+        print(R_sub)
+
         normalizing_constant = np.exp(R_sub[:, 1:]).sum(axis=0).prod()
 
         approx_normalizing_constant[k] = normalizing_constant
