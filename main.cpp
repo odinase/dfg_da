@@ -44,7 +44,6 @@ int main(int argc, char **argv)
     Hypothesis h2({1, 3}, log(0.5));
 
     // Hypothesis h1({1, 2, 3}, log(1.0));
-    // We need an empty dummy hypothesis with probability 0 to satisfy GTSAM
     // Hypothesis h2({}, log(0.0));
 
     Hypotheses h{{h1, h2}};

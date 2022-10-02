@@ -26,8 +26,6 @@ double approx_normalizing_constant(const Eigen::MatrixXd& R, const std::vector<s
 
     Eigen::Map<const Eigen::Array<size_t, Eigen::Dynamic, 1>> track_idxs(tracks.data(), tracks.size());
 
-    std::cout << m << "\n" << R(track_idxs - 1, Eigen::seqN(0, m)) << "\n";
-
     return R(track_idxs - 1, Eigen::seqN(0, m)).array().exp().colwise().sum().prod();
 }
 
@@ -41,10 +39,11 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
     const size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
     gtsam::DiscreteKey th{T(0), num_prior_hypotheses};
     std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
-    for (size_t i = 0; i < prior_hypotheses.num_hypotheses(); i++) {
-        double c = approx_normalizing_constant(R, prior_hypotheses[i].tracks());
-        theta_table[i] *= c;
-    }
+    // std::vector<double> normalizing_constants;
+    // for (size_t i = 0; i < prior_hypotheses.num_hypotheses(); i++) {
+    //     double c = approx_normalizing_constant(R, prior_hypotheses[i].tracks());
+    //     normalizing_constants.push_back(c);
+    // }
     gtsam::DiscreteDistribution th_factor(th, theta_table);
     dfg.push_back(th_factor);
 
