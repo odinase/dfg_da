@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 
     FactorGraph fg(dfg);
 
-    Marginals lbp_marginals = fg.lbp(5);
+    Marginals lbp_marginals = fg.lbp(70);
 
     std::cout << "Marginals from LBP:\n";
     for (const auto &[k, marginal] : lbp_marginals) {
