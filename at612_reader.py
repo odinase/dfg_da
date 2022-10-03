@@ -1,6 +1,8 @@
 from scipy.io import loadmat
-from marginal_association_Odin import exact_marginal, logsumexp
+from marginal_association_Odin import exact_marginal, logsumexp, lbp_marginal
 import numpy as np
+
+import matplotlib.pyplot as plt
 
 
 DATA_PATH = "./data/at612"
@@ -76,7 +78,9 @@ if __name__ == "__main__":
 
     conditioned_marginals = np.empty((n, m + 2))
 
-    for tracks, p in prior_hypotheses:
+    exact_normalizing_constant = np.empty(len(prior_hypotheses))
+
+    for k, (tracks, p) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
         JPDAprobs, notTrackProb, loglikelihood = exact_marginal(R_sub, False)
 
@@ -88,14 +92,67 @@ if __name__ == "__main__":
         nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
 
         conditioned_marginals[existing_tracks_idx] = existing_probs
-        conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
+        conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
+
+        normalizing_constant = np.exp(loglikelihood)
+
+        exact_normalizing_constant[k] = normalizing_constant
 
         marginal_total += conditioned_marginals*np.exp(loglikelihood)*p
 
     marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
 
-    print(marginal_total.shape)
+    lbp_marginal_total = np.zeros((n, m + 1 + 1))
 
-    # print(marginal_total)
+    conditioned_marginals = np.empty((n, m + 2))
 
-    print(marginal_total[existing_tracks - 1])
+    approx_normalizing_constant = np.empty(len(prior_hypotheses))
+    approx_log_normalizing_constant = np.empty(len(prior_hypotheses))
+
+    hypotheses_all_tracks_detected = np.empty(len(prior_hypotheses), dtype=bool)
+
+    for k, (tracks, p) in enumerate(prior_hypotheses):
+        R_sub = R_LC[tracks-1, :]
+        lbp_probs, notTrackProb = lbp_marginal(R_sub)
+
+        # We need to concatenate the JPDAprobs with all tracks and existence probs
+        existing_tracks_idx = tracks - 1
+        non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+
+        existing_probs = np.hstack((lbp_probs, np.zeros((lbp_probs.shape[0], 1))))
+        nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
+
+        conditioned_marginals[existing_tracks_idx] = existing_probs
+        conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
+
+        detected_tracks = np.any(np.isfinite(R_sub[:, 1:]), axis=0)
+        loglikelihoods = R_sub[:, 1:][:, detected_tracks]
+        hypotheses_all_tracks_detected[k] = detected_tracks.all()
+
+
+        normalizing_constant = np.exp(loglikelihoods).sum(axis=0).prod()
+        approx_log_normalizing_constant[k] = logsumexp(R_sub[: ,1:], axis=0).sum()
+
+        approx_normalizing_constant[k] = normalizing_constant
+
+        lbp_marginal_total += conditioned_marginals * normalizing_constant * p
+
+    lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
+
+    print(marginal_total)
+    print(lbp_marginal_total)
+
+    # print(exact_normalizing_constant)
+    # print(approx_normalizing_constant)
+    # print(approx_log_normalizing_constant)
+
+    exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
+    approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
+
+    print(exact_normalizing_constant)
+    print(approx_normalizing_constant)
+
+    plt.plot(exact_normalizing_constant[hypotheses_all_tracks_detected], approx_normalizing_constant[hypotheses_all_tracks_detected], 'go', label='All tracks detected')
+    plt.plot(exact_normalizing_constant[~hypotheses_all_tracks_detected], approx_normalizing_constant[~hypotheses_all_tracks_detected], 'rx', label='Not all tracks detected')
+    plt.legend()
+    plt.show()
