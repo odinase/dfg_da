@@ -139,8 +139,8 @@ if __name__ == "__main__":
 
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
 
-    print(marginal_total)
-    print(lbp_marginal_total)
+    # print(marginal_total)
+    # print(lbp_marginal_total)
 
     # print(exact_normalizing_constant)
     # print(approx_normalizing_constant)
@@ -149,10 +149,17 @@ if __name__ == "__main__":
     exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
     approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
 
-    print(exact_normalizing_constant)
-    print(approx_normalizing_constant)
-
+    plt.figure()
     plt.plot(exact_normalizing_constant[hypotheses_all_tracks_detected], approx_normalizing_constant[hypotheses_all_tracks_detected], 'go', label='All tracks detected')
     plt.plot(exact_normalizing_constant[~hypotheses_all_tracks_detected], approx_normalizing_constant[~hypotheses_all_tracks_detected], 'rx', label='Not all tracks detected')
     plt.legend()
+
+    plt.figure()
+    marginal_error_means = (marginal_total - lbp_marginal_total).mean(axis=1)
+    marginal_error_stds = (marginal_total - lbp_marginal_total).std(axis=1)
+
+    plt.plot(marginal_error_means)
+    plt.plot(marginal_error_means + marginal_error_stds, 'b--')
+    plt.plot(marginal_error_means - marginal_error_stds, 'b--')
+
     plt.show()
