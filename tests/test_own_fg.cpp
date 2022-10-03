@@ -181,3 +181,25 @@ TEST(TestSuite, test_lbp_own)
 
     EXPECT_EQ(1, 1);
 }
+
+
+
+TEST(TestSuite, test_approx_normalizing_constant)
+{
+    gtsam::DiscreteFactorGraph dfg = build_test_factor_graph();
+
+    FactorGraph fg(dfg);
+
+    Marginals marginals = fg.lbp(32);
+
+    std::cout << "Marginals:\n";
+    for (const auto &[k, marginal] : marginals) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (auto p : marginal) {
+            std::cout << p << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    EXPECT_EQ(1, 1);
+}
