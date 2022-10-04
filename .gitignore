@@ -5,3 +5,5 @@
 graph.txt
 /__pycache__
 /data
+*.mat
+/at612_reader
