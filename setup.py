@@ -120,13 +120,13 @@ class CMakeBuild(build_ext):
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    name="dfg_da",
+    name="py_dfg_da",
     version="0.0.1",
     author="Odin Aleksander Severinsen",
     author_email="odin.sev@gmail.com",
     description="Discrete factor graph inference for data association",
     long_description="",
-    # ext_modules=[CMakeExtension("dfg_da")],
+    ext_modules=[CMakeExtension("py_dfg_da")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},

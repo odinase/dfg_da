@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(discrete_factor_graph)
+project(dfg_da)
 
 set(CMAKE_CXX_STANDARD 17)
 add_compile_options(-Wall -Wpedantic -Wextra)
@@ -23,7 +23,7 @@ include_directories(
     include
 )
 
-add_library(hypothesis
+add_library(hypothesis SHARED
     src/hypothesis.cpp
 )
 
@@ -35,7 +35,7 @@ target_link_libraries(hypothesis
 
 
 
-add_library(factor_graph
+add_library(factor_graph SHARED
     src/factor_graph.cpp
     src/nodes.cpp
 )
@@ -99,10 +99,10 @@ enable_testing()
 add_subdirectory(tests)
 endif()
 
-if(${BUILD_PYTHON_BINDINGS})
+# if(${BUILD_PYTHON_BINDINGS})
 message(STATUS "Building Python bindings.")
 add_subdirectory(pybindings)
-endif(${BUILD_PYTHON_BINDINGS})
+# endif(${BUILD_PYTHON_BINDINGS})
 
 
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})

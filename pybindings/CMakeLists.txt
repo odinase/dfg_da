@@ -89,6 +89,10 @@ target_link_libraries(py_${PYTHON_MODULE_NAME} PRIVATE
     pybind11::module
     pybind11::lto
     pybind11::windows_extras
+    gtsam
+    Eigen3::Eigen
+    hypothesis
+    factor_graph
     # testing
     # targets
     # dynamics

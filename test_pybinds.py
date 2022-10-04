@@ -1,5 +1,6 @@
-import py_dfg_da
+import dfg_da
 
 
 if __name__ == "__main__":
-    print(py_dfg_da.add(1, 1))
+    print(dfg_da.add(1, 1))
+    dfg_da.gtsam_test()
