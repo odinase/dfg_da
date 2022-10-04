@@ -117,6 +117,104 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     return prob, not_track_prob
 
 
+
+def lbp_marginal_nonexistence(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate marginal association probabilities using loopy belief propagation [1].
+
+    Parameters
+    ----------
+    llr : np.ndarray[(N, M + 1)]
+        log likelihood ratios. llr[:, 0] is the misseded detection.
+    max_prob_diff_from_conv : float, optional
+        when to deem the iterations as converged, by default 1e-3
+    max_iter : int, optional
+        upper bound on the number of iterations to do, by default 300
+    iter_per_check : int, optional
+        how often to check for convergence, by default 5
+
+    Returns
+    -------
+    track_to_meas_probability: np.ndarray[float, (N, M + 1)]
+    new_track_probability: np.ndarray[float, (M,)]
+
+    References
+    ----------
+    [1] Williams, J., Lau, R. (2014).
+        Approximate evaluation of marginal association probabilities with belief propagation.
+        IEEE Transactions on Aerospace and Electronic Systems, 50(4), 2942-2959.
+        https://doi.org/10.1109/TAES.2014.120568
+
+    """
+    n, mp1 = llr.shape
+    m = mp1 - 1
+    if n == 0 or m == 0:
+        return np.zeros((n, mp1)), np.ones(m)
+
+    llr = llr - llr[:, [0]]
+    w_nmd = np.exp(llr[:, 1:])
+
+    w_star = np.max(w_nmd.sum(axis=1))
+    log1p_w_star = np.log(1 + w_star)
+    stop_crit = 0.5 * np.log(1 + max_prob_diff_from_conv)
+
+    it = 0
+    conv_val = np.inf
+
+    # note parenthesis for underflow problems
+
+    w_nmd = np.hstack([w_nmd, np.ones((w_nmd.shape[0], 1))])
+
+    m = np.exp(llr[:, [0]])
+
+    # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
+    a2b_msg = w_nmd / (m + (w_nmd.sum(axis=1, keepdims=True) - w_nmd))
+    b2a_msg = m / (m + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+    while conv_val >= stop_crit and it < max_iter:
+        for k in range(iter_per_check):
+            assert DEBUG or np.isfinite(a2b_msg).all(), 'a2b not finite'
+            assert DEBUG or np.isfinite(b2a_msg).all(), 'b2a not finite'
+
+            w_times_msg = w_nmd * b2a_msg
+            # note parenthesis for underflow problems
+            a2b_msg = w_nmd / \
+                (m + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg))
+
+            if k == iter_per_check - 1:
+                prevb2a = np.copy(b2a_msg)
+
+            # note parenthesis for underflow problems
+            b2a_msg = m / (m + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+            it = it + 1
+
+        bmsg_ratio = b2a_msg / prevb2a
+        max_ratio = bmsg_ratio.max()
+        min_ratio = bmsg_ratio.min()
+        max_abs = max(max_ratio, 1 / min_ratio)
+        d = np.log(max_abs)
+        if d == 0:
+            conv_val = 0
+        else:
+            alpha = (np.log(1 + w_star * d) - log1p_w_star) / np.log(d)
+            conv_val = alpha * (d + stop_crit)
+
+    prob = np.empty((llr.shape[0], llr.shape[1]+1))
+    w_times_msg = w_nmd * b2a_msg
+    s = m + w_times_msg.sum(axis=1, keepdims=True)
+    # NOTE(odin): Change nominator to misdetection for misdetection and add extra row with one for for nonexistence?
+    prob[:, 1:] = w_times_msg / s
+    prob[:, [0]] = m / s
+
+    not_track_prob: np.ndarray = 1 / (1 + a2b_msg.sum(axis=0))
+
+    assert DEBUG or (np.all(np.isfinite(prob)) and np.all(np.isfinite(not_track_prob))),\
+        'not finite probs'
+
+    return prob, not_track_prob
+
+
+
 def exact_rec_marginal(llr_or_lr: np.ndarray, is_log: bool = True, **kwargs,
                        ) -> tuple[np.ndarray, np.ndarray, float]:
     """Calculate marginal probabilities by naive recursions.

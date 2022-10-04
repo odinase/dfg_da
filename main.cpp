@@ -40,11 +40,11 @@ int main(int argc, char **argv)
          6.58, -inf, -inf, -0.60;
 
 
-    Hypothesis h1({1, 2}, log(0.5));
-    Hypothesis h2({1, 3}, log(0.5));
+    // Hypothesis h1({1, 2}, log(0.5));
+    // Hypothesis h2({1, 3}, log(0.5));
 
-    // Hypothesis h1({1, 2, 3}, log(1.0));
-    // Hypothesis h2({}, log(0.0));
+    Hypothesis h1({1, 2, 3}, log(1.0));
+    Hypothesis h2({}, log(0.0));
 
     Hypotheses h{{h1, h2}};
 

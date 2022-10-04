@@ -1,5 +1,5 @@
 from scipy.io import loadmat
-from marginal_association_Odin import exact_marginal, logsumexp, lbp_marginal
+from marginal_association_Odin import exact_marginal, lbp_marginal_nonexistence, logsumexp, lbp_marginal
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
 
 
-    lbp_probs_total, notTrackProb = lbp_marginal(R_LC)
+    lbp_probs_total, notTrackProb = lbp_marginal_nonexistence(R_LC)
 
 
     # print(marginal_total)
