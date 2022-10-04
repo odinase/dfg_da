@@ -5,3 +5,7 @@
 graph.txt
 /__pycache__
 /data
+/pybindings/build
+/pybindings/dfg_da.egg-info
+/test.mat
+/at612_reader

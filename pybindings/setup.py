@@ -120,13 +120,13 @@ class CMakeBuild(build_ext):
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    name="af_target_simulator",
+    name="dfg_da",
     version="0.0.1",
     author="Odin Aleksander Severinsen",
     author_email="odin.sev@gmail.com",
-    description="Multi-target simulator for aFerry",
+    description="Discrete factor graph inference for data association",
     long_description="",
-    ext_modules=[CMakeExtension("cmake_example")],
+    # ext_modules=[CMakeExtension("dfg_da")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},

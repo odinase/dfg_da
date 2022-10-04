@@ -7,6 +7,8 @@ add_compile_options(-Wall -Wpedantic -Wextra)
 
 # Add option to enable testing
 option(ENABLE_TESTS "Enable tests" OFF)
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
+
 
 find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -47,6 +49,9 @@ target_link_libraries(factor_graph
 
 # add_library(lbp
 #     src/lbp.cpp
+# )clude_directories(
+#     include
+#     ${CMAKE_CURRENT_SOURCE_DIR}
 # )
 
 # target_link_libraries(lbp
@@ -93,6 +98,11 @@ message(STATUS "Testing enabled. Building tests.")
 enable_testing()
 add_subdirectory(tests)
 endif()
+
+if(${BUILD_PYTHON_BINDINGS})
+message(STATUS "Building Python bindings.")
+add_subdirectory(pybindings)
+endif(${BUILD_PYTHON_BINDINGS})
 
 
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
