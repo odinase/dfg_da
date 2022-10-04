@@ -45,6 +45,16 @@ def ws_to_prior_hypotheses(ws):
     return prior_hypotheses
 
 
+def tot_existence_prob(prior_hypotheses, num_tracks):
+    existence_probs = np.zeros((num_tracks, 2))
+    for tracks, prob in prior_hypotheses:
+        existence_probs[tracks - 1, 1] += prob
+
+    existence_probs[:, 0] = 1.0 - existence_probs[:, 1]
+
+    return existence_probs
+        
+
 
 if __name__ == "__main__":
     ws = loadmat(DATA_PATH + "/" + MAT_FILE)
@@ -140,8 +150,14 @@ if __name__ == "__main__":
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
 
 
-    lbp_probs_total, notTrackProb = lbp_marginal(R_LC)
+    lbp_probs_total_sub, notTrackProb = lbp_marginal(R_LC)
 
+    existence_probs = tot_existence_prob(prior_hypotheses, n)
+
+    lbp_probs_total = np.empty((lbp_probs_total_sub.shape[0], lbp_probs_total_sub.shape[1] + 1))
+
+    lbp_probs_total[:, [-1, 0]] = lbp_probs_total_sub[:, [0]]*existence_probs
+    lbp_probs_total[:, 1:-1] = lbp_probs_total_sub[:, 1:]
 
     # print(marginal_total)
     # print(lbp_marginal_total)

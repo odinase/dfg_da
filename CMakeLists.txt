@@ -14,6 +14,7 @@ find_package(Eigen3 REQUIRED)
 # find_package(idbt REQUIRED)
 
 find_package (glog REQUIRED)
+find_package(matioCpp)
 
 include_directories(
     ${GTSAM_INCLUDE_DIR}
@@ -70,6 +71,20 @@ target_link_libraries(${PROJECT_NAME}
     glog::glog
 )
 
+
+if (matioCpp_FOUND)
+add_executable(at612_reader
+    src/at612_reader.cpp
+)
+
+target_link_libraries(at612_reader
+    gtsam
+    factor_graph
+    Eigen3::Eigen
+    matioCpp::matioCpp
+)
+endif (matioCpp_FOUND)
+
 add_executable(test_fg_lbp
     fg_lbp.cpp
 )
@@ -97,3 +112,7 @@ endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
 set_target_properties(test_fg_lbp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+if (matioCpp_FOUND)
+set_target_properties(at612_reader PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+endif (matioCpp_FOUND)
