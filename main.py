@@ -1,6 +1,6 @@
 import numpy as np
 import factorgraph as fg
-from marginal_association_Odin import exact_marginal, lbp_marginal
+from marginal_association_Odin import exact_marginal, lbp_marginal, lbp_marginal_nonexistence
 from time import time
 import matplotlib.pyplot as plt
 
@@ -54,18 +54,18 @@ if __name__ == "__main__":
     # ]))
 
     # Reward matrix
-    num_tracks = 10
-    num_meas = 3
-    R = np.full((num_tracks, num_tracks + num_meas), -np.inf)
-    R[:, :num_meas] = np.random.rand(num_tracks, num_meas)*15 - 5
-    d = np.diag_indices_from(R[:, num_meas:])
-    R[:, num_meas:][d] = np.random.rand(num_tracks) - 0.5
+    # num_tracks = 10
+    # num_meas = 3
+    # R = np.full((num_tracks, num_tracks + num_meas), -np.inf)
+    # R[:, :num_meas] = np.random.rand(num_tracks, num_meas)*15 - 5
+    # d = np.diag_indices_from(R[:, num_meas:])
+    # R[:, num_meas:][d] = np.random.rand(num_tracks) - 0.5
 
-    # R = np.array([
-    #     [4.78, -0.46, -np.inf, -np.inf],
-    #     [5.37, -np.inf, -0.52, -np.inf],
-    #     [6.58, -np.inf, -np.inf, -0.60]
-    # ])
+    R = np.array([
+        [4.78, -0.46, -np.inf, -np.inf],
+        [5.37, -np.inf, -0.52, -np.inf],
+        [6.58, -np.inf, -np.inf, -0.60]
+    ])
 
     # R = np.array([
     #     [-np.inf, -0.46, -np.inf, -np.inf],
@@ -107,10 +107,8 @@ if __name__ == "__main__":
     R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
 
     prior_hypotheses = [
-        (np.array([1, 3, 4]), 0.25),
-        (np.array([1, 5, 6]), 0.25),
-        (np.array([4, 5, 6, 7, 8]), 0.25),
-        (np.array([7, 8, 9, 10]), 0.25)
+        (np.array([1, 2]), 0.5),
+        (np.array([1, 3]), 0.5)
     ]
 
     start = time()
@@ -198,3 +196,9 @@ if __name__ == "__main__":
     plt.xlabel('exact_normalizing_constant')
     plt.legend()
     plt.show()
+
+
+    R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
+    lbp_probs, _ = lbp_marginal_nonexistence(R_LC)
+    np.set_printoptions(precision=6, suppress=True)
+    print(lbp_probs)

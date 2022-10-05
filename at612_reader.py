@@ -1,5 +1,5 @@
 from scipy.io import loadmat
-from marginal_association_Odin import exact_marginal, logsumexp, lbp_marginal
+from marginal_association_Odin import exact_marginal, lbp_marginal_nonexistence, logsumexp, lbp_marginal
 import numpy as np
 
 import matplotlib.pyplot as plt
