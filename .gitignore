@@ -7,7 +7,8 @@ graph.txt
 /data
 /pybindings/build
 /pybindings/dfg_da.egg-info
-/test.mat
+test.mat
 /at612_reader
 /py_dfg_da.egg-info
 py_dfg_da.cpython-39-x86_64-linux-gnu.so
+dfg_da
