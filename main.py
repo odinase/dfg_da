@@ -1,6 +1,8 @@
 import numpy as np
 import factorgraph as fg
 from marginal_association_Odin import exact_marginal
+from time import time
+
 
 if __name__ == "__main__":
     # # Make an empty graph
@@ -101,6 +103,8 @@ if __name__ == "__main__":
 
     conditioned_marginals = np.empty((n, m + 2))
 
+    start = time()
+
     for tracks, p in prior_hypotheses:
         R_sub = R_LC[tracks-1, :]
         JPDAprobs, notTrackProb, loglikelihood = exact_marginal(R_sub, False)
@@ -118,5 +122,9 @@ if __name__ == "__main__":
         marginal_total += conditioned_marginals*np.exp(loglikelihood)*p
 
     marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
+    
+    stop = time()
+
+    print(f"Spent {(stop - start)*1e3} ms")
 
     print(marginal_total)

@@ -12,6 +12,7 @@
 #endif // GLOG_AVAILABLE
 
 #include <cmath>
+#include <numeric>
 
 
 using gtsam::symbol_shorthand::A;
