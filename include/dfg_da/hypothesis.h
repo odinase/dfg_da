@@ -7,6 +7,11 @@
 #include <Eigen/Core>
 
 
+namespace dfg_da {
+
+namespace hypothesis {
+
+
 class Hypotheses;
 
 using Track = size_t;
@@ -94,3 +99,6 @@ Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypothes
 std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks);
 
 double prior_hypothesis_conditional_association_probability(const std::vector<size_t>& to_hypothesis, const Hypothesis& prior_hypothesis, const Eigen::MatrixXd& reward_matrix);
+
+} // namespace hypothesis
+} // namespace dfg_da

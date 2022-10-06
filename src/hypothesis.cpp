@@ -1,11 +1,17 @@
-#include "discrete_factor_graph/hypothesis.h"
-#include "discrete_factor_graph/utils.h"
+#include "dfg_da/hypothesis.h"
+#include "dfg_da/utils.h"
 
 #include <numeric>
 #include <functional>
 #include <set>
 #include <iostream>
 #include <unordered_map>
+
+
+namespace dfg_da {
+
+namespace hypothesis {
+
 
 Hypotheses::Hypotheses(std::vector<Hypothesis> &&hypos) : hypos_(hypos)
 {
@@ -27,7 +33,7 @@ void Hypotheses::log_normalize()
 {
     std::vector<double> log_probs_ = log_probs();
 
-    std::vector<double> log_probs_normalized = logNormalize(log_probs_);
+    std::vector<double> log_probs_normalized = utils::logNormalize(log_probs_);
     for (size_t i = 0; i < hypos_.size(); i++)
     {
         hypos_[i].log_prob_ = log_probs_normalized[i];
@@ -51,7 +57,7 @@ Hypotheses Hypotheses::hypotheses_containing(const Track &track) const
 
 std::vector<double> Hypotheses::hypothesis_probabilites() const
 {
-    return expNormalize(log_probs());
+    return utils::expNormalize(log_probs());
 }
 
 // Return map over each measurement together with list of tracks gated by measurement
@@ -216,3 +222,6 @@ double prior_hypothesis_conditional_association_probability(const std::vector<si
 
     return log_prob;
 }
+
+} // namespace hypothesis
+} // namespace dfg_da

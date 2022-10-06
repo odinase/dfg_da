@@ -23,11 +23,17 @@ endif()
 target_link_libraries(test_dfg
   gtsam
   hypothesis
-  factor_graph
-  glog::glog
+  dfg_da
   # lbp
   ${GTEST_LIBS}
 )
+
+
+if(glog_FOUND)
+target_link_libraries(test_dfg
+  glog::glog
+)
+endif()
 
 add_test(TestDFG test_dfg)
 
@@ -35,7 +41,7 @@ add_test(TestDFG test_dfg)
 target_link_libraries(test_own_fg
   gtsam
   # lbp
-  factor_graph
+  dfg_da
   ${GTEST_LIBS}
 )
 
