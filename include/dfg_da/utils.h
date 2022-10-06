@@ -7,6 +7,12 @@
 #include <string>
 #include <vector>
 
+
+namespace dfg_da {
+
+namespace utils {
+
+
 // Odin: Shamelessly stolen from https://github.com/MarineRoboticsGroup/dcsam/blob/main/include/dcsam/DCSAM_utils.h
 
 inline std::vector<double> logNormalize(const std::vector<double> &logProbs)
@@ -82,3 +88,6 @@ inline Eigen::VectorXd logsumexp(const Eigen::MatrixXd& log_m) {
     Eigen::VectorXd b = log_m.rowwise().maxCoeff();
     return (log_m.colwise() - b).array().exp().rowwise().sum().log().matrix() + b;
 }
+
+} // namespace utils
+} // namespace dfg_da

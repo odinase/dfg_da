@@ -1,5 +1,5 @@
-#include "discrete_factor_graph/factor_graph.h"
-#include "discrete_factor_graph/nodes.h"
+#include "dfg_da/factor_graph.h"
+#include "dfg_da/factor_graph/nodes.h"
 
 #include <gtsam/discrete/DiscreteConditional.h>
 #include <gtsam/discrete/DiscreteFactorGraph.h>
@@ -8,6 +8,13 @@
 #include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
 
+
+
+namespace dfg_da {
+
+namespace factor_graph {
+
+
 using gtsam::symbol_shorthand::A;
 using gtsam::symbol_shorthand::B;
 using gtsam::symbol_shorthand::T;
@@ -15,7 +22,7 @@ using gtsam::symbol_shorthand::T;
 
 constexpr bool xnor(const bool x, const bool y) { return !(x != y);}
 
-gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const Hypotheses &prior_hypotheses)
+gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const hypothesis::Hypotheses &prior_hypotheses)
 {
     gtsam::DiscreteFactorGraph dfg;
 
@@ -170,23 +177,23 @@ std::vector<FactorGraph::Node::shared_ptr> FactorGraph::Node::neighbors() const
 
 FactorGraph::FactorGraph(const gtsam::DiscreteFactorGraph &dfg)
 {
-    std::unordered_map<gtsam::Key, Variable::shared_ptr> seen_vars;
+    std::unordered_map<gtsam::Key, nodes::Variable::shared_ptr> seen_vars;
 
     for (auto &&fac : dfg)
     {
         // All factors in the dfg should be castable to DecisionTreeFactor, if not, something is seriously wrong
         if (gtsam::DecisionTreeFactor::shared_ptr df = boost::dynamic_pointer_cast<gtsam::DecisionTreeFactor>(fac))
         {
-            Factor::shared_ptr factor = std::make_shared<Factor>(df);
+            nodes::Factor::shared_ptr factor = std::make_shared<nodes::Factor>(df);
             add_node(factor);
 
             for (const auto &dk : df->discreteKeys())
             {
-                Variable::shared_ptr var;
+                nodes::Variable::shared_ptr var;
                 // Add variable if not seen before
                 if (seen_vars.find(dk.first) == seen_vars.end())
                 {
-                    var = std::make_shared<Variable>(dk);
+                    var = std::make_shared<nodes::Variable>(dk);
                     add_node(var);
                     seen_vars.insert({dk.first, var});
                 }
@@ -228,7 +235,7 @@ Marginals FactorGraph::lbp(const size_t max_iters, const double kl_threshold)
     Marginals marginals;
     for (const auto &node : nodes_)
     {
-        if (Variable::shared_ptr v = std::dynamic_pointer_cast<Variable>(node))
+        if (nodes::Variable::shared_ptr v = std::dynamic_pointer_cast<nodes::Variable>(node))
         {
             Message b = v->belief();
             marginals[v->key()] = b.pmf();
@@ -237,3 +244,130 @@ Marginals FactorGraph::lbp(const size_t max_iters, const double kl_threshold)
 
     return marginals;
 }
+
+gtsam::DiscreteFactorGraph build_test_factor_graph() {
+    // Initialize discrete prior hypothesis variable theta
+    gtsam::DiscreteKey theta(gtsam::symbol('T', 0), 2);
+
+    double w_a = 0.5;
+    double w_b = 1.0 - w_a;
+    std::vector<std::vector<int>> prior_hypotheses = {
+        {1, 2},
+        {1, 3}}; // Tracks
+    std::vector<double> theta_prior_probs{w_a, w_b};
+    gtsam::DiscreteDistribution phi_H(theta, theta_prior_probs);
+
+    gtsam::DiscreteFactorGraph dfg{};
+    dfg.push_back(phi_H);
+
+    // Add Bernoulli components (tracks??)
+    gtsam::DiscreteKeys as;
+    for (int i = 1; i <= 3; i++)
+    {
+        as.emplace_back(gtsam::DiscreteKey(A(i), 3)); // Cardinality is 3 because one measurement => misdetection, measurement, non-existence
+    }
+
+    // Add factors between theta and the tracks
+    // a1
+    gtsam::DiscreteKeys phi_A_keys = {theta, as[0]};
+    std::vector<double> phi_A_table = {
+        1, 1, 0,
+        1, 1, 0
+    };
+    gtsam::DecisionTreeFactor phi_A(phi_A_keys, phi_A_table);
+    dfg.push_back(phi_A);
+
+    // a2
+    gtsam::DiscreteKeys phi_B_keys = {theta, as[1]};
+    std::vector<double> phi_B_table = {
+        1, 1, 0,
+        0, 0, 1
+    };
+    gtsam::DecisionTreeFactor phi_B(phi_B_keys, phi_B_table);
+    dfg.push_back(phi_B);
+
+    // a3
+    gtsam::DiscreteKeys phi_C_keys = {theta, as[2]};
+    std::vector<double> phi_C_table = {
+        0, 0, 1,
+        1, 1, 0
+    };
+    gtsam::DecisionTreeFactor phi_C(phi_C_keys, phi_C_table);
+    dfg.push_back(phi_C);
+
+
+    // track-to-measurement factors
+    // Define b variable
+    gtsam::DiscreteKey b(gtsam::symbol('b', 0), 4); // Cardinality 4 because three different tracks or misdetection??
+
+    // a1
+    gtsam::DiscreteKeys phi_X_keys = {as[0], b};
+    std::vector<double> phi_X_table = {
+        1, 0, 1, 1,
+        0, 1, 0, 0,
+        1, 0, 1, 1,
+    };
+    gtsam::DecisionTreeFactor phi_X(phi_X_keys, phi_X_table);
+    dfg.push_back(phi_X);
+
+    // a2
+    gtsam::DiscreteKeys phi_Y_keys = {as[1], b};
+    std::vector<double> phi_Y_table = {
+        1, 1, 0, 1,
+        0, 0, 1, 0,
+        1, 1, 0, 1,
+    };
+    gtsam::DecisionTreeFactor phi_Y(phi_Y_keys, phi_Y_table);
+    dfg.push_back(phi_Y);
+
+    // a3
+    gtsam::DiscreteKeys phi_Z_keys = {as[2], b};
+    std::vector<double> phi_Z_table = {
+        1, 1, 1, 0,
+        0, 0, 0, 1,
+        1, 1, 1, 0,
+    };
+    gtsam::DecisionTreeFactor phi_Z(phi_Z_keys, phi_Z_table);
+    dfg.push_back(phi_Z);
+
+    // Add unary track factors
+    // Reward matrix
+    // R = [ vertcat( l^{11}, l^{21}, l^{31} , [m^1, -infty, -infty ; -infty, m^2 , -infty ; -infty, -infty, m^3].
+    // Three tracks and one measurement plus three misdetections
+    constexpr double inf = std::numeric_limits<double>::infinity();
+    Eigen::MatrixXd R(3, 4);
+    R << 4.78, -0.46, -inf, -inf,
+         5.37, -inf, -0.52, -inf,
+         6.58, -inf, -inf, -0.60;
+
+    // exp to convert log into actual probabilities. Is this properly normalized?? Does it need to??
+    double l_11 = exp(R(0,0));
+    double l_21 = exp(R(1,0));
+    double l_31 = exp(R(2,0));
+
+    double m_1 = exp(R(0, 1));
+    double m_2 = exp(R(1, 2));
+    double m_3 = exp(R(2, 3));
+
+    // phi D
+    std::vector<double> phi_D_table{m_1, l_11, 1};
+    gtsam::DiscreteDistribution phi_D(as[0], phi_D_table);
+    dfg.push_back(phi_D);
+
+    // phi E
+    std::vector<double> phi_E_table{m_2, l_21, 1};
+    gtsam::DiscreteDistribution phi_E(as[1], phi_E_table);
+    dfg.push_back(phi_E);
+
+    // phi F
+    std::vector<double> phi_F_table{m_3, l_31, 1};
+    gtsam::DiscreteDistribution phi_F(as[2], phi_F_table);
+    dfg.push_back(phi_F);
+
+
+    return dfg;
+}
+
+
+} // namespace factor_graph
+} // namespace dfg_da
