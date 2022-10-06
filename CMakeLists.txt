@@ -35,6 +35,13 @@ else()
 message("Building without glog")
 endif()
 
+if (matioCpp_FOUND)
+# add_definitions(-DGLOG_AVAILABLE)
+message("Building with matioCpp")
+else()
+message("Building without matioCpp")
+endif()
+
 
 add_library(hypothesis SHARED
     src/hypothesis.cpp
