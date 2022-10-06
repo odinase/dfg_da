@@ -1,7 +1,14 @@
-#include "discrete_factor_graph/factor_graph.h"
-#include "discrete_factor_graph/nodes.h"
+#include "dfg_da/factor_graph.h"
+#include "dfg_da/factor_graph/nodes.h"
 
 #include <gtsam/inference/Symbol.h>
+
+
+namespace dfg_da {
+
+namespace factor_graph {
+
+namespace nodes {
 
 
 void Factor::init_messages() {
@@ -79,10 +86,16 @@ void Variable::print() {
 Message Variable::belief() const
 {
     Message m;
-    for (const auto& m_in : incoming_messages())
+    auto messages = incoming_messages();
+    for (const auto& m_in : messages)
     {
         m *= *m_in.second;
     }
 
     return m;
 }
+
+
+} // namespace nodes
+} // namespace factor_graph
+} // namespace dfg_da

@@ -1,9 +1,15 @@
 #pragma once
 
-#include "discrete_factor_graph/factor_graph.h"
+#include "dfg_da/factor_graph.h"
 #include <gtsam/discrete/DecisionTreeFactor.h>
 
 
+namespace dfg_da {
+
+namespace factor_graph {
+
+namespace nodes {
+    
 class Factor : public FactorGraph::Node
 {
 private:
@@ -60,11 +66,8 @@ public:
     virtual Message::ConvergenceStatus update_messages();
     virtual void print();
     Message belief() const;
-    // void add_neighbor(Node::shared_ptr node);
 };
 
-
-// void Variable::add_neighbor(Node::shared_ptr node) {
-//     std::cout << gtsam::Symbol(dk_.first) << " added node\n";
-//     node->print();
-// }
+} // namespace nodes
+} // namespace factor_graph
+} // namespace dfg_da
