@@ -117,7 +117,7 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     return prob, not_track_prob
 
 
-def lbp_marginal_nonexistence(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -170,19 +170,25 @@ def lbp_marginal_nonexistence(llr: np.ndarray, max_prob_diff_from_conv: float = 
     # The nominator should only be over actual measurements, denominator however is over all values of ai / bj, so it should include misdetection and nonexistence
 
 
-    # 
-
+    # Initialize useful data structures for later: - We'll need index lists that broadcast arrays to correct sizes
+    # List over each track what hypotheses it exists in. I.e., each row is a track, and that row is true or false for all hypotheses
+    num_hypotheses = len(prior_hypotheses)
+    t2h_idx = np.array([
+        [t in hypo[0] for hypo in prior_hypotheses] for t in range(n)
+    ])
+    h2t_idx = t2h_idx.T
 
     # Assume sigma(ai = N) = 1 for initialization
 
-
-    
     a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + w_N)
     # The one in the numerator is due to no ai = 0, so no messages are compatible and the product is just 1
     b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
+    thetas = np.array([hypo[1] for hypo in prior_hypotheses])
+
     # we need messages from a to theta and theta to a
-     
+    # Let's do this carefully. Sigma should be nmber of tracks long, as we only store 1 number per track
+    sigma_
 
     while conv_val >= stop_crit and it < max_iter:
         for k in range(iter_per_check):
