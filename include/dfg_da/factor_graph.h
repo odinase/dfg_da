@@ -50,7 +50,7 @@ struct Message
     };
 };
 
-using Marginals = std::unordered_map<gtsam::Key, std::vector<double>>;
+using Marginals = std::map<gtsam::Key, std::vector<double>>;
 
 class FactorGraph
 {

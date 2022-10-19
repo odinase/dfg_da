@@ -22,6 +22,20 @@ using gtsam::symbol_shorthand::T;
 
 constexpr bool xnor(const bool x, const bool y) { return !(x != y);}
 
+
+
+
+double approx_normalizing_constant(const Eigen::MatrixXd& R, const std::vector<size_t>& tracks) {
+    // [333.96721775 839.64367929]
+    // normalizing_constant = np.exp(R_sub[:, 1:]).sum(axis=0).prod()   
+    const size_t n = R.rows();
+    const size_t m = R.cols() - n;
+
+    Eigen::Map<const Eigen::Array<size_t, Eigen::Dynamic, 1>> track_idxs(tracks.data(), tracks.size());
+
+    return R(track_idxs - 1, Eigen::seqN(0, m)).array().exp().colwise().sum().prod();
+}
+
 gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const hypothesis::Hypotheses &prior_hypotheses)
 {
     gtsam::DiscreteFactorGraph dfg;
@@ -30,6 +44,11 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
     const size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
     gtsam::DiscreteKey th{T(0), num_prior_hypotheses};
     std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
+    // std::vector<double> normalizing_constants;
+    // for (size_t i = 0; i < prior_hypotheses.num_hypotheses(); i++) {
+    //     double c = approx_normalizing_constant(R, prior_hypotheses[i].tracks());
+    //     normalizing_constants.push_back(c);
+    // }
     gtsam::DiscreteDistribution th_factor(th, theta_table);
     dfg.push_back(th_factor);
 
@@ -42,7 +61,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
 
     gtsam::DiscreteKeys ais; // Track variables and measurement variables
     ais.reserve(num_tracks);
-    // bts.reserve(num_measurements);
 
     // Hard compatability constraints are basically: 1 everywhere except nonexistence if it exists in the prior hypothesis
     for (size_t track = 1; track <= num_tracks; track++)
@@ -66,9 +84,10 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
                 // The above constraints should be NXOR (XNOR?)
             }
         }
-        
+
         gtsam::DecisionTreeFactor hyp_to_track_factor(keys, compatibility_table);
         dfg.push_back(hyp_to_track_factor);
+
 
         // Add prior factors
         // We assume that the reward matrix is the logarithm of probabilities, as this is common to use

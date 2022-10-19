@@ -23,6 +23,7 @@
 using gtsam::symbol_shorthand::A;
 
 
+
 int main(int argc, char **argv)
 {
     #ifdef GLOG_AVAILABLE
@@ -30,12 +31,14 @@ int main(int argc, char **argv)
     google::InstallFailureSignalHandler();
     #endif // GLOG_AVAILABLE
 
-    gtsam::DiscreteKeys all_keys;
     gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::build_test_factor_graph();
+
 
     gtsam::DiscreteFactor::Values solution = dfg.optimize();
     gtsam::DiscreteMarginals marginals(dfg);
 
+    auto dks = dfg.discreteKeys();
+    std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
     for (const auto& key : all_keys) {
         gtsam::Vector marginal = marginals.marginalProbabilities(key);
         if (gtsam::symbolChr(key.first) == 'a') {

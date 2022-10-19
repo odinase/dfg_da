@@ -68,6 +68,8 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     conv_val = np.inf
 
     # note parenthesis for underflow problems
+
+    # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
     a2b_msg = w_nmd / (1 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd))
     b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
@@ -103,6 +105,7 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     prob = np.empty(llr.shape)
     w_times_msg = w_nmd * b2a_msg
     s = 1 + w_times_msg.sum(axis=1, keepdims=True)
+    # NOTE(odin): Change nominator to misdetection for misdetection and add extra row with one for for nonexistence?
     prob[:, 1:] = w_times_msg / s
     prob[:, [0]] = 1 / s
 
@@ -130,7 +133,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, max_prob_diff_from_conv: float = 
 
     Returns
     -------
-    \end{cases}
     track_to_meas_probability: np.ndarray[float, (N, M + 1)]
     new_track_probability: np.ndarray[float, (M,)]
 
