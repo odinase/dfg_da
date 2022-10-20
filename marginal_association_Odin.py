@@ -174,21 +174,37 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # List over each track what hypotheses it exists in. I.e., each row is a track, and that row is true or false for all hypotheses
     num_hypotheses = len(prior_hypotheses)
     t2h_idx = np.array([
-        [t in hypo[0] for hypo in prior_hypotheses] for t in range(n)
+        [t+1 in hypo[0] for hypo in prior_hypotheses] for t in range(n)
     ])
     h2t_idx = t2h_idx.T
 
     # Assume sigma(ai = N) = 1 for initialization
 
+    # tracks x measurements
     a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + w_N)
     # The one in the numerator is due to no ai = 0, so no messages are compatible and the product is just 1
     b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
-    thetas = np.array([hypo[1] for hypo in prior_hypotheses])
+    phi = np.array([hypo[1] for hypo in prior_hypotheses])
 
     # we need messages from a to theta and theta to a
     # Let's do this carefully. Sigma should be nmber of tracks long, as we only store 1 number per track
-    sigma_
+
+    # Multiply psi by nu and sum out measurements
+    rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
+
+    # The message from theta to track is a little convoluted to compute
+    # We need, for each track, to know what hypotheses it's present in and what it's not, and do two sums for each track
+    # However, the sum involves doing a product over all other tracks for the rho message, where the product changes
+
+    # We do both sums for each target, such that we slice the necessary 
+    sum_numerator = np.array([
+        np.sum(phi[~t2h_idx[t]]*np.prod((np.broadcast_to(rho, (num_hypotheses, n))[h2t_idx[~t2h_idx[t], :]]).reshape(-1, 1), axis=1)) for t in range(n)
+    ])
+    sum_denominator = np.array([
+        np.sum(phi[t2h_idx[t]]*np.prod(np.broadcast_to(rho, (num_hypotheses, n))[h2t_idx[t2h_idx[t]], :], axis=1))/rho[t] for t in range(n)
+    ])
+    sigma = sum_numerator / sum_denominator
 
     while conv_val >= stop_crit and it < max_iter:
         for k in range(iter_per_check):
@@ -197,15 +213,24 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
             # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
             w_times_msg = w_nmd * b2a_msg
-            # note parenthesis for underflow problems
-            a2b_msg = w_nmd / \
-                (1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg))
+
+            # tracks x measurements
+            a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + w_N*sigma[:,None])
 
             if k == iter_per_check - 1:
                 prevb2a = np.copy(b2a_msg)
 
-            # note parenthesis for underflow problems
             b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+            rho = w_0 + (w_nmd*b2a_msg).sum(axis=1)
+
+            sum_numerator = np.array([
+                np.sum(phi[t2h_idx[t]]*np.prod(rho[h2t_idx[t]])) for t in range(n)
+            ])
+            sum_denominator = np.array([
+                np.sum(phi[t2h_idx[~t]]*np.prod(rho[h2t_idx[~t]])) for t in range(n)
+            ])
+            sigma = sum_numerator / sum_denominator
 
             it = it + 1
 
@@ -220,12 +245,16 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             alpha = (np.log(1 + w_star * d) - log1p_w_star) / np.log(d)
             conv_val = alpha * (d + stop_crit)
 
-    prob = np.empty(llr.shape)
-    w_times_msg = w_nmd * b2a_msg
-    s = 1 + w_times_msg.sum(axis=1, keepdims=True)
-    # NOTE(odin): Change numerator to misdetection for misdetection and add extra row with one for for nonexistence?
-    prob[:, 1:] = w_times_msg / s
-    prob[:, [0]] = 1 / s
+    prob = np.empty((n, m + 2))
+    w_times_msg = w_nmd * b2a_msg * sigma[:,None]
+    # s = 1 + w_times_msg.sum(axis=1, keepdims=True)
+    # # NOTE(odin): Change numerator to misdetection for misdetection and add extra row with one for for nonexistence?
+    # prob[:, 1:] = w_times_msg / s
+    # prob[:, [0]] = 1 / s
+    s = np.sum(w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + w_N).sum(axis=1, keepdims=True)
+    prob[:, 1:-1] = w_times_msg / s
+    prob[:, 0] = w_0 / s
+    prob[:, -1] = w_N / s
 
     not_track_prob: np.ndarray = 1 / (1 + a2b_msg.sum(axis=0))
 
