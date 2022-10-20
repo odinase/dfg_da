@@ -10,5 +10,6 @@ graph.txt
 /py_dfg_da.egg-info
 /pybindings/build
 /pybindings/dfg_da.egg-info
+/cmake
 py_dfg_da.cpython-39-x86_64-linux-gnu.so
 dfg_da
