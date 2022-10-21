@@ -139,9 +139,11 @@ if __name__ == "__main__":
         loglikelihoods = R_sub[:, 1:][:, detected_tracks]
         hypotheses_all_tracks_detected[k] = detected_tracks.all()
 
-
         normalizing_constant = np.exp(loglikelihoods).sum(axis=0).prod()
-        approx_log_normalizing_constant[k] = logsumexp(R_sub[: ,1:], axis=0).sum()
+        mu = (1 - np.exp(R_sub[:, 0])).sum()
+        print(np.exp(-mu))
+
+        approx_log_normalizing_constant[k] = np.exp(-mu)*logsumexp(R_sub[: ,1:], axis=0).sum()
 
         approx_normalizing_constant[k] = normalizing_constant
 
@@ -174,22 +176,17 @@ if __name__ == "__main__":
     plt.plot(exact_normalizing_constant[~hypotheses_all_tracks_detected], approx_normalizing_constant[~hypotheses_all_tracks_detected], 'rx', label='Not all tracks detected')
     plt.legend()
 
-    fig, ax = plt.subplots(nrows=2)
+    fig, ax = plt.subplots()
     marginal_error_means = (marginal_total - lbp_marginal_total).mean(axis=1)
     marginal_error_stds = (marginal_total - lbp_marginal_total).std(axis=1)
 
     marginal_error_means_2 = (marginal_total - lbp_probs_total).mean(axis=1)
-    marginal_error_stds_2 = (marginal_total - lbp_probs_total).std(axis=1)
 
-    ax[0].plot(marginal_error_means)
-    ax[0].plot(marginal_error_means + marginal_error_stds, 'b--')
-    ax[0].plot(marginal_error_means - marginal_error_stds, 'b--')
-    ax[0].set_title("LBPs conditioned on prior hypotheses")
+    ax.plot(marginal_error_means)
+    ax.plot(marginal_error_means + marginal_error_stds, 'b--')
+    ax.plot(marginal_error_means - marginal_error_stds, 'b--')
+    ax.set_title("LBPs conditioned on prior hypotheses")
 
-    ax[1].plot(marginal_error_means_2)
-    ax[1].plot(marginal_error_means_2 + marginal_error_stds_2, 'b--')
-    ax[1].plot(marginal_error_means_2 - marginal_error_stds_2, 'b--')
-    ax[1].set_title("LBP on all tracks")
 
     plt.figure()
     plt.spy(np.exp(R))
