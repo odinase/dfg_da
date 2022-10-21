@@ -190,15 +190,17 @@ if __name__ == "__main__":
     print(approx_normalizing_constant)
 
 
-    plt.plot(exact_normalizing_constant, approx_normalizing_constant, 'o', label='Actual')
-    plt.plot(np.linspace(0, exact_normalizing_constant.max()), '--', label='Ideal')
-    plt.ylabel('approx_normalizing_constant')
-    plt.xlabel('exact_normalizing_constant')
-    plt.legend()
-    plt.show()
+    # plt.plot(exact_normalizing_constant, approx_normalizing_constant, 'o', label='Actual')
+    # plt.plot(np.linspace(0, exact_normalizing_constant.max()), '--', label='Ideal')
+    # plt.ylabel('approx_normalizing_constant')
+
+    
+    # plt.xlabel('exact_normalizing_constant')
+    # plt.legend()
+    # plt.show()
 
 
     R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
-    lbp_probs, _ = lbp_marginal_nonexistence(R_LC)
+    lbp_probs, _ = lbp_marginal_nonexistence(R_LC, prior_hypotheses)
     np.set_printoptions(precision=6, suppress=True)
     print(lbp_probs)
