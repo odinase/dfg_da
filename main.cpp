@@ -19,6 +19,7 @@
 
 #include "dfg_da/hypothesis.h"
 #include "dfg_da/factor_graph.h"
+#include "dfg_da/lbp.h"
 
 using gtsam::symbol_shorthand::A;
 
@@ -71,6 +72,9 @@ int main(int argc, char **argv)
         }
         std::cout << std::endl;
     }
+
+    Eigen::ArrayXXd asso_probs = dfg_da::lbp::lbp(R, h);
+    std::cout << asso_probs.transpose() << "\n";
 
     dfg.saveGraph("graph.txt");
 }

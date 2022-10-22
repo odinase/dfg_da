@@ -154,6 +154,8 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # llr = llr - llr[:, [0]]
     w_nmd = np.exp(llr[:, 1:])
     w_0 = np.exp(llr[:, [0]])
+    print(w_nmd)
+    print(w_0)
     w_N = 1 #np.ones((w_nmd.shape[0], 1))
     # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
     # w_nmd = np.hstack((w_nmd, w_N))
@@ -200,12 +202,12 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # However, the sum involves doing a product over all other tracks for the rho message, where the product changes
 
     # We do both sums for each target, such that we slice the necessary 
-    def compute_sigma(rho): return np.array([
-        np.sum( np.multiply( phi[t2noth_idx[t]], [np.prod(rho[h]) for h in h2t_idx[t2noth_idx[t]]]) ) / # Sum over hypos without track
-        np.sum( np.multiply( phi[t2h_idx[t]], [np.prod(rho[h]) / rho[t] for h in h2t_idx[t2h_idx[t]]]) ) # Sum over hypos with track
-        if (~t2h_idx[t]).any() else 0 # Make sure the sum in the numerator is nonempty
-        for t in range(n)
-    ])
+    def compute_sigma(rho):
+        rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
+        a = (rho_prods*t2noth_idx*phi).sum(axis=1)
+        b = (rho_prods*t2h_idx*phi).sum(axis=1) / rho
+
+        return a / b
 
     # def compute_sigma(rho): return np.array([
     #     np.sum( phi[t2noth_idx[t]] * np.array( [np.prod(rho[h]) for h in h2t_idx[t2noth_idx[t]]] ) ) / # Sum over hypos without track
@@ -233,9 +235,9 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
             rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
 
-            start = time.time_ns()            
+            start = time.time()            
             sigma = compute_sigma(rho)
-            stop = time.time_ns()
+            stop = time.time()
             sigma_compute_times.append(stop - start)
 
             if k == iter_per_check - 1:
@@ -255,8 +257,8 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             conv_val = alpha * (d + stop_crit)
 
     print(f"Converged in {it} iters")
-    sigma_compute_times = np.array(sigma_compute_times) * 1e-6 # Convert ns to ms
-    print(f"Mean sigma compute time {sigma_compute_times.mean()} ms +- {sigma_compute_times.std()}")
+    sigma_compute_times = np.array(sigma_compute_times) * 1e6 # Convert s to ms
+    print(f"Mean sigma compute time {sigma_compute_times.mean()} us +- {sigma_compute_times.std()}")
 
     asso_prob = np.empty((n, m + 2))
     # The incoming messages are either from misdetection, which we define as 1, or from measurements, indicating association, or from theta, indicating nonexistence

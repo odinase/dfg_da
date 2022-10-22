@@ -60,6 +60,7 @@ target_link_libraries(hypothesis PUBLIC
 add_library(${PROJECT_NAME} SHARED
     src/factor_graph.cpp
     src/nodes.cpp
+    src/lbp
 )
 
 
@@ -73,6 +74,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
 
 if(NOT ${BUILD_PYTHON_BINDINGS})
 
