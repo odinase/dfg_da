@@ -40,12 +40,11 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
             t2h_not(i,h) = !t2h(i,h);
         }
     }
-
-    auto rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod();
-    auto sigma_n = (t2h_not.rowwise()* (rho_prods * phi.transpose())).rowwise().sum();
-    auto sigma_d = (t2h.rowwise()*(rho_prods*phi.transpose())).rowwise().sum() / rho;
+    
+    Eigen::ArrayXd rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
+    Eigen::ArrayXd sigma_n = (t2h_not.rowwise() * (rho_prods * phi).transpose()).rowwise().sum();
+    Eigen::ArrayXd sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho;
     Eigen::ArrayXd sigma = sigma_n / sigma_d;
-
 
     size_t iter = 0;
     Eigen::ArrayXXd w_times_msg(n, m);
@@ -61,9 +60,9 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
         rho = w_0 + (w_nmd * nu).rowwise().sum();
 
         auto start = std::chrono::high_resolution_clock::now();
-        auto rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod();
-        auto sigma_n = (t2h_not.rowwise() * (rho_prods * phi.transpose())).rowwise().sum();
-        auto sigma_d = (t2h.rowwise()*(rho_prods*phi.transpose())).rowwise().sum() / rho;
+        rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
+        sigma_n = (t2h_not.rowwise() * (rho_prods * phi).transpose()).rowwise().sum();
+        sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho;
         sigma = sigma_n / sigma_d;
         auto stop = std::chrono::high_resolution_clock::now();
         sigma_compute.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count() * 1e-3);

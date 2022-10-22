@@ -60,7 +60,7 @@ target_link_libraries(hypothesis PUBLIC
 add_library(${PROJECT_NAME} SHARED
     src/factor_graph.cpp
     src/nodes.cpp
-    src/lbp
+    src/lbp.cpp
 )
 
 
