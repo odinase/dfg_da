@@ -201,6 +201,8 @@ if __name__ == "__main__":
 
 
     R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
-    lbp_probs, _ = lbp_marginal_nonexistence(R_LC, prior_hypotheses)
+    asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=100)
     np.set_printoptions(precision=6, suppress=True)
-    print(lbp_probs)
+    print(asso_prob)
+    print(theta_probs)
+    print(meas_probs)

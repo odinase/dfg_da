@@ -37,24 +37,44 @@ if __name__ == "__main__":
 
     # For each element in sigma, which is for each track, gather the phis that the track doesnt appear in
     sigma_test = np.array([
-        np.sum( np.multiply( phi[~t2h_idx[t]], [np.prod(rho_bc[h][h2t_idx[h]]) for h in ~t2h_idx[t]]) ) / # Sum over hypos without track
-        np.sum( np.multiply( phi[t2h_idx[t]], [np.prod(rho_bc[h][h2t_idx[h]]) for h in t2h_idx[t]]) / rho[t] ) # Sum over hypos with track
+        np.sum( np.multiply( phi[~t2h_idx[t]], [np.prod(rho[h]) for h in h2t_idx[~t2h_idx[t]]]) ) / # Sum over hypos without track
+        np.sum( np.multiply( phi[t2h_idx[t]], [np.prod(rho[h]) / rho[t] for h in h2t_idx[t2h_idx[t]]]) ) # Sum over hypos with track
         if (~t2h_idx[t]).any() else 0
         for t in range(n)
     ])
 
-    sigma_test2 = np.empty(2)
+    sigma_test2 = np.empty(n)
     for t in range(n):
-        print(f"Track {t+1} exists in hypotheses {t2h_idx[t]}")
-        print(f"Track {t+1} does not exist in hypotheses {~t2h_idx[t]}")
+        print(f"Track {t+1} exists in hypotheses {np.where(t2h_idx[t])[0] + 1}")
+        print(f"Track {t+1} does not exist in hypotheses {np.where(~t2h_idx[t])[0] + 1}")
+        i_in_th = t2h_idx[t]
+        i_notin_th = ~i_in_th
         if (~t2h_idx[t]).any():
-            rho_prod_numerator = 1.0
-            for h in ~t2h_idx[t]:
-                print(f"h2t_idx[h]: {h2t_idx[h]}")
-                print(f"rho_bc[h]: {rho_bc[h]}")
-                print(f"rho_bc[h][h2t_idx[h]]: {rho_bc[h][h2t_idx[h]]}")
+            # We have non-trivial numerator to compute. We can easily find all phis we need by indexing the hypotheses where the track does not exist
+            phi_i_notin_th = phi[i_notin_th]
+            # We need to compute a list of product for each term in the sum
+            # First, find a list of lists containing what tracks are contained in the hypotheses not containing 
+            # I.e., this is a list for each hypothesis that makes the sum, so use the information in each row to compute a single number (product) and put these numbers into a list
+            tracks_in_hypotheses = h2t_idx[i_notin_th]
+            list_of_prods = np.array([np.prod(rho[tracks]) for tracks in tracks_in_hypotheses])
+            numerator = np.sum(phi_i_notin_th * list_of_prods)
+
+            print(f"Numerator for track {t+1}: {numerator}")
+
+            # Do the same for the denominator. Here we have use the trick of computing the product over all tracks contained in the hypothesis, which will include the track we are considering, so we divide by it afterwards
+            phi_i_in_th = phi[i_in_th]
+            tracks_in_hypotheses = h2t_idx[i_in_th]
+            list_of_prods = np.array([np.prod(rho[tracks]) / rho[t] for tracks in tracks_in_hypotheses])
+            denominator = np.sum(phi_i_notin_th * list_of_prods)
+            sigma_test2[t] = numerator / denominator
+
+            print(f"Denominator for track {t+1}: {denominator}")
+            print(f"Sigma for track {t+1}: {sigma_test2[t]}")
+
         else:
             sigma_test2[t] = 0
 
     print(f"sigma true: {sigma_true}")
     print(f"sigma test: {sigma_test}")
+    print(f"sigma test2: {sigma_test2}")
+    

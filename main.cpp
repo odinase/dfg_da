@@ -62,6 +62,15 @@ int main(int argc, char **argv)
 
     std::cout << probs << "\n";
     
+    dfg_da::factor_graph::FactorGraph fg(dfg);
+    dfg_da::factor_graph::Marginals lbp_marginals = fg.lbp();
+    for (const auto& [k, m] : lbp_marginals) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (const auto p : m) {
+            std::cout << p << " ";
+        }
+        std::cout << std::endl;
+    }
 
     dfg.saveGraph("graph.txt");
 }

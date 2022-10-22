@@ -20,6 +20,7 @@ Author: Lars-Christian Ness Tokle (lars-christian.n.tokle@ntnu.no), last modifie
 """
 import numpy as np
 from scipy.special import logsumexp
+import time
 
 # controls some extra (potentially costly) checks done in asserts
 DEBUG: bool = True
@@ -176,6 +177,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     t2h_idx = np.array([
         [t+1 in hypo[0] for hypo in prior_hypotheses] for t in range(n)
     ])
+    t2noth_idx = ~t2h_idx
     h2t_idx = t2h_idx.T
 
     # Assume sigma(ai = N) = 1 for initialization
@@ -198,13 +200,23 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # However, the sum involves doing a product over all other tracks for the rho message, where the product changes
 
     # We do both sums for each target, such that we slice the necessary 
-    sum_numerator = np.array([
-        np.sum(phi[~t2h_idx[t]]*np.prod((np.broadcast_to(rho, (num_hypotheses, n))[h2t_idx[~t2h_idx[t], :]]).reshape(-1, 1), axis=1)) for t in range(n)
+    def compute_sigma(rho): return np.array([
+        np.sum( np.multiply( phi[t2noth_idx[t]], [np.prod(rho[h]) for h in h2t_idx[t2noth_idx[t]]]) ) / # Sum over hypos without track
+        np.sum( np.multiply( phi[t2h_idx[t]], [np.prod(rho[h]) / rho[t] for h in h2t_idx[t2h_idx[t]]]) ) # Sum over hypos with track
+        if (~t2h_idx[t]).any() else 0 # Make sure the sum in the numerator is nonempty
+        for t in range(n)
     ])
-    sum_denominator = np.array([
-        np.sum(phi[t2h_idx[t]]*np.prod(np.broadcast_to(rho, (num_hypotheses, n))[h2t_idx[t2h_idx[t]], :], axis=1))/rho[t] for t in range(n)
-    ])
-    sigma = sum_numerator / sum_denominator
+
+    # def compute_sigma(rho): return np.array([
+    #     np.sum( phi[t2noth_idx[t]] * np.array( [np.prod(rho[h]) for h in h2t_idx[t2noth_idx[t]]] ) ) / # Sum over hypos without track
+    #     np.sum( phi[t2h_idx[t]] * np.array( [np.prod(rho[h]) / rho[t] for h in h2t_idx[t2h_idx[t]]]) ) # Sum over hypos with track
+    #     if (~t2h_idx[t]).any() else 0
+    #     for t in range(n)
+    # ])
+
+
+    sigma = compute_sigma(rho)
+    sigma_compute_times = []
 
     while conv_val >= stop_crit and it < max_iter:
         for k in range(iter_per_check):
@@ -217,20 +229,17 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             # tracks x measurements
             a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + w_N*sigma[:,None])
 
-            if k == iter_per_check - 1:
-                prevb2a = np.copy(b2a_msg)
-
             b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
-            rho = w_0 + (w_nmd*b2a_msg).sum(axis=1)
+            rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
 
-            sum_numerator = np.array([
-                np.sum(phi[t2h_idx[t]]*np.prod(rho[h2t_idx[t]])) for t in range(n)
-            ])
-            sum_denominator = np.array([
-                np.sum(phi[t2h_idx[~t]]*np.prod(rho[h2t_idx[~t]])) for t in range(n)
-            ])
-            sigma = sum_numerator / sum_denominator
+            start = time.time_ns()            
+            sigma = compute_sigma(rho)
+            stop = time.time_ns()
+            sigma_compute_times.append(stop - start)
+
+            if k == iter_per_check - 1:
+                prevb2a = np.copy(b2a_msg)
 
             it = it + 1
 
@@ -245,23 +254,32 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             alpha = (np.log(1 + w_star * d) - log1p_w_star) / np.log(d)
             conv_val = alpha * (d + stop_crit)
 
-    prob = np.empty((n, m + 2))
-    w_times_msg = w_nmd * b2a_msg * sigma[:,None]
-    # s = 1 + w_times_msg.sum(axis=1, keepdims=True)
-    # # NOTE(odin): Change numerator to misdetection for misdetection and add extra row with one for for nonexistence?
-    # prob[:, 1:] = w_times_msg / s
-    # prob[:, [0]] = 1 / s
-    s = np.sum(w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + w_N).sum(axis=1, keepdims=True)
-    prob[:, 1:-1] = w_times_msg / s
-    prob[:, 0] = w_0 / s
-    prob[:, -1] = w_N / s
+    print(f"Converged in {it} iters")
+    sigma_compute_times = np.array(sigma_compute_times) * 1e-6 # Convert ns to ms
+    print(f"Mean sigma compute time {sigma_compute_times.mean()} ms +- {sigma_compute_times.std()}")
 
-    not_track_prob: np.ndarray = 1 / (1 + a2b_msg.sum(axis=0))
+    asso_prob = np.empty((n, m + 2))
+    # The incoming messages are either from misdetection, which we define as 1, or from measurements, indicating association, or from theta, indicating nonexistence
 
-    assert DEBUG or (np.all(np.isfinite(prob)) and np.all(np.isfinite(not_track_prob))),\
-        'not finite probs'
+    # Misdetection, only the prior factor in misdetection
+    asso_prob[:, [0]] = w_0
+    # Association, use the messages from b
+    asso_prob[:, 1:-1] = w_nmd * b2a_msg
+    # Nonexistence, use sigma
+    asso_prob[:, -1] = w_N * sigma
 
-    return prob, not_track_prob
+    asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
+
+    theta_probs = phi * np.array([np.prod(rho[h]) for h in h2t_idx])
+    theta_probs = theta_probs / theta_probs.sum()
+
+    meas_probs = np.empty((m, 1 + n))
+    meas_probs[:, 0] = 1
+    meas_probs[:, 1:] = a2b_msg.T
+
+    meas_probs = meas_probs / meas_probs.sum(axis=1, keepdims=True)
+
+    return asso_prob, theta_probs, meas_probs
 
 
 
