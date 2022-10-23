@@ -117,7 +117,6 @@ if __name__ == "__main__":
     conditioned_marginals = np.empty((n, m + 2))
 
     approx_normalizing_constant = np.empty(len(prior_hypotheses))
-    approx_log_normalizing_constant = np.empty(len(prior_hypotheses))
 
     hypotheses_all_tracks_detected = np.empty(len(prior_hypotheses), dtype=bool)
 
@@ -135,8 +134,15 @@ if __name__ == "__main__":
         conditioned_marginals[existing_tracks_idx] = existing_probs
         conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
-        # detected_tracks = np.any(np.isfinite(R_sub[:, 1:]), axis=0)
-        loglikelihoods = R_sub[:, 1:] #[:, detected_tracks]
+        gated_measurements = np.any(np.isfinite(R_sub[:, 1:]), axis=0)
+        loglikelihoods = R_sub[:, 1:] #[:, gated_measurements]
+        # # hypotheses_all_tracks_detected[k] = detected_tracks.all()
+
+        # mu = (1 - np.exp(R_sub[:, 0])).sum()
+        # print(f"mu: {np.exp(-mu)}")
+        # normalizing_constant = np.exp(-mu)*np.exp(loglikelihoods).sum(axis=0).prod()
+
+        # loglikelihoods = (R_sub[:, 1:] - R_sub[:, [0]]) #[:, detected_tracks]
         # hypotheses_all_tracks_detected[k] = detected_tracks.all()
 
         mu = (1 - np.exp(R_sub[:, 0])).sum()
@@ -166,8 +172,10 @@ if __name__ == "__main__":
     # print(approx_normalizing_constant)
     # print(approx_log_normalizing_constant)
 
-    exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
-    approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
+    print(approx_normalizing_constant)
+
+    # exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
+    # approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
 
     figz, ax_norm_const = plt.subplots()
     ax_norm_const.plot(exact_normalizing_constant, approx_normalizing_constant, 'x', label="Normalization constant for hypotheses")
