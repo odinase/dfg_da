@@ -71,12 +71,24 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     }
 
     // Column-major, so each column is a marginal distribution
-    Eigen::ArrayXXd asso_probs(2 + m, n);
-    asso_probs.row(0) = w_0;
+    Eigen::ArrayXXd asso_probs(2 + m, n), meas_probs(1 + n, m);
+    asso_probs.topRows<1>() = w_0;
     asso_probs.block(1, 0, m, n) = (w_nmd * nu).transpose();
-    asso_probs.row(m + 1) = w_N * sigma;
+    asso_probs.bottomRows<1>() = w_N * sigma;
 
     asso_probs.rowwise() /= asso_probs.colwise().sum();
+
+    meas_probs.topRows<1>() = 1;
+    meas_probs.block(1, 0, n, m) = mu;
+    meas_probs.rowwise() /= meas_probs.colwise().sum();
+    std::cout << meas_probs << "\n";
+
+    rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
+    Eigen::ArrayXd hypo_probs(num_hypotheses);
+    hypo_probs = phi * rho_prods;
+    hypo_probs /= hypo_probs.sum();
+    std::cout << hypo_probs << "\n";
+
 
     double sum = std::accumulate(sigma_compute.begin(), sigma_compute.end(), 0.0);
     double mean = sum / sigma_compute.size();
