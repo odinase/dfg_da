@@ -139,11 +139,9 @@ if __name__ == "__main__":
         loglikelihoods = R_sub[:, 1:][:, detected_tracks]
         hypotheses_all_tracks_detected[k] = detected_tracks.all()
 
-        normalizing_constant = np.exp(loglikelihoods).sum(axis=0).prod()
         mu = (1 - np.exp(R_sub[:, 0])).sum()
-        print(np.exp(-mu))
-
-        approx_log_normalizing_constant[k] = np.exp(-mu)*logsumexp(R_sub[: ,1:], axis=0).sum()
+        print(f"mu: {np.exp(-mu)}")
+        normalizing_constant = np.exp(-mu)*np.exp(loglikelihoods).sum(axis=0).prod()
 
         approx_normalizing_constant[k] = normalizing_constant
 
@@ -171,25 +169,36 @@ if __name__ == "__main__":
     exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
     approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
 
-    # plt.figure()
-    # plt.plot(exact_normalizing_constant[hypotheses_all_tracks_detected], approx_normalizing_constant[hypotheses_all_tracks_detected], 'go', label='All tracks detected')
-    # plt.plot(exact_normalizing_constant[~hypotheses_all_tracks_detected], approx_normalizing_constant[~hypotheses_all_tracks_detected], 'rx', label='Not all tracks detected')
-    # plt.legend()
+    figz, ax_norm_const = plt.subplots()
+    ax_norm_const.plot(exact_normalizing_constant, approx_normalizing_constant, 'x', label="Normalization constant for hypotheses")
+    xstart = exact_normalizing_constant.min()
+    xstop = exact_normalizing_constant.max()
+    x = np.linspace(xstart, xstop, exact_normalizing_constant.shape[0])
+    ax_norm_const.plot(x, x, '--', label="Ideal mapping")
+    ax_norm_const.set_title("Normalization constant")
+    ax_norm_const.set_ylabel("Approximated normalizing constant")
+    ax_norm_const.set_xlabel("Exact normalizing constant")
+    ax_norm_const.legend()
 
-    # fig, ax = plt.subplots()
+
+    fig, axes = plt.subplots(nrows=2)
     marginal_error_means = (marginal_total - lbp_marginal_total).mean(axis=1)
     marginal_error_stds = (marginal_total - lbp_marginal_total).std(axis=1)
 
-    marginal_error_means_2 = (marginal_total - lbp_probs_total).mean(axis=1)
-
-    # ax.plot(marginal_error_means)
-    # ax.plot(marginal_error_means + marginal_error_stds, 'b--')
-    # ax.plot(marginal_error_means - marginal_error_stds, 'b--')
-    # ax.set_title("LBPs conditioned on prior hypotheses")
+    axes[0].plot(marginal_error_means)
+    axes[0].plot(marginal_error_means + marginal_error_stds, 'b--')
+    axes[0].plot(marginal_error_means - marginal_error_stds, 'b--')
+    axes[0].set_title(f"LBPs conditioned on prior hypotheses. RMSE: {np.sqrt((marginal_error_means**2).mean())}, median: {np.median(marginal_error_means)}")
 
     asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=300)
 
-    # plt.figure()
-    # plt.spy(np.exp(R))
+    marginal_error_means = (marginal_total - asso_prob).mean(axis=1)
+    marginal_error_stds = (marginal_total - asso_prob).std(axis=1)
 
-    # plt.show()
+    axes[1].plot(marginal_error_means)
+    axes[1].plot(marginal_error_means + marginal_error_stds, 'b--')
+    axes[1].plot(marginal_error_means - marginal_error_stds, 'b--')
+    axes[1].set_title(f"LBP complete. RMSE: {np.sqrt((marginal_error_means**2).mean())}, median: {np.median(marginal_error_means)}")
+
+
+    plt.show()

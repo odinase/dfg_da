@@ -32,8 +32,9 @@ double approx_normalizing_constant(const Eigen::MatrixXd& R, const std::vector<s
     const size_t m = R.cols() - n;
 
     Eigen::Map<const Eigen::Array<size_t, Eigen::Dynamic, 1>> track_idxs(tracks.data(), tracks.size());
+    double mu = (1.0 - R.rightCols(n).diagonal().array()).exp().sum();
 
-    return R(track_idxs - 1, Eigen::seqN(0, m)).array().exp().colwise().sum().prod();
+    return exp(-mu) * R(track_idxs - 1, Eigen::seqN(0, m)).array().exp().colwise().sum().prod();
 }
 
 gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const hypothesis::Hypotheses &prior_hypotheses)
