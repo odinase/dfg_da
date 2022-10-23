@@ -43,15 +43,13 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     
     Eigen::ArrayXd rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
     Eigen::ArrayXd sigma_n = (t2h_not.rowwise() * (rho_prods * phi).transpose()).rowwise().sum();
-    Eigen::ArrayXd sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho;
+    Eigen::ArrayXd sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho + 1e-16; // Add small value to avoid divide by zero
     Eigen::ArrayXd sigma = sigma_n / sigma_d;
 
     size_t iter = 0;
     Eigen::ArrayXXd w_times_msg(n, m);
-    std::vector<double> loop_time;
 
     while (iter < max_num_iters) {
-        auto start = std::chrono::high_resolution_clock::now();
         w_times_msg = w_nmd * nu;
 
 
@@ -62,11 +60,8 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
 
         rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
         sigma_n = (t2h_not.rowwise() * (rho_prods * phi).transpose()).rowwise().sum();
-        sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho;
+        sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho  + 1e-16;
         sigma = sigma_n / sigma_d;
-
-        auto stop = std::chrono::high_resolution_clock::now();
-        loop_time.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count() * 1e-3);
 
         iter += 1;
     }
@@ -89,15 +84,6 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     hypo_probs = phi * rho_prods;
     hypo_probs /= hypo_probs.sum();
     std::cout << hypo_probs << "\n";
-
-
-    double sum = std::accumulate(loop_time.begin(), loop_time.end(), 0.0);
-    double mean = sum / loop_time.size();
-
-    double sq_sum = std::inner_product(loop_time.begin(), loop_time.end(), loop_time.begin(), 0.0);
-    double stdev = std::sqrt(sq_sum / loop_time.size() - mean * mean);
-
-    std::cout << "Mean: " << mean << " +- " << stdev << "\n";
 
     return asso_probs;
 }
