@@ -17,8 +17,8 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     const size_t n = reward_matrix.rows();
     const size_t m = reward_matrix.cols() - n;
 
-    auto w_nmd = reward_matrix.leftCols(m).array().exp();
-    auto w_0 = reward_matrix.rightCols(n).diagonal().array().exp();
+    Eigen::ArrayXXd w_nmd = reward_matrix.leftCols(m).array().exp();
+    Eigen::ArrayXd w_0 = reward_matrix.rightCols(n).diagonal().array().exp();
 
     double w_N = 1.0;
 
@@ -48,9 +48,10 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
 
     size_t iter = 0;
     Eigen::ArrayXXd w_times_msg(n, m);
-    std::vector<double> sigma_compute;
+    std::vector<double> loop_time;
 
     while (iter < max_num_iters) {
+        auto start = std::chrono::high_resolution_clock::now();
         w_times_msg = w_nmd * nu;
 
 
@@ -59,13 +60,13 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
 
         rho = w_0 + (w_nmd * nu).rowwise().sum();
 
-        auto start = std::chrono::high_resolution_clock::now();
         rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
         sigma_n = (t2h_not.rowwise() * (rho_prods * phi).transpose()).rowwise().sum();
         sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho;
         sigma = sigma_n / sigma_d;
+
         auto stop = std::chrono::high_resolution_clock::now();
-        sigma_compute.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count() * 1e-3);
+        loop_time.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count() * 1e-3);
 
         iter += 1;
     }
@@ -90,11 +91,11 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     std::cout << hypo_probs << "\n";
 
 
-    double sum = std::accumulate(sigma_compute.begin(), sigma_compute.end(), 0.0);
-    double mean = sum / sigma_compute.size();
+    double sum = std::accumulate(loop_time.begin(), loop_time.end(), 0.0);
+    double mean = sum / loop_time.size();
 
-    double sq_sum = std::inner_product(sigma_compute.begin(), sigma_compute.end(), sigma_compute.begin(), 0.0);
-    double stdev = std::sqrt(sq_sum / sigma_compute.size() - mean * mean);
+    double sq_sum = std::inner_product(loop_time.begin(), loop_time.end(), loop_time.begin(), 0.0);
+    double stdev = std::sqrt(sq_sum / loop_time.size() - mean * mean);
 
     std::cout << "Mean: " << mean << " +- " << stdev << "\n";
 

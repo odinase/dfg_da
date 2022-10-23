@@ -23,7 +23,7 @@
 
 #include "dfg_da/hypothesis.h"
 #include "dfg_da/factor_graph.h"
-
+#include "dfg_da/lbp.h"
 
 using gtsam::symbol_shorthand::A;
 

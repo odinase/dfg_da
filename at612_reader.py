@@ -171,24 +171,25 @@ if __name__ == "__main__":
     exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
     approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
 
-    plt.figure()
-    plt.plot(exact_normalizing_constant[hypotheses_all_tracks_detected], approx_normalizing_constant[hypotheses_all_tracks_detected], 'go', label='All tracks detected')
-    plt.plot(exact_normalizing_constant[~hypotheses_all_tracks_detected], approx_normalizing_constant[~hypotheses_all_tracks_detected], 'rx', label='Not all tracks detected')
-    plt.legend()
+    # plt.figure()
+    # plt.plot(exact_normalizing_constant[hypotheses_all_tracks_detected], approx_normalizing_constant[hypotheses_all_tracks_detected], 'go', label='All tracks detected')
+    # plt.plot(exact_normalizing_constant[~hypotheses_all_tracks_detected], approx_normalizing_constant[~hypotheses_all_tracks_detected], 'rx', label='Not all tracks detected')
+    # plt.legend()
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
     marginal_error_means = (marginal_total - lbp_marginal_total).mean(axis=1)
     marginal_error_stds = (marginal_total - lbp_marginal_total).std(axis=1)
 
     marginal_error_means_2 = (marginal_total - lbp_probs_total).mean(axis=1)
 
-    ax.plot(marginal_error_means)
-    ax.plot(marginal_error_means + marginal_error_stds, 'b--')
-    ax.plot(marginal_error_means - marginal_error_stds, 'b--')
-    ax.set_title("LBPs conditioned on prior hypotheses")
+    # ax.plot(marginal_error_means)
+    # ax.plot(marginal_error_means + marginal_error_stds, 'b--')
+    # ax.plot(marginal_error_means - marginal_error_stds, 'b--')
+    # ax.set_title("LBPs conditioned on prior hypotheses")
 
+    asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=300)
 
-    plt.figure()
-    plt.spy(np.exp(R))
+    # plt.figure()
+    # plt.spy(np.exp(R))
 
-    plt.show()
+    # plt.show()

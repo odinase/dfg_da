@@ -209,14 +209,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
         return a / b
 
-    # def compute_sigma(rho): return np.array([
-    #     np.sum( phi[t2noth_idx[t]] * np.array( [np.prod(rho[h]) for h in h2t_idx[t2noth_idx[t]]] ) ) / # Sum over hypos without track
-    #     np.sum( phi[t2h_idx[t]] * np.array( [np.prod(rho[h]) / rho[t] for h in h2t_idx[t2h_idx[t]]]) ) # Sum over hypos with track
-    #     if (~t2h_idx[t]).any() else 0
-    #     for t in range(n)
-    # ])
-
-
     sigma = compute_sigma(rho)
     sigma_compute_times = []
 
@@ -262,6 +254,8 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     asso_prob = np.empty((n, m + 2))
     # The incoming messages are either from misdetection, which we define as 1, or from measurements, indicating association, or from theta, indicating nonexistence
+
+    compute_sigma(rho)
 
     # Misdetection, only the prior factor in misdetection
     asso_prob[:, [0]] = w_0
