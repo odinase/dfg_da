@@ -135,9 +135,9 @@ if __name__ == "__main__":
         conditioned_marginals[existing_tracks_idx] = existing_probs
         conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
-        detected_tracks = np.any(np.isfinite(R_sub[:, 1:]), axis=0)
-        loglikelihoods = R_sub[:, 1:][:, detected_tracks]
-        hypotheses_all_tracks_detected[k] = detected_tracks.all()
+        # detected_tracks = np.any(np.isfinite(R_sub[:, 1:]), axis=0)
+        loglikelihoods = R_sub[:, 1:] #[:, detected_tracks]
+        # hypotheses_all_tracks_detected[k] = detected_tracks.all()
 
         mu = (1 - np.exp(R_sub[:, 0])).sum()
         print(f"mu: {np.exp(-mu)}")
@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
         lbp_marginal_total += conditioned_marginals * normalizing_constant * p
 
-    lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1).reshape(-1, 1)
+    lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
 
 
     lbp_probs_total_sub, notTrackProb = lbp_marginal(R_LC)

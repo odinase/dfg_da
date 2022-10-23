@@ -318,7 +318,7 @@ gtsam::DiscreteFactorGraph build_test_factor_graph() {
 
     // track-to-measurement factors
     // Define b variable
-    gtsam::DiscreteKey b(gtsam::symbol('b', 0), 4); // Cardinality 4 because three different tracks or misdetection??
+    gtsam::DiscreteKey b(gtsam::symbol('b', 1), 4); // Cardinality 4 because three different tracks or misdetection??
 
     // a1
     gtsam::DiscreteKeys phi_X_keys = {as[0], b};

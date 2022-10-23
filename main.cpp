@@ -76,5 +76,14 @@ int main(int argc, char **argv)
     Eigen::ArrayXXd asso_probs = dfg_da::lbp::lbp(R, h);
     std::cout << asso_probs.transpose() << "\n";
 
-    dfg.saveGraph("graph.txt");
+    gtsam::Ordering order(gtsam::KeyVector{{gtsam::Symbol('b', 1), gtsam::Symbol('a', 1), gtsam::Symbol('a', 2), gtsam::Symbol('a', 3), gtsam::Symbol('T', 0)}});
+
+    auto keys = dfg.keys();
+    for (const auto& k: keys) {
+        std::cout << gtsam::Symbol(k) << "\n";
+    }
+
+    auto dbn = dfg.eliminateMultifrontal();
+
+    dbn->saveGraph("graph.txt");
 }
