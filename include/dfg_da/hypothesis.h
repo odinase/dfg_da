@@ -94,7 +94,7 @@ void traverse_hypothesis_tree(
     const size_t M
 );
 
-Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypotheses, const Eigen::MatrixXd &reward_matrix);
+Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);
 
 std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t>& mo_hypothesis, const size_t num_tracks);
 

@@ -135,13 +135,13 @@ void traverse_hypothesis_tree(
     }
 }
 
-Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypotheses, const Eigen::MatrixXd &reward_matrix)
+Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses)
 {
 
     const size_t N = reward_matrix.rows();
     const size_t M = reward_matrix.cols() - N;
 
-    Eigen::MatrixXd association_marginals = Eigen::MatrixXd::Zero(N, M + 2); // misdetection + num measurements + nonexistence
+    Eigen::ArrayXXd association_marginals = Eigen::ArrayXXd::Zero(M + 2, N); // misdetection + num measurements + nonexistence
     const size_t nonexistence_idx = M + 1;
 
     // For each prior hypothesis, find all valid posterior hypotheses
@@ -161,13 +161,12 @@ Eigen::MatrixXd association_marginal_posteriors(const Hypotheses &prior_hypothes
             for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++)
             {
                 size_t idx = prior_hypothesis_iter->contains(t) ? to_cond_posterior_hypothesis[i] : nonexistence_idx;
-                association_marginals(i, idx) += exp(log_p + log_prior_prob);
+                association_marginals(idx, i) += exp(log_p + log_prior_prob);
             }
         }
     }
 
-    Eigen::VectorXd normalizing_constant = association_marginals.rowwise().sum();
-    association_marginals = association_marginals.array().colwise() / normalizing_constant.array(); 
+    association_marginals.rowwise() /= association_marginals.colwise().sum();
 
     return association_marginals;
 }
