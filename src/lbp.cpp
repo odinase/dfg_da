@@ -20,11 +20,9 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     Eigen::ArrayXXd w_nmd = reward_matrix.leftCols(m).array().exp();
     Eigen::ArrayXd w_0 = reward_matrix.rightCols(n).diagonal().array().exp();
 
-    double w_N = 1.0;
-
-    Eigen::ArrayXXd mu = w_nmd / (((-w_nmd).colwise() + (w_nmd.rowwise().sum() + w_0)) + w_N);
+    Eigen::ArrayXXd mu = w_nmd / (((-w_nmd).colwise() + (w_nmd.rowwise().sum() + w_0)) + 1.0);
     
-    Eigen::ArrayXXd nu = 1 / (1 + ((-mu).rowwise() + mu.colwise().sum()));
+    Eigen::ArrayXXd nu = 1.0 / (1.0 + ((-mu).rowwise() + mu.colwise().sum()));
 
     std::vector<double> prior_probs = prior_hypotheses.hypothesis_probabilites();
     const size_t num_hypotheses = prior_hypotheses.num_hypotheses();
@@ -53,8 +51,8 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
         w_times_msg = w_nmd * nu;
 
 
-        mu = w_nmd / (((-w_times_msg).colwise() + (w_times_msg.rowwise().sum() + w_0 + w_N*sigma)));
-        nu = 1 / (1 + ((-mu).rowwise() + mu.colwise().sum()));
+        mu = w_nmd / (((-w_times_msg).colwise() + (w_times_msg.rowwise().sum() + w_0 + sigma)));
+        nu = 1.0 / (1.0 + ((-mu).rowwise() + mu.colwise().sum()));
 
         rho = w_0 + (w_nmd * nu).rowwise().sum();
 
@@ -71,7 +69,7 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     Eigen::ArrayXXd asso_probs(2 + m, n), meas_probs(1 + n, m);
     asso_probs.topRows<1>() = w_0;
     asso_probs.block(1, 0, m, n) = (w_nmd * nu).transpose();
-    asso_probs.bottomRows<1>() = w_N * sigma;
+    asso_probs.bottomRows<1>() = sigma;
 
     asso_probs.rowwise() /= asso_probs.colwise().sum();
 

@@ -118,7 +118,7 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     return prob, not_track_prob
 
 
-def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -158,7 +158,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     w_0 = np.exp(llr[:, [0]])
     print(w_nmd)
     print(w_0)
-    w_N = 1 #np.ones((w_nmd.shape[0], 1))
     # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
     # w_nmd = np.hstack((w_nmd, w_N))
 
@@ -186,9 +185,9 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # Assume sigma(ai = N) = 1 for initialization
 
     # tracks x measurements
-    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + w_N)
+    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + 1.0)
     # The one in the numerator is due to no ai = 0, so no messages are compatible and the product is just 1
-    b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+    b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
     phi = np.array([hypo[1] for hypo in prior_hypotheses])
 
@@ -221,9 +220,9 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             w_times_msg = w_nmd * b2a_msg
 
             # tracks x measurements
-            a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + w_N*sigma[:,None])
+            a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
 
-            b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+            b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
             rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
 
@@ -255,7 +254,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # Association, use the messages from b
     asso_prob[:, 1:-1] = w_nmd * b2a_msg
     # Nonexistence, use sigma
-    asso_prob[:, -1] = w_N * sigma
+    asso_prob[:, -1] = sigma
 
     asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
 
