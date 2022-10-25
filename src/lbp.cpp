@@ -22,7 +22,7 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
 
     double w_N = 1.0;
 
-    Eigen::ArrayXXd mu = w_nmd / (w_0 + ((-w_nmd).colwise() + w_nmd.rowwise().sum()) + w_N);
+    Eigen::ArrayXXd mu = w_nmd / (((-w_nmd).colwise() + (w_nmd.rowwise().sum() + w_0)) + w_N);
     
     Eigen::ArrayXXd nu = 1 / (1 + ((-mu).rowwise() + mu.colwise().sum()));
 
@@ -53,7 +53,7 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
         w_times_msg = w_nmd * nu;
 
 
-        mu = w_nmd / (w_0 + ((-w_times_msg).colwise() + w_times_msg.rowwise().sum()) + w_N*sigma);
+        mu = w_nmd / (((-w_times_msg).colwise() + (w_times_msg.rowwise().sum() + w_0 + w_N*sigma)));
         nu = 1 / (1 + ((-mu).rowwise() + mu.colwise().sum()));
 
         rho = w_0 + (w_nmd * nu).rowwise().sum();
@@ -62,6 +62,7 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
         sigma_n = (t2h_not.rowwise() * (rho_prods * phi).transpose()).rowwise().sum();
         sigma_d = (t2h.rowwise()*(rho_prods*phi).transpose()).rowwise().sum() / rho  + 1e-16;
         sigma = sigma_n / sigma_d;
+
 
         iter += 1;
     }
@@ -74,16 +75,16 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
 
     asso_probs.rowwise() /= asso_probs.colwise().sum();
 
-    meas_probs.topRows<1>() = 1;
-    meas_probs.block(1, 0, n, m) = mu;
-    meas_probs.rowwise() /= meas_probs.colwise().sum();
-    std::cout << meas_probs << "\n";
+    // meas_probs.topRows<1>() = 1;
+    // meas_probs.block(1, 0, n, m) = mu;
+    // meas_probs.rowwise() /= meas_probs.colwise().sum();
+    // std::cout << meas_probs << "\n";
 
-    rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
-    Eigen::ArrayXd hypo_probs(num_hypotheses);
-    hypo_probs = phi * rho_prods;
-    hypo_probs /= hypo_probs.sum();
-    std::cout << hypo_probs << "\n";
+    // rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
+    // Eigen::ArrayXd hypo_probs(num_hypotheses);
+    // hypo_probs = phi * rho_prods;
+    // hypo_probs /= hypo_probs.sum();
+    // std::cout << hypo_probs << "\n";
 
     return asso_probs;
 }
