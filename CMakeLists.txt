@@ -107,7 +107,7 @@ add_executable(at612_reader
 
 target_link_libraries(at612_reader
     gtsam
-    factor_graph
+    ${PROJECT_NAME}
     Eigen3::Eigen
     matioCpp::matioCpp
 )
