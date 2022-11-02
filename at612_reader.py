@@ -9,17 +9,25 @@ DATA_PATH = "./data/at612"
 MAT_FILE = "priorLikelihood612.mat"
 
 
-def ws_to_prior_hypotheses(ws):
+def ws_to_prior_hypotheses(ws, num_clusters=None, use_largest_clusters=True):
     hypos = ws["hypos"].ravel()
     hyposCard = ws["hyposCard"].ravel()
 
     probLogHypos = ws["probLogHypos"].ravel()
 
-    # TODO(odin): Generalize later to use all clusters. For now, only use largest cluster
+    clustersCard = ws["clustersCard"].ravel().astype(int)
 
-    clustersCard = ws["clustersCard"].ravel()
-    # Ugly hardcoding, we know that the largest cluster is the first at 149 hypotheses
-    hypotheses_to_consider = clustersCard[0]
+    if num_clusters is None:
+        num_clusters = len(clustersCard)
+
+    # If use largest clusters, we need to sort the clusters
+    clusters_to_use = None
+    if use_largest_clusters:
+        clusters_to_use = np.argsort(-clustersCard)[:num_clusters]
+    else:
+        clusters_to_use = np.arange(num_clusters)
+
+    hypotheses_to_consider = clustersCard[clusters_to_use]
 
     hyposCard = hyposCard[:hypotheses_to_consider]
 
@@ -52,38 +60,20 @@ def tot_existence_prob(prior_hypotheses, num_tracks):
     existence_probs[:, 0] = 1.0 - existence_probs[:, 1]
 
     return existence_probs
-        
 
 
-if __name__ == "__main__":
-    ws = loadmat(DATA_PATH + "/" + MAT_FILE)
-    R_wrapping = ws["gainMatPostC"] # This R has a strange shape...
-
-    track_file = ws["trackFile"]
-    measurements = ws["measurements"]
-    
-    n = track_file.shape[1]
-    m = measurements.shape[1]
-
-    R = R_wrapping[:n, :]
-
-    R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
-
-    prior_hypotheses = ws_to_prior_hypotheses(ws)
-
-    existing_tracks = np.unique([t for tracks, p in prior_hypotheses for t in tracks])
-
-    marginal_total = np.zeros((n, m + 1 + 1))
-
+def compute_exact_marginals_by_tot_prob(R_LC, prior_hypotheses):
+    n, mp1 = R_LC.shape
+    m = mp1 - 1
     all_tracks_idx = np.arange(n)
 
+    normalizing_constants = np.empty(len(prior_hypotheses))
+    marginal_total = np.zeros((n, m + 1 + 1))
     conditioned_marginals = np.empty((n, m + 2))
 
-    exact_normalizing_constant = np.empty(len(prior_hypotheses))
-
-    for k, (tracks, p) in enumerate(prior_hypotheses):
+    for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
-        JPDAprobs, notTrackProb, loglikelihood = exact_marginal(R_sub, False)
+        JPDAprobs, _, loglikelihood = exact_marginal(R_sub, False)
 
         # We need to concatenate the JPDAprobs with all tracks and existence probs
         existing_tracks_idx = tracks - 1
@@ -97,23 +87,29 @@ if __name__ == "__main__":
 
         normalizing_constant = np.exp(loglikelihood)
 
-        exact_normalizing_constant[k] = normalizing_constant
+        normalizing_constants[k] = normalizing_constant
 
-        marginal_total += conditioned_marginals*np.exp(loglikelihood)*p
+        marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
     marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
 
+    return marginal_total, normalizing_constants
+
+
+def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses):
+    n, mp1 = R_LC.shape
+    m = mp1 - 1
+    all_tracks_idx = np.arange(n)
+    
     lbp_marginal_total = np.zeros((n, m + 1 + 1))
 
     conditioned_marginals = np.empty((n, m + 2))
 
-    approx_normalizing_constant = np.empty(len(prior_hypotheses))
+    normalizing_constants = np.empty(len(prior_hypotheses))
 
-    hypotheses_all_tracks_detected = np.empty(len(prior_hypotheses), dtype=bool)
-
-    for k, (tracks, p) in enumerate(prior_hypotheses):
+    for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
-        lbp_probs, notTrackProb = lbp_marginal(R_sub)
+        lbp_probs, _ = lbp_marginal(R_sub)
 
         # We need to concatenate the JPDAprobs with all tracks and existence probs
         existing_tracks_idx = tracks - 1
@@ -132,52 +128,33 @@ if __name__ == "__main__":
         mu = (1 - np.exp(R_sub[:, 0])).sum()
         normalizing_constant = np.exp(-mu)*np.exp(loglikelihoods).sum(axis=0).prod()
 
-        approx_normalizing_constant[k] = normalizing_constant
+        normalizing_constants[k] = normalizing_constant
 
-        lbp_marginal_total += conditioned_marginals * normalizing_constant * p
+        lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
 
-
-    lbp_probs_total_sub, notTrackProb = lbp_marginal(R_LC)
-
-    existence_probs = tot_existence_prob(prior_hypotheses, n)
-
-    lbp_probs_total = np.empty((lbp_probs_total_sub.shape[0], lbp_probs_total_sub.shape[1] + 1))
-
-    lbp_probs_total[:, [-1, 0]] = lbp_probs_total_sub[:, [0]]*existence_probs
-    lbp_probs_total[:, 1:-1] = lbp_probs_total_sub[:, 1:]
-
-    figz, ax_norm_const = plt.subplots()
-    ax_norm_const.plot(exact_normalizing_constant, approx_normalizing_constant, 'x', label="Normalization constant for hypotheses")
-    xstart = exact_normalizing_constant.min()
-    xstop = exact_normalizing_constant.max()
-    x = np.linspace(xstart, xstop, exact_normalizing_constant.shape[0])
-    ax_norm_const.plot(x, x, '--', label="Ideal mapping")
-    ax_norm_const.set_title("Normalization constant")
-    ax_norm_const.set_ylabel("Approximated normalizing constant")
-    ax_norm_const.set_xlabel("Exact normalizing constant")
-    ax_norm_const.legend()
+    return lbp_marginal_total, normalizing_constants
 
 
-    fig, axes = plt.subplots(nrows=2)
-    marginal_error_means = (marginal_total - lbp_marginal_total).mean(axis=1)
-    marginal_error_stds = (marginal_total - lbp_marginal_total).std(axis=1)
+if __name__ == "__main__":
+    ws = loadmat(DATA_PATH + "/" + MAT_FILE)
+    R_wrapping = ws["gainMatPostC"] # This R has a strange shape...
 
-    axes[0].plot(marginal_error_means)
-    axes[0].plot(marginal_error_means + marginal_error_stds, 'b--')
-    axes[0].plot(marginal_error_means - marginal_error_stds, 'b--')
-    axes[0].set_title(f"LBPs conditioned on prior hypotheses. RMSE: {np.sqrt((marginal_error_means**2).mean())}, median: {np.median(marginal_error_means)}")
+    track_file = ws["trackFile"]
+    measurements = ws["measurements"]
+    
+    n = track_file.shape[1]
+    m = measurements.shape[1]
 
-    asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=300)
+    R = R_wrapping[:n, :]
 
-    marginal_error_means = (marginal_total - asso_prob).mean(axis=1)
-    marginal_error_stds = (marginal_total - asso_prob).std(axis=1)
+    R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
 
-    axes[1].plot(marginal_error_means)
-    axes[1].plot(marginal_error_means + marginal_error_stds, 'b--')
-    axes[1].plot(marginal_error_means - marginal_error_stds, 'b--')
-    axes[1].set_title(f"LBP complete. RMSE: {np.sqrt((marginal_error_means**2).mean())}, median: {np.median(marginal_error_means)}")
+    num_clusters = 1
+
+    prior_hypotheses = ws_to_prior_hypotheses(ws)
 
 
-    plt.show()
+
+    # asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=300)
