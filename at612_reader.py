@@ -23,7 +23,6 @@ def ws_to_prior_hypotheses(ws):
 
     hyposCard = hyposCard[:hypotheses_to_consider]
 
-
     # Compute normalizing constant for cluster hypothesis probabilities
     probLogHypos = probLogHypos[:hypotheses_to_consider]
     hypo_probs = np.exp(probLogHypos - logsumexp(probLogHypos))
@@ -68,19 +67,11 @@ if __name__ == "__main__":
 
     R = R_wrapping[:n, :]
 
-    print(R.shape)
-
     R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
 
-    print(R_LC.shape)
-
     prior_hypotheses = ws_to_prior_hypotheses(ws)
-    print(len(prior_hypotheses))
 
     existing_tracks = np.unique([t for tracks, p in prior_hypotheses for t in tracks])
-
-    print(existing_tracks)
-    print(existing_tracks.shape)
 
     marginal_total = np.zeros((n, m + 1 + 1))
 
@@ -134,19 +125,11 @@ if __name__ == "__main__":
         conditioned_marginals[existing_tracks_idx] = existing_probs
         conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
-        gated_measurements = np.any(np.isfinite(R_sub[:, 1:]), axis=0)
-        loglikelihoods = R_sub[:, 1:] #[:, gated_measurements]
-        # # hypotheses_all_tracks_detected[k] = detected_tracks.all()
-
-        # mu = (1 - np.exp(R_sub[:, 0])).sum()
-        # print(f"mu: {np.exp(-mu)}")
-        # normalizing_constant = np.exp(-mu)*np.exp(loglikelihoods).sum(axis=0).prod()
-
-        # loglikelihoods = (R_sub[:, 1:] - R_sub[:, [0]]) #[:, detected_tracks]
-        # hypotheses_all_tracks_detected[k] = detected_tracks.all()
-
+        loglikelihoods = R_sub[:, 1:]
+        gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
+        loglikelihoods = loglikelihoods[:, gated_measurements]
+        
         mu = (1 - np.exp(R_sub[:, 0])).sum()
-        print(f"mu: {np.exp(-mu)}")
         normalizing_constant = np.exp(-mu)*np.exp(loglikelihoods).sum(axis=0).prod()
 
         approx_normalizing_constant[k] = normalizing_constant
@@ -164,18 +147,6 @@ if __name__ == "__main__":
 
     lbp_probs_total[:, [-1, 0]] = lbp_probs_total_sub[:, [0]]*existence_probs
     lbp_probs_total[:, 1:-1] = lbp_probs_total_sub[:, 1:]
-
-    # print(marginal_total)
-    # print(lbp_marginal_total)
-
-    # print(exact_normalizing_constant)
-    # print(approx_normalizing_constant)
-    # print(approx_log_normalizing_constant)
-
-    print(approx_normalizing_constant)
-
-    # exact_normalizing_constant = exact_normalizing_constant / exact_normalizing_constant.sum()
-    # approx_normalizing_constant = approx_normalizing_constant / approx_normalizing_constant.sum()
 
     figz, ax_norm_const = plt.subplots()
     ax_norm_const.plot(exact_normalizing_constant, approx_normalizing_constant, 'x', label="Normalization constant for hypotheses")

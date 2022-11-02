@@ -20,7 +20,6 @@ Author: Lars-Christian Ness Tokle (lars-christian.n.tokle@ntnu.no), last modifie
 """
 import numpy as np
 from scipy.special import logsumexp
-import time
 
 # controls some extra (potentially costly) checks done in asserts
 DEBUG: bool = True
@@ -124,7 +123,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     Parameters
     ----------
     llr : np.ndarray[(N, M + 1)]
-        log likelihood ratios. llr[:, 0] is the misseded detection.
+        log likelihood ratios. llr[:, 0] is the missed detection.
     max_prob_diff_from_conv : float, optional
         when to deem the iterations as converged, by default 1e-3
     max_iter : int, optional
@@ -156,8 +155,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # llr = llr - llr[:, [0]]
     w_nmd = np.exp(llr[:, 1:])
     w_0 = np.exp(llr[:, [0]])
-    print(w_nmd)
-    print(w_0)
     # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
     # w_nmd = np.hstack((w_nmd, w_N))
 
@@ -184,7 +181,8 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     # Assume sigma(ai = N) = 1 for initialization
 
-    # tracks x measurements
+    # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende. 
+
     a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + 1.0)
     # The one in the numerator is due to no ai = 0, so no messages are compatible and the product is just 1
     b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
@@ -243,8 +241,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
         else:
             alpha = (np.log(1 + w_star * d) - log1p_w_star) / np.log(d)
             conv_val = alpha * (d + stop_crit)
-
-    print(f"Converged in {it} iters")
 
     asso_prob = np.empty((n, m + 2))
     # The incoming messages are either from misdetection, which we define as 1, or from measurements, indicating association, or from theta, indicating nonexistence
