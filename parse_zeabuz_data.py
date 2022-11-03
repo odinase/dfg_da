@@ -2,6 +2,7 @@ import yaml
 import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 
 def dict2numpy(d):
@@ -29,7 +30,7 @@ if __name__ == "__main__":
 
     # compute max error and 1-norm
 
-    for file in log_files:
+    for file in tqdm(log_files):
         with open(file) as f:
             data = yaml.full_load(f)
 
