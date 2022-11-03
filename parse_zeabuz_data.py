@@ -43,9 +43,12 @@ if __name__ == "__main__":
         lbp_abs_errors = np.abs(lbp_marginals - exact_marginals)
         append_statistics(max_errors_lbp, abs_errors_lbp, lbp_abs_errors)
 
+    suptitle = f"Based on {num_files} association marginals"
+
     fig_lbp, ax_lbp = plt.subplots(nrows=2)
+    fig_lbp.suptitle(suptitle)
     ax_lbp[0].hist(max_errors_lbp)
-    ax_lbp[0].set_title("Max errors LBP")
+    ax_lbp[0].set_title(f"Max errors LBP: average {np.mean(max_errors_lbp)}")
     ax_lbp[1].hist(abs_errors_lbp)
     ax_lbp[1].set_title("Abs errors LBP")
     # ax_lbp[0].set_xscale('log')
@@ -54,8 +57,9 @@ if __name__ == "__main__":
     ax_lbp[1].loglog()
     
     fig_ipda, ax_ipda = plt.subplots(nrows=2)
+    fig_ipda.suptitle(suptitle)
     ax_ipda[0].hist(max_errors_ipda)
-    ax_ipda[0].set_title("Max errors IPDA")
+    ax_ipda[0].set_title(f"Max errors IPDA: average {np.mean(max_errors_ipda)}")
     ax_ipda[1].hist(abs_errors_ipda)
     ax_ipda[1].set_title("Abs errors IPDA")
     # ax_ipda[0].set_xscale('log')
