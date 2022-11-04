@@ -9,47 +9,70 @@ DATA_PATH = "./data/at612"
 MAT_FILE = "priorLikelihood612.mat"
 
 
+
 def ws_to_prior_hypotheses(ws, num_clusters=None, use_largest_clusters=True):
-    hypos = ws["hypos"].ravel()
-    hyposCard = ws["hyposCard"].ravel()
-
+    hypos = ws["hypos"].ravel().astype(int)
+    hyposCard = ws["hyposCard"].ravel().astype(int)
     probLogHypos = ws["probLogHypos"].ravel()
-
     clustersCard = ws["clustersCard"].ravel().astype(int)
+    clusters = ws["clusters"].ravel().astype(int) - 1 # We negate one here to make hypotheses 0-indexed, which is more convenient. Tracks we keep 1-indexed
+    assert (clusters >= 0).all()
 
     if num_clusters is None:
         num_clusters = len(clustersCard)
 
-    # If use largest clusters, we need to sort the clusters
+    # Let's actually first figure out the clusters we are working with and find the probabilities
+
+    hypo_probs_per_cluster = []
+    hypotheses_per_cluster = []
+
+    i = 0
+    for clusterC in clustersCard:
+        # These hypotheses are in the cluster
+        stop = i + clusterC
+        hypotheses_in_cluster = clusters[i:stop]
+
+        # hyposCard is as long as probLogCard, so pick out the elements that correspond to the "indices" in hypothesis_in_clutter
+        probLogHyposInCluster = probLogHypos[hypotheses_in_cluster]
+
+        hypo_probs = np.exp(probLogHyposInCluster - logsumexp(probLogHyposInCluster))
+
+        hypo_probs_per_cluster.append(hypo_probs)
+        hypotheses_per_cluster.append(hypotheses_in_cluster)
+
+        i += clusterC
+
+    # Before we start looping over clusters, let's do this the simple way of making a list of lists, containing tracks contained in each hypothesis, then we sort it afterwards
+    tracks_in_hypotheses = [None] * hyposCard.shape[0]
+    for hypos_in_cluster in hypotheses_per_cluster:
+        for h in hypos_in_cluster:
+            start_idx = h
+            stop_idx = h + hyposCard[h]
+            tracks_in_hypothesis = hypos[start_idx:stop_idx]
+            tracks_in_hypotheses[h] = tracks_in_hypothesis
+
+    assert all(h is not None for h in tracks_in_hypotheses)
+
+    # We now have all we need to return proper prior hypotheses
+
+    # Compute the clusters we consider
     clusters_to_use = None
     if use_largest_clusters:
-        clusters_to_use = np.argsort(-clustersCard)[:num_clusters]
+        clusters_to_use = np.argsort(clustersCard)[::-1][:num_clusters]
     else:
         clusters_to_use = np.arange(num_clusters)
 
-    hypotheses_to_consider = clustersCard[clusters_to_use]
+    prior_hypotheses_per_cluster = []
+    for c in clusters_to_use:
+        prior_hypotheses_in_cluster = []
+        hypotheses_in_cluster = hypotheses_per_cluster[c]
+        hypo_probs_in_cluster = hypo_probs_per_cluster[c]
+        for h, p in zip(hypotheses_in_cluster, hypo_probs_in_cluster):
+            prior_hypotheses_in_cluster.append((h, p))
+        
+        prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
 
-    hyposCard = hyposCard[:hypotheses_to_consider]
-
-    # Compute normalizing constant for cluster hypothesis probabilities
-    probLogHypos = probLogHypos[:hypotheses_to_consider]
-    hypo_probs = np.exp(probLogHypos - logsumexp(probLogHypos))
-
-    assert abs(hypo_probs.sum() - 1) < 1e-6
-
-    prior_hypotheses = []
-
-    start = 0
-
-    for hc, prob in zip(hyposCard, hypo_probs):
-        stop = start + hc
-        tracks = hypos[start:stop]
-
-        prior_hypotheses.append((tracks, prob))
-
-        start = stop
-
-    return prior_hypotheses
+    return prior_hypotheses_per_cluster        
 
 
 def tot_existence_prob(prior_hypotheses, num_tracks):
