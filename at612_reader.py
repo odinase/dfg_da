@@ -69,17 +69,11 @@ def ws_to_prior_hypotheses(ws, num_clusters=None, use_largest_clusters=True):
         prior_hypotheses_in_cluster = [(tracks_in_hypotheses[h], p) for h, p in zip(hypotheses_in_cluster, hypo_probs_in_cluster)]
         prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
 
-    return prior_hypotheses_per_cluster
+    return prior_hypotheses_per_cluster, clusters_to_use
 
 
-def tot_existence_prob(prior_hypotheses, num_tracks):
-    existence_probs = np.zeros((num_tracks, 2))
-    for tracks, prob in prior_hypotheses:
-        existence_probs[tracks - 1, 1] += prob
-
-    existence_probs[:, 0] = 1.0 - existence_probs[:, 1]
-
-    return existence_probs
+def valid_prob_dist_range(prob_dist):
+    return ((0 <= prob_dist) & (prob_dist <= 1.0)).all()
 
 
 def compute_exact_marginals_by_tot_prob(R_LC, prior_hypotheses):
@@ -113,10 +107,13 @@ def compute_exact_marginals_by_tot_prob(R_LC, prior_hypotheses):
 
     marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
 
+    assert (np.abs(marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
+    assert ((0 <= marginal_total) & (marginal_total <= 1.0)).all()
+
     return marginal_total, normalizing_constants
 
 
-def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses):
+def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses, self_normalizing_constants=None):
     n, mp1 = R_LC.shape
     m = mp1 - 1
     all_tracks_idx = np.arange(n)
@@ -126,6 +123,9 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses):
     conditioned_marginals = np.empty((n, m + 2))
 
     normalizing_constants = np.empty(len(prior_hypotheses))
+
+    if self_normalizing_constants is not None:
+        assert len(self_normalizing_constants) == len(prior_hypotheses)
 
     for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
@@ -142,11 +142,14 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses):
         conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
         loglikelihoods = R_sub[:, 1:]
-        gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
-        loglikelihoods = loglikelihoods[:, gated_measurements]
+        # gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
+        # loglikelihoods = loglikelihoods[:, gated_measurements]
         
-        mu = (1 - np.exp(R_sub[:, 0])).sum()
-        normalizing_constant = np.exp(-mu)*logsumexp(loglikelihoods, axis=0).prod()
+        mu = 0 # (1 - np.exp(R_sub[:, 0])).sum()
+        if self_normalizing_constants is None:
+            normalizing_constant = np.exp(-mu) * (np.exp(loglikelihoods).sum(0) + 1).prod()
+        else:
+            normalizing_constant = self_normalizing_constants[k]
 
         normalizing_constants[k] = normalizing_constant
 
@@ -154,7 +157,97 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses):
 
     lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
 
+    assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
+    assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
+
     return lbp_marginal_total, normalizing_constants
+
+
+def compute_marginals(prior_hypotheses, R_LC):
+    marginals_exact, normalization_constants = compute_exact_marginals_by_tot_prob(R_LC, prior_hypotheses)
+    marginals_lbp, approx_normalization_constants = compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses)
+    asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=250, max_iter=1000)
+
+    return (marginals_exact, normalization_constants), (marginals_lbp, approx_normalization_constants), (asso_prob, theta_probs, meas_probs)
+
+
+def marginal_statistics(exact_marginals, lbp_marginals):
+    abs_error_marginals = np.abs(exact_marginals - lbp_marginals)
+    assert ((0 <= abs_error_marginals) & (abs_error_marginals <= 1.0)).all()
+    max_errors = abs_error_marginals.max(axis=1)
+    abs_errors = abs_error_marginals.ravel()
+    misdetection_errors = abs_error_marginals[:, 0]
+    detection_errors = abs_error_marginals[:, 1:-1].ravel()
+    nonexistence_errors  = abs_error_marginals[:, -1]
+
+    return max_errors, abs_errors, misdetection_errors, detection_errors, nonexistence_errors
+
+
+def plot_errors(axes, max_errors, abs_errors, misdetection_errors, detection_errors, nonexistence_errors, title_suffix=None):
+    assert len(axes) == 5
+
+    max_errors = np.hstack(max_errors)
+    abs_errors = np.hstack(abs_errors)
+    misdetection_errors = np.hstack(misdetection_errors)
+    detection_errors = np.hstack(detection_errors)
+    nonexistence_errors = np.hstack(nonexistence_errors)
+
+    errors = [max_errors,
+        abs_errors,
+        misdetection_errors,
+        detection_errors,
+        nonexistence_errors]
+
+    titles = [
+        "max_errors",
+        "abs_errors",
+        "misdetection_errors",
+        "detection_errors",
+        "nonexistence_errors"
+    ]
+    if title_suffix is not None:
+        titles = [title + title_suffix for title in titles]
+
+    for ax, error, title in zip(axes, errors, titles):
+        avg = error.mean()
+        ax.set_title(f"{title}. avg: {avg:.5e}")
+        ax.hist(error)
+        ax.loglog()
+
+def plot_survival_function(axes, max_errors, abs_errors, misdetection_errors, detection_errors, nonexistence_errors, label="_"):
+    assert len(axes) == 5
+
+    max_errors = np.sort(np.hstack(max_errors))
+    abs_errors = np.sort(np.hstack(abs_errors))
+    misdetection_errors = np.sort(np.hstack(misdetection_errors))
+    detection_errors = np.sort(np.hstack(detection_errors))
+    nonexistence_errors = np.sort(np.hstack(nonexistence_errors))
+
+    errors = [max_errors,
+        abs_errors,
+        misdetection_errors,
+        detection_errors,
+        nonexistence_errors]
+
+    titles = [
+        "max_errors",
+        "abs_errors",
+        "misdetection_errors",
+        "detection_errors",
+        "nonexistence_errors"
+    ]
+
+    for ax, error, title in zip(axes, errors, titles):
+        ax.set_title(title)
+        steps = np.linspace(1.0, 0.0, len(error))
+        ax.step(error, steps, label=label)
+        # ax.set_yscale('symlog')
+        ax.set_xscale('symlog', linthresh=1e-15)
+        # ax.semilogx()
+        ax.semilogy()
+        # ax.loglog()
+        if label != "_":
+            ax.legend()
 
 
 if __name__ == "__main__":
@@ -170,17 +263,87 @@ if __name__ == "__main__":
     R = R_wrapping[:n, :]
 
     R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
+    prior_hypotheses_per_cluster, clusters = ws_to_prior_hypotheses(ws)
 
-    prior_hypotheses_per_cluster = ws_to_prior_hypotheses(ws)
+    max_errors_lbp_tot = []
+    abs_errors_lbp_tot = []
+    misdetection_errors_lbp_tot = []
+    detection_errors_lbp_tot = []
+    nonexistence_errors_lbp_tot = []
 
-    marginals_per_cluster_lbp_full = []
-    marginals_per_cluster_lbp_per_hypo = []
-    marginals_per_cluster_exact = []    
+    max_errors_lbp_full = []
+    abs_errors_lbp_full = []
+    misdetection_errors_lbp_full = []
+    detection_errors_lbp_full = []
+    nonexistence_errors_lbp_full = []
 
-    for hypos_in_cluster in prior_hypotheses_per_cluster:
-        pass
+    normalizing_constants_exacts = []
+    approx_normalizing_constantss = []
+
+    # Compute association marginals for each cluster
+    for hypos_in_cluster, cluster in zip(prior_hypotheses_per_cluster, clusters):
+        (marginals_exact, normalizing_constants_exact), \
+        (lbp_marginals_tot, approx_normalizing_constants), \
+        (lbp_marginals_full, _, _) = compute_marginals(hypos_in_cluster, R_LC)
+
+        normalizing_constants_exacts.append(normalizing_constants_exact)
+        approx_normalizing_constantss.append(approx_normalizing_constants)
+
+        max_errors_lbp_tot_in_cluster, \
+        abs_errors_lbp_tot_in_cluster, \
+        misdetection_errors_lbp_tot_in_cluster, \
+        detection_errors_lbp_tot_in_cluster, \
+        nonexistence_errors_lbp_tot_in_cluster = marginal_statistics(marginals_exact, lbp_marginals_tot)
+
+        max_errors_lbp_tot.append(max_errors_lbp_tot_in_cluster)
+        abs_errors_lbp_tot.append(abs_errors_lbp_tot_in_cluster)
+        misdetection_errors_lbp_tot.append(misdetection_errors_lbp_tot_in_cluster)
+        detection_errors_lbp_tot.append(detection_errors_lbp_tot_in_cluster)
+        nonexistence_errors_lbp_tot.append(nonexistence_errors_lbp_tot_in_cluster)
+
+        max_errors_lbp_full_in_cluster, \
+        abs_errors_lbp_full_in_cluster, \
+        misdetection_errors_lbp_full_in_cluster, \
+        detection_errors_lbp_full_in_cluster, \
+        nonexistence_errors_lbp_full_in_cluster = marginal_statistics(marginals_exact, lbp_marginals_full)
+
+        max_errors_lbp_full.append(max_errors_lbp_full_in_cluster)
+        abs_errors_lbp_full.append(abs_errors_lbp_full_in_cluster)
+        misdetection_errors_lbp_full.append(misdetection_errors_lbp_full_in_cluster)
+        detection_errors_lbp_full.append(detection_errors_lbp_full_in_cluster)
+        nonexistence_errors_lbp_full.append(nonexistence_errors_lbp_full_in_cluster)
 
 
+    fig_hist, axes_hist = plt.subplots(ncols=2, nrows=5, sharex=True, sharey=True)
 
+    fig_hist.suptitle("Histograms")
 
-    # asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=300)
+    plot_errors(axes_hist[:,0], max_errors_lbp_tot, abs_errors_lbp_tot, misdetection_errors_lbp_tot, detection_errors_lbp_tot, nonexistence_errors_lbp_tot, "_tot")
+    plot_errors(axes_hist[:,1], max_errors_lbp_full, abs_errors_lbp_full, misdetection_errors_lbp_full, detection_errors_lbp_full, nonexistence_errors_lbp_full, "_full")
+
+    fig_sf, axes_sf = plt.subplots(nrows=5, sharex=True)
+
+    fig_sf.suptitle("Survival function")
+
+    plot_survival_function(axes_sf, max_errors_lbp_tot, abs_errors_lbp_tot, misdetection_errors_lbp_tot, detection_errors_lbp_tot, nonexistence_errors_lbp_tot, "Williams LBP with estimated normalization constant")
+    plot_survival_function(axes_sf, max_errors_lbp_full, abs_errors_lbp_full, misdetection_errors_lbp_full, detection_errors_lbp_full, nonexistence_errors_lbp_full, "LBP on full problem")
+
+    fig_norm_const, ax_norm_const = plt.subplots(nrows=2)
+
+    fig_norm_const.suptitle("Normalizing constant")
+
+    normalizing_constants_exacts = np.hstack(normalizing_constants_exacts)
+    approx_normalizing_constantss = np.hstack(approx_normalizing_constantss)
+
+    ax_norm_const[0].plot(approx_normalizing_constantss, label="approx_normalizing_constant")
+    ax_norm_const[0].plot(normalizing_constants_exacts, label="normalizing_constants_exact")
+    ax_norm_const[0].set_xlabel("Datapoint")
+    ax_norm_const[0].set_ylabel("Normalizing constant value")
+    ax_norm_const[0].semilogy()
+    ax_norm_const[0].legend()
+
+    ax_norm_const[1].plot(normalizing_constants_exacts, approx_normalizing_constantss, 'o')
+    ax_norm_const[1].set_xlabel("Exact normalizing constant")
+    ax_norm_const[1].set_ylabel("Approximate normalizing constant")
+
+    plt.show()

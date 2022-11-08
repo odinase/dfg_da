@@ -1,7 +1,7 @@
 # cmake_minimum_required(VERSION 3.10)
 # project(af_target_simulator)
 
-set(PYTHON_MODULE_NAME ${PROJECT_NAME})
+set(PYTHON_MODULE_NAME py_${PROJECT_NAME})
 
 
 # set (CMAKE_CXX_STANDARD 17)
@@ -83,9 +83,9 @@ set(PYTHON_MODULE_NAME ${PROJECT_NAME})
 # )
 
 add_subdirectory(pybind11)
-pybind11_add_module(py_${PYTHON_MODULE_NAME} module.cpp)
+pybind11_add_module(${PYTHON_MODULE_NAME} module.cpp)
 
-target_link_libraries(py_${PYTHON_MODULE_NAME} PRIVATE
+target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE
     pybind11::module
     pybind11::lto
     pybind11::windows_extras
