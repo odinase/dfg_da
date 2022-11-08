@@ -64,15 +64,12 @@ def ws_to_prior_hypotheses(ws, num_clusters=None, use_largest_clusters=True):
 
     prior_hypotheses_per_cluster = []
     for c in clusters_to_use:
-        prior_hypotheses_in_cluster = []
         hypotheses_in_cluster = hypotheses_per_cluster[c]
         hypo_probs_in_cluster = hypo_probs_per_cluster[c]
-        for h, p in zip(hypotheses_in_cluster, hypo_probs_in_cluster):
-            prior_hypotheses_in_cluster.append((h, p))
-        
+        prior_hypotheses_in_cluster = [(tracks_in_hypotheses[h], p) for h, p in zip(hypotheses_in_cluster, hypo_probs_in_cluster)]
         prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
 
-    return prior_hypotheses_per_cluster        
+    return prior_hypotheses_per_cluster
 
 
 def tot_existence_prob(prior_hypotheses, num_tracks):
@@ -149,7 +146,7 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses):
         loglikelihoods = loglikelihoods[:, gated_measurements]
         
         mu = (1 - np.exp(R_sub[:, 0])).sum()
-        normalizing_constant = np.exp(-mu)*np.exp(loglikelihoods).sum(axis=0).prod()
+        normalizing_constant = np.exp(-mu)*logsumexp(loglikelihoods, axis=0).prod()
 
         normalizing_constants[k] = normalizing_constant
 
@@ -174,9 +171,15 @@ if __name__ == "__main__":
 
     R_LC = np.hstack((np.diag(R[:,m:])[:,None], R[:,:m]))
 
-    num_clusters = 1
+    prior_hypotheses_per_cluster = ws_to_prior_hypotheses(ws)
 
-    prior_hypotheses = ws_to_prior_hypotheses(ws)
+    marginals_per_cluster_lbp_full = []
+    marginals_per_cluster_lbp_per_hypo = []
+    marginals_per_cluster_exact = []    
+
+    for hypos_in_cluster in prior_hypotheses_per_cluster:
+        pass
+
 
 
 
