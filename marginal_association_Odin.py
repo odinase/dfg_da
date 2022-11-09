@@ -109,12 +109,15 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     prob[:, 1:] = w_times_msg / s
     prob[:, [0]] = 1 / s
 
-    not_track_prob: np.ndarray = 1 / (1 + a2b_msg.sum(axis=0))
+    log_ai = np.log(1 + w_times_msg.sum(axis=1)).sum()
+    log_bj = np.log(1 + a2b_msg.sum(axis=0)).sum()
+    log_ab = np.log(1 + a2b_msg * b2a_msg).sum()
 
-    assert DEBUG or (np.all(np.isfinite(prob)) and np.all(np.isfinite(not_track_prob))),\
-        'not finite probs'
+    F = -log_ai - log_bj + log_ab
 
-    return prob, not_track_prob
+    bethe_permanent = np.exp(-F)
+
+    return prob, bethe_permanent
 
 
 def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

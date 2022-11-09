@@ -129,7 +129,7 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses, self_normalizing_c
 
     for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
         R_sub = R_LC[tracks-1, :]
-        lbp_probs, _ = lbp_marginal(R_sub)
+        lbp_probs, bethe_const = lbp_marginal(R_sub)
 
         # We need to concatenate the JPDAprobs with all tracks and existence probs
         existing_tracks_idx = tracks - 1
@@ -145,11 +145,13 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses, self_normalizing_c
         # gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
         # loglikelihoods = loglikelihoods[:, gated_measurements]
         
-        mu = 0 # (1 - np.exp(R_sub[:, 0])).sum()
+        mu = (1 - np.exp(R_sub[:, 0])).sum()
         if self_normalizing_constants is None:
             normalizing_constant = np.exp(-mu) * (np.exp(loglikelihoods).sum(0) + 1).prod()
         else:
             normalizing_constant = self_normalizing_constants[k]
+
+        normalizing_constant = bethe_const
 
         normalizing_constants[k] = normalizing_constant
 
@@ -314,12 +316,12 @@ if __name__ == "__main__":
         nonexistence_errors_lbp_full.append(nonexistence_errors_lbp_full_in_cluster)
 
 
-    fig_hist, axes_hist = plt.subplots(ncols=2, nrows=5, sharex=True, sharey=True)
+    # fig_hist, axes_hist = plt.subplots(ncols=2, nrows=5, sharex=True, sharey=True)
 
-    fig_hist.suptitle("Histograms")
+    # fig_hist.suptitle("Histograms")
 
-    plot_errors(axes_hist[:,0], max_errors_lbp_tot, abs_errors_lbp_tot, misdetection_errors_lbp_tot, detection_errors_lbp_tot, nonexistence_errors_lbp_tot, "_tot")
-    plot_errors(axes_hist[:,1], max_errors_lbp_full, abs_errors_lbp_full, misdetection_errors_lbp_full, detection_errors_lbp_full, nonexistence_errors_lbp_full, "_full")
+    # plot_errors(axes_hist[:,0], max_errors_lbp_tot, abs_errors_lbp_tot, misdetection_errors_lbp_tot, detection_errors_lbp_tot, nonexistence_errors_lbp_tot, "_tot")
+    # plot_errors(axes_hist[:,1], max_errors_lbp_full, abs_errors_lbp_full, misdetection_errors_lbp_full, detection_errors_lbp_full, nonexistence_errors_lbp_full, "_full")
 
     fig_sf, axes_sf = plt.subplots(nrows=5, sharex=True)
 
