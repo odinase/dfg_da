@@ -1,6 +1,6 @@
 import numpy as np
 import factorgraph as fg
-from marginal_association_Odin import exact_marginal, lbp_marginal, lbp_marginal_nonexistence
+from dfg_da.marginal_association_Odin import exact_marginal, lbp_marginal, lbp_marginal_nonexistence
 from time import time
 import matplotlib.pyplot as plt
 

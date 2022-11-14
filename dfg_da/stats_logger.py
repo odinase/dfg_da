@@ -1,0 +1,155 @@
+import numpy as np
+from scipy.io import loadmat
+from typing import Dict, Any, List, TypeVar
+from dataclasses import dataclass
+from scipy.special import logsumexp
+from .prior_hypothesis import PriorHypothesis, PriorHypotheses
+from .marginals_computers import MarginalsComputer, ExactMarginalsWilliams
+
+
+@dataclass
+class MatFileParser:
+    ws: Dict[str, Any]
+
+    reward_matrix_edmund: np.ndarray
+    reward_matrix_lc: np.ndarray
+
+    prior_hypotheses_per_cluster: List[PriorHypotheses]
+    clusters_sorted: np.ndarray
+
+    def __init__(self, filename: str):
+        ws = loadmat(filename)
+        self.ws = ws
+        R_wrapping = ws["gainMatPostC"] # This R has a strange shape...
+
+        track_file = ws["trackFile"]
+        measurements = ws["measurements"]
+        
+        n = track_file.shape[1]
+        m = measurements.shape[1]
+
+        self.reward_matrix_edmund = R_wrapping[:n, :]
+        self.reward_matrix_lc = np.hstack((np.diag(self.reward_matrix_edmund[:,m:])[:,None], self.reward_matrix_edmund[:,:m]))
+
+        self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses(ws)
+
+
+    def ws_to_prior_hypotheses(self, ws):
+        hypos = ws["hypos"].ravel().astype(int)
+        hyposCard = ws["hyposCard"].ravel().astype(int)
+        probLogHypos = ws["probLogHypos"].ravel()
+        clustersCard = ws["clustersCard"].ravel().astype(int)
+        clusters = ws["clusters"].ravel().astype(int) - 1 # We negate one here to make hypotheses 0-indexed, which is more convenient. Tracks we keep 1-indexed
+        assert (clusters >= 0).all()
+
+        num_clusters = len(clustersCard)
+
+        # Let's actually first figure out the clusters we are working with and find the probabilities
+        log_hypo_probs_per_cluster = []
+        hypotheses_per_cluster = []
+
+        i = 0
+        for clusterC in clustersCard:
+            # These hypotheses are in the cluster
+            stop = i + clusterC
+            hypotheses_in_cluster = clusters[i:stop]
+
+            # hyposCard is as long as probLogCard, so pick out the elements that correspond to the "indices" in hypothesis_in_clutter
+            probLogHyposInCluster = probLogHypos[hypotheses_in_cluster]
+
+            log_hypo_probs_per_cluster.append(probLogHyposInCluster)
+            hypotheses_per_cluster.append(hypotheses_in_cluster)
+
+            i += clusterC
+
+        # Before we start looping over clusters, let's do this the simple way of making a list of lists, containing tracks contained in each hypothesis, then we sort it afterwards
+        tracks_in_hypotheses = [None] * hyposCard.shape[0]
+        for hypos_in_cluster in hypotheses_per_cluster:
+            for h in hypos_in_cluster:
+                start_idx = h
+                stop_idx = h + hyposCard[h]
+                tracks_in_hypothesis = hypos[start_idx:stop_idx]
+                tracks_in_hypotheses[h] = tracks_in_hypothesis
+
+        assert all(h is not None for h in tracks_in_hypotheses)
+
+        # We now have all we need to return proper prior hypotheses
+
+        # Compute the clusters we consider
+        clusters_to_use = np.argsort(clustersCard)[::-1][:num_clusters]
+
+        prior_hypotheses_per_cluster = []
+        for c in clusters_to_use:
+            hypotheses_in_cluster = hypotheses_per_cluster[c]
+            log_hypo_probs_in_cluster = log_hypo_probs_per_cluster[c]
+            prior_hypotheses_in_cluster = PriorHypotheses([PriorHypothesis(tracks_in_hypotheses[h], p) for h, p in zip(hypotheses_in_cluster, log_hypo_probs_in_cluster)])
+            prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
+
+        return prior_hypotheses_per_cluster, clusters_to_use
+
+SelfMarginalsErrors = TypeVar("SelfMarginalsErrors", bound="StatsLogger.MarginalsErrors")
+
+@dataclass
+class StatsLogger:
+    class MarginalsErrors:
+        max_errors: np.ndarray
+        abs_errors: np.ndarray
+        raw_errors: np.ndarray
+        misdetection_errors: np.ndarray
+        detection_errors: np.ndarray
+        nonexistence_errors: np.ndarray
+
+        def __init__(self, exact_marginals, approx_marginals):
+            raw_error_marginals = exact_marginals - approx_marginals
+            abs_error_marginals = np.abs(raw_error_marginals)
+            assert ((0 <= abs_error_marginals) & (abs_error_marginals <= 1.0)).all()
+            self.max_errors = abs_error_marginals.max(axis=1)
+            self.abs_errors = abs_error_marginals.ravel()
+            self.raw_errors = raw_error_marginals.ravel()
+            self.misdetection_errors = abs_error_marginals[:, 0]
+            self.detection_errors = abs_error_marginals[:, 1:-1].ravel()
+            self.nonexistence_errors  = abs_error_marginals[:, -1]
+
+        @classmethod
+        def concatenate(cls, marginal_errors: List[SelfMarginalsErrors]) -> SelfMarginalsErrors:
+            max_errors = []
+            abs_errors = []
+            raw_errors = []
+            misdetection_errors = []
+            detection_errors = []
+            nonexistence_errors = []
+
+            for marginal_error in marginal_errors:
+                max_errors.append(marginal_error.max_errors)
+                abs_errors.append(marginal_error.abs_errors)
+                raw_errors.append(marginal_error.raw_errors)
+                misdetection_errors.append(marginal_error.misdetection_errors)
+                detection_errors.append(marginal_error.detection_errors)
+                nonexistence_errors.append(marginal_error.nonexistence_errors)
+
+            max_errors = np.hstack(max_errors)
+            abs_errors = np.hstack(abs_errors)
+            raw_errors = np.hstack(raw_errors)
+            misdetection_errors = np.hstack(misdetection_errors)
+            detection_errors = np.hstack(detection_errors)
+            nonexistence_errors = np.hstack(nonexistence_errors)
+
+            return cls(max_errors, abs_errors, raw_errors, misdetection_errors, detection_errors, nonexistence_errors)
+
+    mat_data: MatFileParser
+
+    @property
+    def cluster_cardinalities(self) -> np.ndarray:
+        return self.mat_data.clusters_sorted
+
+    @property
+    def num_clusters(self) -> int:
+        return len(self.cluster_cardinalities)
+
+    # def compute_marginals_errors(self, exact_marginals_computer: ExactMarginalsWilliams, approx_marginals_computer: MarginalsComputer) -> None:
+    #     R_LC = self.mat_data.reward_matrix_lc
+    #     prior_hypotheses_per_cluster = self.mat_data.prior_hypotheses_per_cluster
+
+    #     for prior_hypotheses in prior_hypotheses_per_cluster:
+    #         exact_marginals, exact_normalization_constants = exact_marginals_computer(R_LC, prior_hypotheses)
+    #         approx_marginals, _ = 

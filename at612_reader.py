@@ -1,5 +1,5 @@
 from scipy.io import loadmat
-from marginal_association_Odin import exact_marginal, lbp_marginal_nonexistence, logsumexp, lbp_marginal
+from dfg_da.marginal_association_Odin import exact_marginal, lbp_marginal_nonexistence, logsumexp, lbp_marginal
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -142,8 +142,8 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses, self_normalizing_c
         conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
         loglikelihoods = R_sub[:, 1:]
-        # gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
-        # loglikelihoods = loglikelihoods[:, gated_measurements]
+        gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
+        loglikelihoods = loglikelihoods[:, gated_measurements]
         
         mu = (1 - np.exp(R_sub[:, 0])).sum()
         if self_normalizing_constants is None:
@@ -151,7 +151,7 @@ def compute_lbp_marginals_by_tot_prob(R_LC, prior_hypotheses, self_normalizing_c
         else:
             normalizing_constant = self_normalizing_constants[k]
 
-        normalizing_constant = bethe_const
+        # normalizing_constant = bethe_const
 
         normalizing_constants[k] = normalizing_constant
 
