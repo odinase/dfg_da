@@ -21,7 +21,6 @@ class MatFileParser:
         ws = loadmat(filename)
         self.ws = ws
         R_wrapping = ws["gainMatPostC"] # This R has a strange shape...
-
         track_file = ws["trackFile"]
         measurements = ws["measurements"]
         
@@ -134,7 +133,16 @@ class StatsLogger:
             detection_errors = np.hstack(detection_errors)
             nonexistence_errors = np.hstack(nonexistence_errors)
 
-            return cls(max_errors, abs_errors, raw_errors, misdetection_errors, detection_errors, nonexistence_errors)
+            e = cls(np.empty((1,1)), np.empty((1,1)))
+            e.max_errors = max_errors
+            e.abs_errors = abs_errors
+            e.raw_errors = raw_errors
+            e.misdetection_errors = misdetection_errors
+            e.detection_errors = detection_errors
+            e.nonexistence_errors = nonexistence_errors
+
+            return e
+
 
     mat_data: MatFileParser
 
