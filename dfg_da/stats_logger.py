@@ -133,7 +133,7 @@ class StatsLogger:
             detection_errors = np.hstack(detection_errors)
             nonexistence_errors = np.hstack(nonexistence_errors)
 
-            e = cls(np.empty((1,1)), np.empty((1,1)))
+            e = cls(np.ones((1,1)), np.ones((1,1)))
             e.max_errors = max_errors
             e.abs_errors = abs_errors
             e.raw_errors = raw_errors

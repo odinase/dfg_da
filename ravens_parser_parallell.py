@@ -7,7 +7,11 @@ from glob import glob
 from typing import List
 import numpy as np
 
+
+from multiprocessing import Pool
+import itertools
 import time
+import tqdm
 
 
 def plot_survival_function(axes, max_errors, abs_errors, misdetection_errors, detection_errors, nonexistence_errors, label="_"):
@@ -46,6 +50,32 @@ def plot_survival_function(axes, max_errors, abs_errors, misdetection_errors, de
             ax.legend()
 
 
+def loop_func(pmbm_file):
+    mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file)
+
+    R_LC = mat_data.reward_matrix_lc
+    prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
+
+    lbp_mh_all_errors = []
+    lbp_williams_all_errors = []
+    exact_normalization_constants_all = []
+    approx_normalization_constants_all = []
+
+    for prior_hypotheses in prior_hypotheses_per_cluster:
+        lbp_williams_marginals, approx_normalization_constants = approx_marginal_computers["lbp_williams"](R_LC, prior_hypotheses)
+        lbp_mh_marginals, _ = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
+        exact_marginals, exact_normalization_constants = exact_marginal_computer(R_LC, prior_hypotheses)
+
+        lbp_williams_errors = sl.StatsLogger.MarginalsErrors(exact_marginals, lbp_williams_marginals)
+        lbp_mh_errors = sl.StatsLogger.MarginalsErrors(exact_marginals, lbp_mh_marginals)
+
+        lbp_mh_all_errors.append(lbp_mh_errors)
+        lbp_williams_all_errors.append(lbp_williams_errors)
+
+        exact_normalization_constants_all.append(exact_normalization_constants)
+        approx_normalization_constants_all.append(approx_normalization_constants)
+
+    return lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all
 
 if __name__ == "__main__":
     # Make list over all files
@@ -53,40 +83,25 @@ if __name__ == "__main__":
 
     pmbm_files = glob(path + "/*.mat")
 
-    # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
-
     exact_marginal_computer = mc.ExactMarginalsWilliams()
     approx_marginal_computers = {
         "lbp_williams": mc.LBPMarginalsByTotalProb(),
         "lbp_mh": mc.LBPMarginalsFullAssociation()
     }
 
-    lbp_mh_all_errors: List[sl.StatsLogger.MarginalsErrors] = []
-    lbp_williams_all_errors: List[sl.StatsLogger.MarginalsErrors] = []
-
-    approx_normalization_constants_all: List[np.ndarray] = []
-    exact_normalization_constants_all: List[np.ndarray] = []
-
     start = time.time()
-    for pmbm_file in pmbm_files[:200]:
-        mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file)
+    print("Starting pool")
+    with Pool() as p:
+        results = p.map(loop_func, pmbm_files[:500])
 
-        R_LC = mat_data.reward_matrix_lc
-        prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
+    print("Pools done")
 
-        for prior_hypotheses in prior_hypotheses_per_cluster:
-            lbp_williams_marginals, approx_normalization_constants = approx_marginal_computers["lbp_williams"](R_LC, prior_hypotheses)
-            lbp_mh_marginals, _ = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
-            exact_marginals, exact_normalization_constants = exact_marginal_computer(R_LC, prior_hypotheses)
+    lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all = zip(*results)
 
-            lbp_williams_errors = sl.StatsLogger.MarginalsErrors(exact_marginals, lbp_williams_marginals)
-            lbp_mh_errors = sl.StatsLogger.MarginalsErrors(exact_marginals, lbp_mh_marginals)
-
-            lbp_mh_all_errors.append(lbp_mh_errors)
-            lbp_williams_all_errors.append(lbp_williams_errors)
-
-            exact_normalization_constants_all.append(exact_normalization_constants)
-            approx_normalization_constants_all.append(approx_normalization_constants)
+    lbp_mh_all_errors = list(itertools.chain(*lbp_mh_all_errors))
+    lbp_williams_all_errors = list(itertools.chain(*lbp_williams_all_errors))
+    exact_normalization_constants_all = np.array(itertools.chain(*exact_normalization_constants_all))
+    approx_normalization_constants_all = np.array(itertools.chain(*approx_normalization_constants_all))
 
     lbp_mh_all_errors: sl.StatsLogger.MarginalsErrors = sl.StatsLogger.MarginalsErrors.concatenate(lbp_mh_all_errors)
     lbp_williams_all_errors: sl.StatsLogger.MarginalsErrors = sl.StatsLogger.MarginalsErrors.concatenate(lbp_williams_all_errors)
@@ -102,6 +117,8 @@ if __name__ == "__main__":
     fig_sf, axes_sf = plt.subplots(nrows=5, sharex=True)
 
     fig_sf.suptitle("Survival function")
+
+    print(f"Plotting {lbp_mh_all_errors.abs_errors.shape[0]} points at most")
 
     plot_survival_function(axes_sf, lbp_williams_all_errors.max_errors, lbp_williams_all_errors.abs_errors, lbp_williams_all_errors.misdetection_errors, lbp_williams_all_errors.detection_errors, lbp_williams_all_errors.nonexistence_errors, "Williams LBP with estimated normalization constant")
     plot_survival_function(axes_sf, lbp_mh_all_errors.max_errors, lbp_mh_all_errors.abs_errors, lbp_mh_all_errors.misdetection_errors, lbp_mh_all_errors.detection_errors, lbp_mh_all_errors.nonexistence_errors, "LBP on full problem")
