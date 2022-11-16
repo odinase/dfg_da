@@ -88,76 +88,85 @@ class MatFileParser:
 
 SelfMarginalsErrors = TypeVar("SelfMarginalsErrors", bound="StatsLogger.MarginalsErrors")
 
+
+class MarginalsErrors:
+    max_errors: np.ndarray
+    abs_errors: np.ndarray
+    raw_errors: np.ndarray
+    misdetection_errors: np.ndarray
+    detection_errors: np.ndarray
+    nonexistence_errors: np.ndarray
+
+    def __init__(self, exact_marginals, approx_marginals):
+        raw_error_marginals = exact_marginals - approx_marginals
+        abs_error_marginals = np.abs(raw_error_marginals)
+        assert ((0 <= abs_error_marginals) & (abs_error_marginals <= 1.0)).all()
+        self.max_errors = abs_error_marginals.max(axis=1)
+        self.abs_errors = abs_error_marginals.ravel()
+        self.raw_errors = raw_error_marginals.ravel()
+        self.misdetection_errors = abs_error_marginals[:, 0]
+        self.detection_errors = abs_error_marginals[:, 1:-1].ravel()
+        self.nonexistence_errors  = abs_error_marginals[:, -1]
+
+    @classmethod
+    def concatenate(cls, marginal_errors: List[SelfMarginalsErrors]) -> SelfMarginalsErrors:
+        max_errors = []
+        abs_errors = []
+        raw_errors = []
+        misdetection_errors = []
+        detection_errors = []
+        nonexistence_errors = []
+
+        for marginal_error in marginal_errors:
+            max_errors.append(marginal_error.max_errors)
+            abs_errors.append(marginal_error.abs_errors)
+            raw_errors.append(marginal_error.raw_errors)
+            misdetection_errors.append(marginal_error.misdetection_errors)
+            detection_errors.append(marginal_error.detection_errors)
+            nonexistence_errors.append(marginal_error.nonexistence_errors)
+
+        max_errors = np.hstack(max_errors)
+        abs_errors = np.hstack(abs_errors)
+        raw_errors = np.hstack(raw_errors)
+        misdetection_errors = np.hstack(misdetection_errors)
+        detection_errors = np.hstack(detection_errors)
+        nonexistence_errors = np.hstack(nonexistence_errors)
+
+        e = cls(np.ones((1,1)), np.ones((1,1)))
+        e.max_errors = max_errors
+        e.abs_errors = abs_errors
+        e.raw_errors = raw_errors
+        e.misdetection_errors = misdetection_errors
+        e.detection_errors = detection_errors
+        e.nonexistence_errors = nonexistence_errors
+
+        return e
+
 @dataclass
 class StatsLogger:
-    class MarginalsErrors:
-        max_errors: np.ndarray
-        abs_errors: np.ndarray
-        raw_errors: np.ndarray
-        misdetection_errors: np.ndarray
-        detection_errors: np.ndarray
-        nonexistence_errors: np.ndarray
-
-        def __init__(self, exact_marginals, approx_marginals):
-            raw_error_marginals = exact_marginals - approx_marginals
-            abs_error_marginals = np.abs(raw_error_marginals)
-            assert ((0 <= abs_error_marginals) & (abs_error_marginals <= 1.0)).all()
-            self.max_errors = abs_error_marginals.max(axis=1)
-            self.abs_errors = abs_error_marginals.ravel()
-            self.raw_errors = raw_error_marginals.ravel()
-            self.misdetection_errors = abs_error_marginals[:, 0]
-            self.detection_errors = abs_error_marginals[:, 1:-1].ravel()
-            self.nonexistence_errors  = abs_error_marginals[:, -1]
-
-        @classmethod
-        def concatenate(cls, marginal_errors: List[SelfMarginalsErrors]) -> SelfMarginalsErrors:
-            max_errors = []
-            abs_errors = []
-            raw_errors = []
-            misdetection_errors = []
-            detection_errors = []
-            nonexistence_errors = []
-
-            for marginal_error in marginal_errors:
-                max_errors.append(marginal_error.max_errors)
-                abs_errors.append(marginal_error.abs_errors)
-                raw_errors.append(marginal_error.raw_errors)
-                misdetection_errors.append(marginal_error.misdetection_errors)
-                detection_errors.append(marginal_error.detection_errors)
-                nonexistence_errors.append(marginal_error.nonexistence_errors)
-
-            max_errors = np.hstack(max_errors)
-            abs_errors = np.hstack(abs_errors)
-            raw_errors = np.hstack(raw_errors)
-            misdetection_errors = np.hstack(misdetection_errors)
-            detection_errors = np.hstack(detection_errors)
-            nonexistence_errors = np.hstack(nonexistence_errors)
-
-            e = cls(np.ones((1,1)), np.ones((1,1)))
-            e.max_errors = max_errors
-            e.abs_errors = abs_errors
-            e.raw_errors = raw_errors
-            e.misdetection_errors = misdetection_errors
-            e.detection_errors = detection_errors
-            e.nonexistence_errors = nonexistence_errors
-
-            return e
 
 
-    mat_data: MatFileParser
+    # mat_data: MatFileParser
 
-    @property
-    def cluster_cardinalities(self) -> np.ndarray:
-        return self.mat_data.clusters_sorted
+    # @property
+    # def cluster_cardinalities(self) -> np.ndarray:
+    #     return self.mat_data.clusters_sorted
 
-    @property
-    def num_clusters(self) -> int:
-        return len(self.cluster_cardinalities)
+    # @property
+    # def num_clusters(self) -> int:
+    #     return len(self.cluster_cardinalities)
 
-    # def compute_marginals_errors(self, exact_marginals_computer: ExactMarginalsWilliams, approx_marginals_computer: MarginalsComputer) -> None:
-    #     R_LC = self.mat_data.reward_matrix_lc
-    #     prior_hypotheses_per_cluster = self.mat_data.prior_hypotheses_per_cluster
+    def save_errors(self, path: str,  errors: MarginalsErrors) -> None:
+        error_names = [
+            "max_errors",
+            "abs_errors",
+            "raw_errors",
+            "misdetection_errors",
+            "detection_errors",
+            "nonexistence_errors",
+        ]
 
-    #     for prior_hypotheses in prior_hypotheses_per_cluster:
-    #         exact_marginals, exact_normalization_constants = exact_marginals_computer(R_LC, prior_hypotheses)
-    #         approx_marginals, _ = 
+        for error_name in error_names:
+            error = getattr(errors, error_name)
+            filepath = f"{path}/{error_name}.bin"
+            error.tofile(filepath)

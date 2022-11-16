@@ -377,6 +377,10 @@ def cluster(llr: np.ndarray) -> list[tuple[set[int], set[int]]]:
     return roots
 
 
+class ExplicitHypothesisEnumerationError(Exception):
+    pass
+
+
 def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[np.ndarray, np.ndarray, float]:
     """Calculate marginal association probabilities by enumeration.
 
@@ -445,8 +449,8 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
         [pai.shape[0] for pai in reversed(tracks_possible_associations)], dtype=np.uint)),
         np.ones(1, dtype=np.uint)))
 
-    # if n * mp1 * Nhypotheses[0] > 10 ** 9:
-    #     raise ValueError("Too complex problem")
+    if n * mp1 * Nhypotheses[0] > 10 ** 9:
+        raise ExplicitHypothesisEnumerationError()
     # Generate a matrix holding the track hypothesis for the joint hypothesis
     index_matrix = np.empty((n, Nhypotheses[0]), dtype=np.int16)
     numbers = np.arange(Nhypotheses[0])  # hypoteses zero indexed
