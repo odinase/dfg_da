@@ -4,6 +4,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+from sklearn.linear_model import LinearRegression
 
 DATA_PATH = "./data/at612"
 MAT_FILE = "priorLikelihood612.mat"
@@ -330,7 +331,7 @@ if __name__ == "__main__":
     plot_survival_function(axes_sf, max_errors_lbp_tot, abs_errors_lbp_tot, misdetection_errors_lbp_tot, detection_errors_lbp_tot, nonexistence_errors_lbp_tot, "Williams LBP with estimated normalization constant")
     plot_survival_function(axes_sf, max_errors_lbp_full, abs_errors_lbp_full, misdetection_errors_lbp_full, detection_errors_lbp_full, nonexistence_errors_lbp_full, "LBP on full problem")
 
-    fig_norm_const, ax_norm_const = plt.subplots(nrows=2)
+    fig_norm_const, ax_norm_const = plt.subplots(nrows=3)
 
     fig_norm_const.suptitle("Normalizing constant")
 
@@ -344,8 +345,32 @@ if __name__ == "__main__":
     ax_norm_const[0].semilogy()
     ax_norm_const[0].legend()
 
-    ax_norm_const[1].plot(normalizing_constants_exacts, approx_normalizing_constantss, 'o')
-    ax_norm_const[1].set_xlabel("Exact normalizing constant")
-    ax_norm_const[1].set_ylabel("Approximate normalizing constant")
+    ax_norm_const[1].plot(approx_normalizing_constantss, normalizing_constants_exacts, 'o')
+    ax_norm_const[1].set_ylabel("Exact normalizing constant")
+    ax_norm_const[1].set_xlabel("Approximate normalizing constant")
+
+    f = approx_normalizing_constantss
+    y = normalizing_constants_exacts
+    y_bar = y.mean()
+
+    SS_res = np.sum((y - f)**2)
+    SS_tot = np.sum((y - y_bar)**2)
+
+    R2 = 1.0 - SS_res / SS_tot
+
+    ax_norm_const[1].plot(y, y, '--')
+    ax_norm_const[1].set_title(f"R^2: {R2}")
+
+    f = np.log(approx_normalizing_constantss)
+    y = np.log(normalizing_constants_exacts)
+    y_bar = y.mean()
+
+    SS_res = np.sum((y - f)**2)
+    SS_tot = np.sum((y - y_bar)**2)
+
+    R2 = 1.0 - SS_res / SS_tot
+
+    ax_norm_const[2].plot(y, y, '--')
+    ax_norm_const[2].set_title(f"R^2: {R2}: log scale")
 
     plt.show()
