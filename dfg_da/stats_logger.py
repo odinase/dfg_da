@@ -86,8 +86,50 @@ class MatFileParser:
 
         return prior_hypotheses_per_cluster, clusters_to_use
 
-SelfMarginalsErrors = TypeVar("SelfMarginalsErrors", bound="StatsLogger.MarginalsErrors")
 
+class ClusterStatistics:
+    def __init__(self):
+        pass
+
+
+SelfMarginals = TypeVar("SelfMarginals", bound="StatsLogger.Marginals")
+
+class Marginals:
+    def __init__(self, marginals: np.ndarray):
+        self.misdetection_marginals = marginals[:, 0]
+        self.detection_marginals = marginals[:, 1:-1].ravel()
+        self.nonexistence_marginals = marginals[:, -1]
+        self.marginals = marginals.ravel()
+        self.marginals_raw = marginals
+
+    @classmethod
+    def concatenate(cls, marginals_list: List[SelfMarginals]) -> SelfMarginals:
+        this = cls(np.ones((1,1)))
+        
+        this.marginals = np.hstack([obj.marginals for obj in marginals_list])
+        this.misdetection_marginals = np.hstack([obj.misdetection_marginals for obj in marginals_list])
+        this.detection_marginals = np.hstack([obj.detection_marginals for obj in marginals_list])
+        this.nonexistence_marginals = np.hstack([obj.nonexistence_marginals for obj in marginals_list])
+
+        return this
+
+    @classmethod
+    def from_path(cls, path: str) -> SelfMarginals:
+        marginal_files = [
+            "marginals",
+            "misdetection_marginals",
+            "detection_marginals",
+            "nonexistence_marginals"
+        ]
+
+        out = cls(np.ones((1,1)))
+        for marginal_file in marginal_files:
+            setattr(out, marginal_file, np.fromfile(f"{path}/{marginal_file}.bin"))
+
+        return out
+
+
+SelfMarginalsErrors = TypeVar("SelfMarginalsErrors", bound="StatsLogger.MarginalsErrors")
 
 class MarginalsErrors:
     max_errors: np.ndarray
@@ -97,8 +139,8 @@ class MarginalsErrors:
     detection_errors: np.ndarray
     nonexistence_errors: np.ndarray
 
-    def __init__(self, exact_marginals, approx_marginals):
-        raw_error_marginals = exact_marginals - approx_marginals
+    def __init__(self, exact_marginals: Marginals, approx_marginals: Marginals):
+        raw_error_marginals = exact_marginals.marginals_raw - approx_marginals.marginals_raw
         abs_error_marginals = np.abs(raw_error_marginals)
         assert ((0 <= abs_error_marginals) & (abs_error_marginals <= 1.0)).all()
         self.max_errors = abs_error_marginals.max(axis=1)
@@ -132,7 +174,7 @@ class MarginalsErrors:
         detection_errors = np.hstack(detection_errors)
         nonexistence_errors = np.hstack(nonexistence_errors)
 
-        e = cls(np.ones((1,1)), np.ones((1,1)))
+        e = cls(Marginals(np.ones((1,1))), Marginals(np.ones((1,1))))
         e.max_errors = max_errors
         e.abs_errors = abs_errors
         e.raw_errors = raw_errors
@@ -142,19 +184,26 @@ class MarginalsErrors:
 
         return e
 
+    
+    @classmethod
+    def from_path(cls, path: str) -> SelfMarginalsErrors:
+        error_names = [
+            "max_errors",
+            "abs_errors",
+            "raw_errors",
+            "misdetection_errors",
+            "detection_errors",
+            "nonexistence_errors",
+        ]
+
+        out = cls(Marginals(np.ones((1,1))), Marginals(np.ones((1,1))))
+        for error_name in error_names:
+            setattr(out, error_name, np.fromfile(f"{path}/{error_name}.bin"))
+
+        return out
+
 @dataclass
 class StatsLogger:
-
-
-    # mat_data: MatFileParser
-
-    # @property
-    # def cluster_cardinalities(self) -> np.ndarray:
-    #     return self.mat_data.clusters_sorted
-
-    # @property
-    # def num_clusters(self) -> int:
-    #     return len(self.cluster_cardinalities)
 
     def save_errors(self, path: str,  errors: MarginalsErrors) -> None:
         error_names = [
@@ -170,3 +219,16 @@ class StatsLogger:
             error = getattr(errors, error_name)
             filepath = f"{path}/{error_name}.bin"
             error.tofile(filepath)
+
+    def save_marginals(self, path: str,  marginals: Marginals) -> None:
+        marginals_names = [
+            "marginals",
+            "misdetection_marginals",
+            "detection_marginals",
+            "nonexistence_marginals"
+        ]
+
+        for marginals_name in marginals_names:
+            marginals_data = getattr(marginals, marginals_name)
+            filepath = f"{path}/{marginals_name}.bin"
+            marginals_data.tofile(filepath)

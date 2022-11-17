@@ -51,9 +51,9 @@ if __name__ == "__main__":
     # Make list over all files
     path = "./data/pmbm_output_files"
 
-    pmbm_files = glob(path + "/*.mat")
+    # pmbm_files = glob(path + "/*.mat")
 
-    # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
+    pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
     exact_marginal_computer = mc.ExactMarginalsWilliams()
     approx_marginal_computers = {
@@ -67,6 +67,10 @@ if __name__ == "__main__":
     approx_normalization_constants_all: List[np.ndarray] = []
     exact_normalization_constants_all: List[np.ndarray] = []
 
+    exact_marginals_list = []
+    lbp_mh_marginals_list = []
+    lbp_williams_marginals_list = []
+
     start = time.time()
     for pmbm_file in pmbm_files[:200]:
         mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file)
@@ -78,6 +82,14 @@ if __name__ == "__main__":
             lbp_williams_marginals, approx_normalization_constants = approx_marginal_computers["lbp_williams"](R_LC, prior_hypotheses)
             lbp_mh_marginals, _ = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
             exact_marginals, exact_normalization_constants = exact_marginal_computer(R_LC, prior_hypotheses)
+
+            exact_marginals = sl.Marginals(exact_marginals)
+            lbp_mh_marginals = sl.Marginals(lbp_mh_marginals)
+            lbp_williams_marginals = sl.Marginals(lbp_williams_marginals)
+
+            exact_marginals_list.append(exact_marginals)
+            lbp_mh_marginals_list.append(lbp_mh_marginals)
+            lbp_williams_marginals_list.append(lbp_williams_marginals)
 
             lbp_williams_errors = sl.MarginalsErrors(exact_marginals, lbp_williams_marginals)
             lbp_mh_errors = sl.MarginalsErrors(exact_marginals, lbp_mh_marginals)
@@ -94,6 +106,22 @@ if __name__ == "__main__":
     stop = time.time()
     print(f"Spent {stop - start} s")
 
+    fig, ax = plt.subplots()
+
+    exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
+    lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
+    lbp_williams_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_williams_marginals_list)
+
+    ax.plot(lbp_mh_marginals.detection_marginals, exact_marginals.detection_marginals, 'ro', label='Detection')
+    ax.plot(lbp_mh_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'bs', label='Misdetection')
+    ax.plot(lbp_mh_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'gD', label='Nonexistence')
+
+    ax.set_xlabel("Approximate probability")
+    ax.set_ylabel("Exact probability")
+    ax.set_title("Correlation plot")
+
+    ax.legend()
+
     # fig, ax = plt.subplots()
 
     # ax.hist(lbp_mh_all_errors.max_errors)
@@ -106,9 +134,18 @@ if __name__ == "__main__":
     # plot_survival_function(axes_sf, lbp_williams_all_errors.max_errors, lbp_williams_all_errors.abs_errors, lbp_williams_all_errors.misdetection_errors, lbp_williams_all_errors.detection_errors, lbp_williams_all_errors.nonexistence_errors, "Williams LBP with estimated normalization constant")
     # plot_survival_function(axes_sf, lbp_mh_all_errors.max_errors, lbp_mh_all_errors.abs_errors, lbp_mh_all_errors.misdetection_errors, lbp_mh_all_errors.detection_errors, lbp_mh_all_errors.nonexistence_errors, "LBP on full problem")
 
-    # plt.show()
+    plt.show()
 
-    path = "./pmbm_analysis_output"
+    # path = "./pmbm_analysis_output"
+    # stats_logger = sl.StatsLogger()
+    # stats_logger.save_errors(path + "/lbp", lbp_mh_all_errors)
+    # stats_logger.save_errors(path + "/williams", lbp_williams_all_errors)
+
+    path = "./testing_path"
     stats_logger = sl.StatsLogger()
-    stats_logger.save_errors(path + "/lbp", lbp_mh_all_errors)
-    stats_logger.save_errors(path + "/williams", lbp_williams_all_errors)
+    stats_logger.save_errors(path, lbp_mh_all_errors)
+    stats_logger.save_errors(path, lbp_williams_all_errors)
+
+    stats_logger.save_marginals(path, exact_marginals)
+    stats_logger.save_marginals(path, lbp_mh_marginals)
+    stats_logger.save_marginals(path, lbp_williams_marginals)

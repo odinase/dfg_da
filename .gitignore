@@ -15,3 +15,8 @@ graph.txt
 py_dfg_da.cpython-39-x86_64-linux-gnu.so
 .DS_Store
 /pmbm_analysis_output
+/pmbm_analysis_output copy
+/testing_path
+*.pybindings
+*.bin
+*.png

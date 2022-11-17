@@ -62,6 +62,10 @@ def loop_func(pmbm_file):
     exact_normalization_constants_all = []
     approx_normalization_constants_all = []
 
+    exact_marginals_list = []
+    lbp_mh_marginals_list = []
+    lbp_williams_marginals_list = []
+
     num_skipped_enumerations = 0
 
     for prior_hypotheses in prior_hypotheses_per_cluster:
@@ -73,8 +77,16 @@ def loop_func(pmbm_file):
         lbp_williams_marginals, approx_normalization_constants = approx_marginal_computers["lbp_williams"](R_LC, prior_hypotheses)
         lbp_mh_marginals, _ = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
 
+        exact_marginals = sl.Marginals(exact_marginals)
+        lbp_mh_marginals = sl.Marginals(lbp_mh_marginals)
+        lbp_williams_marginals = sl.Marginals(lbp_williams_marginals)
+
         lbp_williams_errors = sl.MarginalsErrors(exact_marginals, lbp_williams_marginals)
         lbp_mh_errors = sl.MarginalsErrors(exact_marginals, lbp_mh_marginals)
+
+        exact_marginals_list.append(exact_marginals)
+        lbp_mh_marginals_list.append(lbp_mh_marginals)
+        lbp_williams_marginals_list.append(lbp_williams_marginals)
 
         lbp_mh_all_errors.append(lbp_mh_errors)
         lbp_williams_all_errors.append(lbp_williams_errors)
@@ -82,13 +94,15 @@ def loop_func(pmbm_file):
         exact_normalization_constants_all.append(exact_normalization_constants)
         approx_normalization_constants_all.append(approx_normalization_constants)
 
-    return lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all, num_skipped_enumerations, len(prior_hypotheses_per_cluster)
+    return exact_marginals_list, lbp_mh_marginals_list, lbp_williams_marginals_list, lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all, num_skipped_enumerations, len(prior_hypotheses_per_cluster)
 
 if __name__ == "__main__":
     # Make list over all files
     path = "./data/pmbm_output_files"
 
     pmbm_files = glob(path + "/*.mat")
+    pmbm_files = pmbm_files[:500]
+    # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
     exact_marginal_computer = mc.ExactMarginalsWilliams()
     approx_marginal_computers = {
@@ -103,10 +117,13 @@ if __name__ == "__main__":
 
     print("Pools done")
 
-    lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all, num_skipped_enumerations_list, num_enumerations_potential_list = zip(*results)
+    exact_marginals_list, lbp_mh_marginals_list, lbp_williams_marginals_list, lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all, num_skipped_enumerations_list, num_enumerations_potential_list = zip(*results)
 
     lbp_mh_all_errors = list(itertools.chain(*lbp_mh_all_errors))
     lbp_williams_all_errors = list(itertools.chain(*lbp_williams_all_errors))
+    exact_marginals_list = list(itertools.chain(*exact_marginals_list))
+    lbp_mh_marginals_list = list(itertools.chain(*lbp_mh_marginals_list))
+    lbp_williams_marginals_list = list(itertools.chain(*lbp_williams_marginals_list))
     exact_normalization_constants_all = np.fromiter(itertools.chain(*itertools.chain(*itertools.chain(*exact_normalization_constants_all))), float)
     approx_normalization_constants_all = np.fromiter(itertools.chain(*itertools.chain(*itertools.chain(*approx_normalization_constants_all))), float)
     num_skipped_enumerations = np.sum(num_skipped_enumerations_list)
@@ -117,29 +134,21 @@ if __name__ == "__main__":
     lbp_mh_all_errors: sl.MarginalsErrors = sl.MarginalsErrors.concatenate(lbp_mh_all_errors)
     lbp_williams_all_errors: sl.MarginalsErrors = sl.MarginalsErrors.concatenate(lbp_williams_all_errors)
 
+    exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
+    lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
+    lbp_williams_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_williams_marginals_list)
+
     stop = time.time()
     print(f"Spent {stop - start} s")
 
-    # fig, ax = plt.subplots()
-
-    # ax.hist(lbp_mh_all_errors.max_errors)
-    # ax.loglog()
-
-    # fig_sf, axes_sf = plt.subplots(nrows=5, sharex=True)
-
-    # fig_sf.suptitle("Survival function")
-
-    # print(f"Plotting {lbp_mh_all_errors.abs_errors.shape[0]} points at most")
-
-    # plot_survival_function(axes_sf, lbp_williams_all_errors.max_errors, lbp_williams_all_errors.abs_errors, lbp_williams_all_errors.misdetection_errors, lbp_williams_all_errors.detection_errors, lbp_williams_all_errors.nonexistence_errors, "Williams LBP with estimated normalization constant")
-    # plot_survival_function(axes_sf, lbp_mh_all_errors.max_errors, lbp_mh_all_errors.abs_errors, lbp_mh_all_errors.misdetection_errors, lbp_mh_all_errors.detection_errors, lbp_mh_all_errors.nonexistence_errors, "LBP on full problem")
-
-    # plt.show()
-
     path = "./pmbm_analysis_output"
     stats_logger = sl.StatsLogger()
-    stats_logger.save_errors(path + "/lbp_errors", lbp_mh_all_errors)
-    stats_logger.save_errors(path + "/williams_errors", lbp_williams_all_errors)
+    stats_logger.save_errors(path + "/lbp/errors", lbp_mh_all_errors)
+    stats_logger.save_errors(path + "/williams/errors", lbp_williams_all_errors)
 
-    np.asarray(approx_normalization_constants_all).tofile(path + "/approx_normalization_constants.bin")
-    np.asarray(exact_normalization_constants_all).tofile(path + "/exact_normalization_constants.bin")
+    stats_logger.save_marginals(path + "/exact/marginals", exact_marginals)
+    stats_logger.save_marginals(path + "/lbp/marginals", lbp_mh_marginals)
+    stats_logger.save_marginals(path + "/williams/marginals", lbp_williams_marginals)
+
+    approx_normalization_constants_all.tofile(path + "/approx_normalization_constants.bin")
+    exact_normalization_constants_all.tofile(path + "/exact_normalization_constants.bin")
