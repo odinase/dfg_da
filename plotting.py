@@ -113,22 +113,7 @@ if __name__ == "__main__":
     # ax2.hist(x)
     # ax2.semilogy()
     # print("Showing plots...")
-
-    # fig2, ax = plt.subplots()
-
-    # lbp_mh_marginals = Marginals.from_path("./pmbm_analysis_output/lbp/marginals")
-    # exact_marginals = Marginals.from_path("./pmbm_analysis_output/exact/marginals")
-
-    # ax.plot(lbp_mh_marginals.detection_marginals, exact_marginals.detection_marginals, 'ro', label='Detection')
-    # ax.plot(lbp_mh_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'bs', label='Misdetection')
-    # ax.plot(lbp_mh_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'gD', label='Nonexistence')
-
-    # ax.set_xlabel("Approximate probability")
-    # ax.set_ylabel("Exact probability")
-    # ax.set_title("Correlation plot")
-
-    # ax.legend()
-
+    
     # fig.savefig("plot.png")
 
     # plt.show()
