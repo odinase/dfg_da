@@ -66,6 +66,8 @@ def loop_func(pmbm_file):
     lbp_mh_marginals_list = []
     lbp_williams_marginals_list = []
 
+    tracks_in_clusters = []
+
     num_skipped_enumerations = 0
 
     for prior_hypotheses in prior_hypotheses_per_cluster:
@@ -93,6 +95,9 @@ def loop_func(pmbm_file):
 
         exact_normalization_constants_all.append(exact_normalization_constants)
         approx_normalization_constants_all.append(approx_normalization_constants)
+
+        tracks_in_cluster = set(tt for t,_ in prior_hypotheses for tt in t)
+        tracks_in_clusters.append(tracks_in_cluster)
 
     return exact_marginals_list, lbp_mh_marginals_list, lbp_williams_marginals_list, lbp_mh_all_errors, lbp_williams_all_errors, exact_normalization_constants_all, approx_normalization_constants_all, num_skipped_enumerations, len(prior_hypotheses_per_cluster)
 

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import loadmat
-from typing import Dict, Any, List, TypeVar
+from typing import Dict, Any, List, TypeVar, MutableSet
 from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
@@ -232,3 +232,11 @@ class StatsLogger:
             marginals_data = getattr(marginals, marginals_name)
             filepath = f"{path}/{marginals_name}.bin"
             marginals_data.tofile(filepath)
+
+
+@dataclass
+class ClusterData:
+    errors: MarginalsErrors
+    normalization_constants: List[float]
+    marginals: Marginals
+    tracks: MutableSet[int]

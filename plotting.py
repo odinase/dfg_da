@@ -93,30 +93,24 @@ if __name__ == "__main__":
         "LBP on full problem"
     ]
 
-    fig, axes = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
-    axes[-1].set_xlabel("Probability error 1-norm")
+    # fig, axes = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
+    # axes[-1].set_xlabel("Probability error 1-norm")
 
 
-    if not isinstance(axes, np.ndarray):
-        axes = [axes]
+    # if not isinstance(axes, np.ndarray):
+    #     axes = [axes]
 
-    for error, label in tqdm(zip(errors, labels), total=len(errors)):
-        plot_survival_function(axes, error, label)
+    # for error, label in tqdm(zip(errors, labels), total=len(errors)):
+    #     plot_survival_function(axes, error, label)
 
-    # fig2, ax2 = plt.subplots()
-    # x = lbp_mh_errors.abs_errors
+    fig2, ax2 = plt.subplots()
+    x = lbp_mh_errors.abs_errors
 
-    # q25, q75 = np.percentile(x, [25, 75])
-    # bin_width = 2 * (q75 - q25) * len(x) ** (-1/3)
-    # bins = round((x.max() - x.min()) / bin_width)
-
-    # ax2.hist(x)
-    # ax2.semilogy()
-    # print("Showing plots...")
-    
+    ax2.boxplot(x)
+    ax2.semilogy()
     # fig.savefig("plot.png")
 
-    # plt.show()
+    plt.show()
     
-    fig.tight_layout()
-    fig.savefig("sf.pdf", bbox_inches = 'tight')
+    # fig.tight_layout()
+    # fig.savefig("sf.pdf", bbox_inches = 'tight')
