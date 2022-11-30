@@ -222,6 +222,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     msg_it = 0
 
     prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
+    iter_last_marg_check = 0
 
     while it < max_iter and not converged:
         # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
@@ -246,12 +247,15 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
                 msg_it = it
                 prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
         else:
-            asso_prob = compute_asso_probs(sigma, b2a_msg)
-            d = np.abs(asso_prob - prev_asso_prob).max()
-            if d < marginal_max_error_diff:
-                converged = True
-            else:
-                prev_asso_prob = asso_prob.copy()
+            iter_last_marg_check += 1
+            if iter_last_marg_check >= iters_per_marg_check:
+                asso_prob = compute_asso_probs(sigma, b2a_msg)
+                d = np.abs(asso_prob - prev_asso_prob).max()
+                if d < marginal_max_error_diff:
+                    converged = True
+                else:
+                    prev_asso_prob = asso_prob.copy()
+                iter_last_marg_check = 0
 
     asso_prob = compute_asso_probs(sigma, b2a_msg)
 

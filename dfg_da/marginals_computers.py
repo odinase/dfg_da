@@ -45,8 +45,9 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
 
         for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
 
+            R_sub = R_LC[tracks-1, :]
+
             if len(tracks) > 0:
-                R_sub = R_LC[tracks-1, :]
                 lbp_probs, it_from_lbp = lbp_marginal(R_sub)
             else:
                 # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
@@ -135,5 +136,5 @@ class ExactMarginals(MarginalsComputer):
 
 class LBPMarginalsFullAssociation(MarginalsComputer):
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
-        asso_prob, theta_probs, meas_probs = lbp_marginal_nonexistence(R_LC, prior_hypotheses, iter_per_check=250, max_iter=1000)
-        return asso_prob, (theta_probs, meas_probs)
+        asso_prob, it, msg_it = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
+        return asso_prob, (it, msg_it)

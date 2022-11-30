@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from ravens_parser_parallell import OUTPUT_PATH_BASE
 from pathlib import Path
 import dfg_da.stats_logger as sl
-
+from tqdm import tqdm
 
 if __name__ == "__main__":
     load_dirs = Path(OUTPUT_PATH_BASE).glob("*/*")
@@ -12,27 +12,51 @@ if __name__ == "__main__":
     lbp_mh_marginals_list = []
     lbp_williams_marginals_list = []
 
-    for cluster_file in load_dirs:
-        cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)
 
-        exact_marginals_list.append(cluster_stat.exact_stats.marginals)
-        lbp_mh_marginals_list.append(cluster_stat.lbp_stats.marginals)
-        lbp_williams_marginals_list.append(cluster_stat.williams_stats.marginals)
+    load_dirs = list(load_dirs)
+    num_files = len(load_dirs)
+
+    lbp_iterations_total = np.empty(num_files, dtype=int)
+    lbp_iterations_msg = np.empty(num_files, dtype=int)
+
+    for k, cluster_file in tqdm(enumerate(load_dirs), total=len(load_dirs)):
+        cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)
+        if cluster_stat.skipped:
+            continue
+
+        lbp_iterations_total[k] = cluster_stat.lbp_stats.num_iters
+        lbp_iterations_msg[k] = cluster_stat.lbp_stats.num_iters_msg
+
+        # exact_marginals_list.append(cluster_stat.exact_stats.marginals)
+        # lbp_mh_marginals_list.append(cluster_stat.lbp_stats.marginals)
+        # lbp_williams_marginals_list.append(cluster_stat.williams_stats.marginals)
         
 
     fig, ax = plt.subplots()
 
-    exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
-    lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
-    lbp_williams_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_williams_marginals_list)
+    lbp_iterations = np.vstack([lbp_iterations_msg, lbp_iterations_total])
 
-    ax.plot(lbp_mh_marginals.detection_marginals, exact_marginals.detection_marginals, 'ro', label='Detection')
-    ax.plot(lbp_mh_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'bs', label='Misdetection')
-    ax.plot(lbp_mh_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'gD', label='Nonexistence')
+    # ax.set_title(f"Mean: {lbp_iterations_total.mean()}, median: {np.median(lbp_iterations_total)}, max: {lbp_iterations_total.max()}")
+    labels = ["Iterations until messages converged", "Total number of iterations"]
+    m1 = np.argmax(lbp_iterations, axis=1)
+    maxes = lbp_iterations[:, m1]
+    print(m1)
+    print(maxes)
+    ax.boxplot(lbp_iterations.T, labels=labels)
+    # ax.hist(lbp_iterations_total, bins=50, density=True)
+    # ax.plot(lbp_iterations_total, 'x')
 
-    ax.set_xlabel("Approximate probability")
-    ax.set_ylabel("Exact probability")
-    ax.set_title("Correlation plot")
+    # exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
+    # lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
+    # lbp_williams_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_williams_marginals_list)
 
-    ax.legend()
+    # ax.plot(lbp_mh_marginals.detection_marginals, exact_marginals.detection_marginals, 'ro', label='Detection')
+    # ax.plot(lbp_mh_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'bs', label='Misdetection')
+    # ax.plot(lbp_mh_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'gD', label='Nonexistence')
+
+    # ax.set_xlabel("Approximate probability")
+    # ax.set_ylabel("Exact probability")
+    # ax.set_title("Correlation plot")
+
+    # ax.legend()
     plt.show()

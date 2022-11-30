@@ -83,7 +83,7 @@ def loop_func(pmbm_file):
             R_LC, prior_hypotheses, 
             own_normalizing_constants=exact_normalization_constants
         )
-        lbp_mh_marginals, (msg_iters, tot_iters) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
+        lbp_mh_marginals, (tot_iters, msg_iters) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
 
         exact_stats = sl.ExactStats(marginals=sl.Marginals(exact_marginals), normalization_constants=exact_normalization_constants)
         lbp_stats = sl.LBPStats(msg_iters, tot_iters, sl.Marginals(lbp_mh_marginals))
