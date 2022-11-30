@@ -45,10 +45,15 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
 
         for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
 
-            R_sub = R_LC[tracks-1, :]
-            lbp_probs, iters = lbp_marginal(R_sub)
-
-            iters_list[k] = iters
+            if len(tracks) > 0:
+                R_sub = R_LC[tracks-1, :]
+                lbp_probs, it_from_lbp = lbp_marginal(R_sub)
+            else:
+                # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
+                lbp_probs = np.empty((0, R_LC.shape[1]))
+                it_from_lbp = 0
+            
+            iters_list[k] = it_from_lbp
 
             # We need to concatenate the JPDAprobs with all tracks and existence probs
             existing_tracks_idx = tracks - 1
@@ -82,9 +87,9 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
             assert ((0 <= lbp_marginal_total_exact_norm_const) & (lbp_marginal_total_exact_norm_const <= 1.0)).all()
 
         if own_normalizing_constants is None:
-            out = lbp_marginal_total, (normalizing_constants, iters)
+            out = lbp_marginal_total, (normalizing_constants, iters_list)
         else:
-            out = lbp_marginal_total, (normalizing_constants, iters, lbp_marginal_total_exact_norm_const)
+            out = lbp_marginal_total, (normalizing_constants, iters_list, lbp_marginal_total_exact_norm_const)
 
         return out
 
