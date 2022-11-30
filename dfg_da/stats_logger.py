@@ -1,10 +1,11 @@
 import numpy as np
 from scipy.io import loadmat
-from typing import Dict, Any, List, TypeVar, MutableSet
+from typing import Dict, Any, List, TypeVar, FrozenSet, Optional
 from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
-from .marginals_computers import MarginalsComputer, ExactMarginalsWilliams
+from .marginals_computers import MarginalsComputer, ExactMarginals
+import pickle
 
 
 @dataclass
@@ -233,10 +234,43 @@ class StatsLogger:
             filepath = f"{path}/{marginals_name}.bin"
             marginals_data.tofile(filepath)
 
+@dataclass
+class LBPStats:
+    num_iters_msg: int
+    num_iters: int
+    marginals: Marginals
+
+@dataclass
+class WilliamsStats:
+    lbp_iters: np.ndarray
+    marginals: Marginals
+    marginals_exact_normalization_constant: Marginals
+    normalization_constants: List[float]
+
+@dataclass
+class ExactStats:
+    marginals: Marginals
+    normalization_constants: List[float]
+
 
 @dataclass
 class ClusterData:
-    errors: MarginalsErrors
-    normalization_constants: List[float]
-    marginals: Marginals
-    tracks: MutableSet[int]
+    skipped: bool = False
+
+    cardinality: Optional[int] = None
+    tracks: Optional[FrozenSet[int]] = None
+    num_hypotheses: Optional[int] = None
+
+    lbp_stats: Optional[LBPStats] = None
+    williams_stats: Optional[WilliamsStats] = None
+    exact_stats: Optional[ExactStats] = None
+
+    def save_data(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+
+    @classmethod
+    def from_data(cls, path):
+        with open(path, "rb") as f:
+            return pickle.load(f)

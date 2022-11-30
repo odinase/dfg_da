@@ -109,18 +109,10 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     prob[:, 1:] = w_times_msg / s
     prob[:, [0]] = 1 / s
 
-    log_ai = np.log(1 + w_times_msg.sum(axis=1)).sum()
-    log_bj = np.log(1 + a2b_msg.sum(axis=0)).sum()
-    log_ab = np.log(1 + a2b_msg * b2a_msg).sum()
-
-    F = -log_ai - log_bj + log_ab
-
-    bethe_permanent = np.exp(-F)
-
-    return prob, bethe_permanent
+    return prob, it
 
 
-def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -161,13 +153,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
     # w_nmd = np.hstack((w_nmd, w_N))
 
-    w_star = np.max((w_nmd / m).sum(axis=1)) # Scale by m to keep the math the same? convergence criteria??
-    log1p_w_star = np.log(1 + w_star)
-    stop_crit = 0.5 * np.log(1 + max_prob_diff_from_conv)
-
-    it = 0
-    conv_val = np.inf
-
     # note parenthesis for underflow problems
 
     # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
@@ -203,6 +188,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     # However, the sum involves doing a product over all other tracks for the rho message, where the product changes
 
     # We do both sums for each target, such that we slice the necessary 
+
     def compute_sigma(rho):
         rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
         a = (rho_prods*t2noth_idx*phi).sum(axis=1)
@@ -212,61 +198,64 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     sigma = compute_sigma(rho)
 
-    while conv_val >= stop_crit and it < max_iter:
-        for k in range(iter_per_check):
-            assert DEBUG or np.isfinite(a2b_msg).all(), 'a2b not finite'
-            assert DEBUG or np.isfinite(b2a_msg).all(), 'b2a not finite'
+    def msg_norm(m, n):
+        return np.max(np.abs(np.log(n / m)))
 
-            # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
-            w_times_msg = w_nmd * b2a_msg
+    converged = False
+    msgs_converged = False
 
-            # tracks x measurements
-            a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+    def compute_asso_probs(sigma, b2a_msg):
+        asso_prob = np.empty((n, m + 2))
+        # Misdetection, only the prior factor in misdetection
+        asso_prob[:, [0]] = w_0
+        # Association, use the messages from b
+        asso_prob[:, 1:-1] = w_nmd * b2a_msg
+        # Nonexistence, use sigma
+        asso_prob[:, -1] = sigma
 
-            b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+        asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
 
-            rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
+        return asso_prob
 
-            sigma = compute_sigma(rho)
 
-            if k == iter_per_check - 1:
-                prevb2a = np.copy(b2a_msg)
+    it = 0
+    msg_it = 0
 
-            it = it + 1
+    prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
 
-        bmsg_ratio = b2a_msg / prevb2a
-        max_ratio = bmsg_ratio.max()
-        min_ratio = bmsg_ratio.min()
-        max_abs = max(max_ratio, 1 / min_ratio)
-        d = np.log(max_abs)
-        if d == 0:
-            conv_val = 0
+    while it < max_iter and not converged:
+        # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
+        w_times_msg = w_nmd * b2a_msg
+        prev_b2a = b2a_msg.copy()
+
+        # tracks x measurements
+        a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+
+        b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+        rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
+
+        sigma = compute_sigma(rho)
+
+        it = it + 1
+
+        if not msgs_converged:
+            d = msg_norm(b2a_msg, prev_b2a)
+            if d < msg_thresh:
+                msgs_converged = True
+                msg_it = it
+                prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
         else:
-            alpha = (np.log(1 + w_star * d) - log1p_w_star) / np.log(d)
-            conv_val = alpha * (d + stop_crit)
+            asso_prob = compute_asso_probs(sigma, b2a_msg)
+            d = np.abs(asso_prob - prev_asso_prob).max()
+            if d < marginal_max_error_diff:
+                converged = True
+            else:
+                prev_asso_prob = asso_prob.copy()
 
-    asso_prob = np.empty((n, m + 2))
-    # The incoming messages are either from misdetection, which we define as 1, or from measurements, indicating association, or from theta, indicating nonexistence
+    asso_prob = compute_asso_probs(sigma, b2a_msg)
 
-    # Misdetection, only the prior factor in misdetection
-    asso_prob[:, [0]] = w_0
-    # Association, use the messages from b
-    asso_prob[:, 1:-1] = w_nmd * b2a_msg
-    # Nonexistence, use sigma
-    asso_prob[:, -1] = sigma
-
-    asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
-
-    theta_probs = phi * np.array([np.prod(rho[h]) for h in h2t_idx])
-    theta_probs = theta_probs / theta_probs.sum()
-
-    meas_probs = np.empty((m, 1 + n))
-    meas_probs[:, 0] = 1
-    meas_probs[:, 1:] = a2b_msg.T
-
-    meas_probs = meas_probs / meas_probs.sum(axis=1, keepdims=True)
-
-    return asso_prob, theta_probs, meas_probs
+    return asso_prob, it, msg_it
 
 
 

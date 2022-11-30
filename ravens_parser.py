@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
-    exact_marginal_computer = mc.ExactMarginalsWilliams()
+    exact_marginal_computer = mc.ExactMarginals()
     approx_marginal_computers = {
         "lbp_williams": mc.LBPMarginalsByTotalProb(),
         "lbp_mh": mc.LBPMarginalsFullAssociation()
@@ -121,6 +121,7 @@ if __name__ == "__main__":
     ax.set_title("Correlation plot")
 
     ax.legend()
+    plt.show()
 
     # fig, ax = plt.subplots()
 
@@ -134,7 +135,6 @@ if __name__ == "__main__":
     # plot_survival_function(axes_sf, lbp_williams_all_errors.max_errors, lbp_williams_all_errors.abs_errors, lbp_williams_all_errors.misdetection_errors, lbp_williams_all_errors.detection_errors, lbp_williams_all_errors.nonexistence_errors, "Williams LBP with estimated normalization constant")
     # plot_survival_function(axes_sf, lbp_mh_all_errors.max_errors, lbp_mh_all_errors.abs_errors, lbp_mh_all_errors.misdetection_errors, lbp_mh_all_errors.detection_errors, lbp_mh_all_errors.nonexistence_errors, "LBP on full problem")
 
-    plt.show()
 
     # path = "./pmbm_analysis_output"
     # stats_logger = sl.StatsLogger()
