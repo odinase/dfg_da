@@ -227,7 +227,8 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     while it < max_iter and not converged:
         # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
         w_times_msg = w_nmd * b2a_msg
-        prev_b2a = b2a_msg.copy()
+        if not msgs_converged:
+            prev_b2a = b2a_msg.copy()
 
         # tracks x measurements
         a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])

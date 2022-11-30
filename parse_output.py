@@ -42,9 +42,9 @@ if __name__ == "__main__":
     maxes = lbp_iterations[:, m1]
     print(m1)
     print(maxes)
-    ax.boxplot(lbp_iterations.T, labels=labels)
+    # ax.boxplot(lbp_iterations.T, labels=labels)
     # ax.hist(lbp_iterations_total, bins=50, density=True)
-    # ax.plot(lbp_iterations_total, 'x')
+    ax.plot(lbp_iterations_total, 'x')
 
     # exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
     # lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
