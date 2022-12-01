@@ -88,11 +88,6 @@ class MatFileParser:
         return prior_hypotheses_per_cluster, clusters_to_use
 
 
-class ClusterStatistics:
-    def __init__(self):
-        pass
-
-
 SelfMarginals = TypeVar("SelfMarginals", bound="StatsLogger.Marginals")
 
 class Marginals:
@@ -239,6 +234,7 @@ class LBPStats:
     num_iters_msg: int
     num_iters: int
     marginals: Marginals
+    converged: bool
 
 @dataclass
 class WilliamsStats:
@@ -246,6 +242,7 @@ class WilliamsStats:
     marginals: Marginals
     marginals_exact_normalization_constant: Marginals
     normalization_constants: List[float]
+    converged_list: np.ndarray
 
 @dataclass
 class ExactStats:
@@ -255,7 +252,7 @@ class ExactStats:
 
 @dataclass
 class ClusterData:
-    skipped: bool = False
+    explicit_hypothesis_enumeration_error: bool = False
 
     cardinality: Optional[int] = None
     tracks: Optional[FrozenSet[int]] = None

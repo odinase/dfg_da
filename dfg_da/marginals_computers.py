@@ -36,25 +36,29 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
 
         own_normalizing_constants = None
         if "own_normalizing_constants" in kwargs:
-            lbp_marginal_total_exact_norm_const = np.zeros((n, m + 1 + 1))
             own_normalizing_constants = kwargs["own_normalizing_constants"]
+        if own_normalizing_constants is not None:
+            lbp_marginal_total_exact_norm_const = np.zeros((n, m + 1 + 1))
 
         normalizing_constants = np.empty(len(prior_hypotheses))
 
         iters_list = np.empty(len(prior_hypotheses), dtype=int)
+        converged_list = np.empty(len(prior_hypotheses), dtype=bool)
 
         for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
 
             R_sub = R_LC[tracks-1, :]
 
             if len(tracks) > 0:
-                lbp_probs, it_from_lbp = lbp_marginal(R_sub)
+                lbp_probs, it_from_lbp, converged = lbp_marginal(R_sub)
             else:
                 # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
                 lbp_probs = np.empty((0, R_LC.shape[1]))
                 it_from_lbp = 0
+                converged = True
             
             iters_list[k] = it_from_lbp
+            converged_list[k] = converged
 
             # We need to concatenate the JPDAprobs with all tracks and existence probs
             existing_tracks_idx = tracks - 1
@@ -88,9 +92,9 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
             assert ((0 <= lbp_marginal_total_exact_norm_const) & (lbp_marginal_total_exact_norm_const <= 1.0)).all()
 
         if own_normalizing_constants is None:
-            out = lbp_marginal_total, (normalizing_constants, iters_list)
+            out = lbp_marginal_total, (normalizing_constants, iters_list, converged_list, None)
         else:
-            out = lbp_marginal_total, (normalizing_constants, iters_list, lbp_marginal_total_exact_norm_const)
+            out = lbp_marginal_total, (normalizing_constants, iters_list, converged_list, lbp_marginal_total_exact_norm_const)
 
         return out
 
@@ -136,5 +140,5 @@ class ExactMarginals(MarginalsComputer):
 
 class LBPMarginalsFullAssociation(MarginalsComputer):
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
-        asso_prob, it, msg_it = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
-        return asso_prob, (it, msg_it)
+        asso_prob, it, msg_it, converged = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
+        return asso_prob, (it, msg_it, converged)

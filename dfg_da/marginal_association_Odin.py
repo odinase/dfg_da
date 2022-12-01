@@ -109,7 +109,9 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     prob[:, 1:] = w_times_msg / s
     prob[:, [0]] = 1 / s
 
-    return prob, it
+    converged = not (conv_val >= stop_crit and it < max_iter)
+
+    return prob, it, converged
 
 
 def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -260,7 +262,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     asso_prob = compute_asso_probs(sigma, b2a_msg)
 
-    return asso_prob, it, msg_it
+    return asso_prob, it, msg_it, converged
 
 
 

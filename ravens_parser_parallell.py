@@ -10,11 +10,8 @@ import numpy as np
 
 
 from multiprocessing import Pool
-import itertools
 import time
-import tqdm
 from pathlib import Path
-
 
 OUTPUT_PATH_BASE = "./ravens_output"
 
@@ -68,44 +65,61 @@ def loop_func(pmbm_file):
     path.mkdir(parents=True, exist_ok=True)
     
     num_clusters = len(prior_hypotheses_per_cluster)
+    if num_clusters == 0:
+        # There are no clusters in this timestep for some reason, but that is still valuable information
+        cluster_stats = sl.ClusterData()
+        save_path = f"{path}/empty_cluster"
+        cluster_stats.cardinality = 0
+        cluster_stats.tracks = frozenset()
+        cluster_stats.num_hypotheses = 0
+
+        cluster_stats.save_data(save_path)
+        return
+
+
+    digits = int(np.ceil(np.log10(num_clusters)))
+
 
     for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         cluster_stats = sl.ClusterData()
-        save_path = f"{path}/cluster{str(k).zfill(int(np.ceil(np.log10(num_clusters))))}"
+        save_path = f"{path}/cluster{str(k).zfill(digits)}"
         try:
             exact_marginals, (exact_normalization_constants,) = exact_marginal_computer(R_LC, prior_hypotheses)
+            exact_stats = sl.ExactStats(
+                marginals=sl.Marginals(exact_marginals),
+                normalization_constants=exact_normalization_constants
+            )
+            cluster_stats.exact_stats = exact_stats
+            cluster_stats.explicit_hypothesis_enumeration_error = False
         except ExplicitHypothesisEnumerationError:
-            cluster_stats.skipped = True
-            cluster_stats.save_data(save_path)
-            continue
+            cluster_stats.explicit_hypothesis_enumeration_error = True
+            exact_normalization_constants = None
 
-        lbp_williams_marginals, (approx_normalization_constants, williams_iters, lbp_williams_marginals_exact_norm_const) = approx_marginal_computers["lbp_williams"](
+        lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = approx_marginal_computers["lbp_williams"](
             R_LC, prior_hypotheses, 
             own_normalizing_constants=exact_normalization_constants
         )
-        lbp_mh_marginals, (tot_iters, msg_iters) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
+        if lbp_williams_marginals_exact_norm_const is not None:
+            lbp_williams_marginals_exact_norm_const = sl.Marginals(lbp_williams_marginals_exact_norm_const)
 
-        exact_stats = sl.ExactStats(
-            marginals=sl.Marginals(exact_marginals),
-            normalization_constants=exact_normalization_constants
-        )
+        lbp_mh_marginals, (tot_iters, msg_iters, lbp_converged) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
+
         lbp_stats = sl.LBPStats(
             num_iters_msg=msg_iters,
             num_iters=tot_iters,
-            marginals=sl.Marginals(lbp_mh_marginals)
+            marginals=sl.Marginals(lbp_mh_marginals),
+            converged=lbp_converged
         )
         williams_stats = sl.WilliamsStats(
             lbp_iters=williams_iters,
             marginals=sl.Marginals(lbp_williams_marginals),
-            marginals_exact_normalization_constant=sl.Marginals(lbp_williams_marginals_exact_norm_const),
-            normalization_constants=approx_normalization_constants
+            marginals_exact_normalization_constant=lbp_williams_marginals_exact_norm_const,
+            normalization_constants=approx_normalization_constants,
+            converged_list=williams_converged_list
         )
 
         cluster_stats.lbp_stats = lbp_stats
         cluster_stats.williams_stats = williams_stats
-        cluster_stats.exact_stats = exact_stats
-
-        cluster_stats.skipped = False
 
         tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
         cluster_stats.cardinality = len(tracks_in_cluster)
@@ -130,9 +144,13 @@ if __name__ == "__main__":
         "lbp_mh": mc.LBPMarginalsFullAssociation()
     }
 
-    start = time.time()
     print("Starting pool")
+    start = time.time()
     with Pool() as p:
         p.map(loop_func, pmbm_files)
-
+    stop = time.time()
     print("Pools done")
+    duration_s = stop - start
+    duration_min = duration_s / 60.0
+    duration_h = duration_min / 60.0
+    print(f"Spent {duration_s:.3f} s = {duration_min:.3f} min = {duration_h:.3f} h")

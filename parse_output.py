@@ -19,11 +19,24 @@ if __name__ == "__main__":
     lbp_iterations_total = np.empty(num_files, dtype=int)
     lbp_iterations_msg = np.empty(num_files, dtype=int)
 
+    cluster_stats = dict()
+
+    num_empty_clusters = [l for l in load_dirs if Path(l).name == "empty_cluster"]
+    cluster_stats = [sl.ClusterData.from_data(cluster_file) for cluster_file in load_dirs]
+
+    num_lbp_converged = sum(cluster_stat.lbp_stats.converged for cluster_stat in cluster_stats if cluster_stat.lbp_stats is not None)
+    print(num_lbp_converged)
+
+    print(num_empty_clusters)
+
     k = 0
     for cluster_file in tqdm(load_dirs, total=len(load_dirs)):
         cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)
+        cluster_stats[cluster_file] = cluster_stat
         if cluster_stat.skipped:
             continue
+
+
 
         lbp_iterations_total[k] = cluster_stat.lbp_stats.num_iters
         lbp_iterations_msg[k] = cluster_stat.lbp_stats.num_iters_msg
@@ -44,6 +57,9 @@ if __name__ == "__main__":
     maxes = lbp_iterations[:, m1]
     print(m1)
     print(maxes)
+    num_converged = np.sum(lbp_iterations[1] < 10_000)
+    num_not_converged = lbp_iterations.shape[1] - num_converged
+    fig.suptitle(f"Num not converged: {num_not_converged} ({num_not_converged / (num_not_converged + num_converged) * 100.0:.3f}%), num converged: {num_converged}, total: {lbp_iterations.shape[1]}")
     ax[0].boxplot(lbp_iterations.T, labels=labels)
     ax[1].hist(lbp_iterations[1], bins=50)
     ax[2].plot(lbp_iterations[1], 'x')
