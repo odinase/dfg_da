@@ -19,22 +19,24 @@ if __name__ == "__main__":
     lbp_iterations_total = np.empty(num_files, dtype=int)
     lbp_iterations_msg = np.empty(num_files, dtype=int)
 
-    for k, cluster_file in tqdm(enumerate(load_dirs), total=len(load_dirs)):
+    k = 0
+    for cluster_file in tqdm(load_dirs, total=len(load_dirs)):
         cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)
         if cluster_stat.skipped:
             continue
 
         lbp_iterations_total[k] = cluster_stat.lbp_stats.num_iters
         lbp_iterations_msg[k] = cluster_stat.lbp_stats.num_iters_msg
+        k += 1
 
         # exact_marginals_list.append(cluster_stat.exact_stats.marginals)
         # lbp_mh_marginals_list.append(cluster_stat.lbp_stats.marginals)
         # lbp_williams_marginals_list.append(cluster_stat.williams_stats.marginals)
         
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(ncols=3)
 
-    lbp_iterations = np.vstack([lbp_iterations_msg, lbp_iterations_total])
+    lbp_iterations = np.vstack([lbp_iterations_msg[:k], lbp_iterations_total[:k]])
 
     # ax.set_title(f"Mean: {lbp_iterations_total.mean()}, median: {np.median(lbp_iterations_total)}, max: {lbp_iterations_total.max()}")
     labels = ["Iterations until messages converged", "Total number of iterations"]
@@ -42,9 +44,9 @@ if __name__ == "__main__":
     maxes = lbp_iterations[:, m1]
     print(m1)
     print(maxes)
-    # ax.boxplot(lbp_iterations.T, labels=labels)
-    # ax.hist(lbp_iterations_total, bins=50, density=True)
-    ax.plot(lbp_iterations_total, 'x')
+    ax[0].boxplot(lbp_iterations.T, labels=labels)
+    ax[1].hist(lbp_iterations[1], bins=50)
+    ax[2].plot(lbp_iterations[1], 'x')
 
     # exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
     # lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
