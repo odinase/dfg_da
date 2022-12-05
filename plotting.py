@@ -1,11 +1,18 @@
-import matplotlib
 import matplotlib.pyplot as plt
+plt.rcParams['text.usetex'] = True
+plt.rcParams['text.latex.preamble'] = r'\usepackage{bm}'
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.serif'] = 'Computer Modern'
 
 import numpy as np
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from tqdm import tqdm
+from pathlib import Path
+from collections import defaultdict
 
-from dfg_da.stats_logger import MarginalsErrors, Marginals
+
+from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData
+from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
 
 
@@ -26,7 +33,7 @@ def subsample(a: np.ndarray, inc: float) -> np.ndarray:
 
 
 
-def plot_survival_function(ax: plt.Axes, marginals_errors: MarginalsErrors, label: str = "_"):
+def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, label: str = "_"):
     max_errors = np.sort(marginals_errors.max_errors)
     abs_errors = np.sort(marginals_errors.abs_errors)
     # raw_errors = np.sort(marginals_errors.abs_errors)
@@ -55,14 +62,12 @@ def plot_survival_function(ax: plt.Axes, marginals_errors: MarginalsErrors, labe
     for ax, error, title in zip(axes, errors, titles):
         ax.set_title(title)
         steps = np.linspace(1.0, 0.0, len(error))
-        idxs = subsample(error, 1e-20)
-        # emin = error[error > 0].min()
+        idxs = subsample(np.log(error), 1e-20)
         print(f"Subsampling {title} for {label} reduced data to {len(idxs)/len(error)*100.0:.3f}%")
         print(f"Num zeros: {idxs[1]}")
         error = error[idxs]
         steps = steps[idxs]
         ax.step(error, steps, label=label)
-        # ax.set_yscale('symlog')
         ax.set_xscale('symlog', linthresh=error[1])
         log_err = np.linspace(np.log10(error[1]), np.log10(error[-1]*1.1), 9).astype(int)
         xticks = np.array([0, *((10.0)**log_err)])
@@ -70,47 +75,70 @@ def plot_survival_function(ax: plt.Axes, marginals_errors: MarginalsErrors, labe
         ax.set_xticks(xticks)
         xticks_labels = [0] + [rf'$10^{{{l}}}$' for l in log_err]
         ax.set_xticklabels(xticks_labels)
-        # ax.get_xaxis().set_major_formatter(matplotlib.ticker.StrMethodFormatter("10**{x:d}"))
-        # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
-        # ax.semilogx()
         ax.semilogy()
-        # ax.loglog()
         if label != "_":
             ax.legend()
 
 
 if __name__ == "__main__":
-    lbp_mh_errors: MarginalsErrors = MarginalsErrors.from_path("./pmbm_analysis_output copy/lbp/errors")
-    lbp_williams_errors: MarginalsErrors = MarginalsErrors.from_path("./pmbm_analysis_output copy/williams/errors")
+    load_dirs = Path(OUTPUT_PATH_BASE).glob("*/*")
 
-    errors = [
-        lbp_williams_errors,
-        lbp_mh_errors
-    ]
+    exact_marginals_list = []
+    lbp_mh_marginals_list = []
+    lbp_williams_marginals_list = []
 
-    labels = [
-        "Williams LBP with estimated normalization constant",
-        "LBP on full problem"
-    ]
-
-    # fig, axes = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
-    # axes[-1].set_xlabel("Probability error 1-norm")
+    load_dirs = list(load_dirs)
+    num_files = len(load_dirs)
 
 
-    # if not isinstance(axes, np.ndarray):
-    #     axes = [axes]
+    cluster_stats: List[Tuple[ClusterData, Path]] = []
+    empty_clusters: List[Tuple[ClusterData, Path]] = []
+    for cluster_file in tqdm(load_dirs, total=num_files):
+        if cluster_file.name == "empty_cluster":
+            empty_clusters.append(
+                (ClusterData.from_data(cluster_file), cluster_file)
+            )
+        else:
+            cluster_stats.append(
+                (ClusterData.from_data(cluster_file), cluster_file)
+            )
 
-    # for error, label in tqdm(zip(errors, labels), total=len(errors)):
-    #     plot_survival_function(axes, error, label)
+    cluster_size_table_lbp_converge = defaultdict(lambda: 0)
+    cluster_size_table_lbp_converge_num = defaultdict(lambda: 0)
+    clusters_not_converged = list()
 
-    fig2, ax2 = plt.subplots()
-    x = lbp_mh_errors.abs_errors
+    print(f"Num empty clusters: {len(empty_clusters)}, {len(empty_clusters) / (len(empty_clusters) + len(cluster_stats))*100.0:.3f}%")
 
-    ax2.boxplot(x)
-    ax2.semilogy()
-    # fig.savefig("plot.png")
+    for cluster_stat, cluster_file in cluster_stats:
+        c = cluster_stat.cardinality
+        cluster_size_table_lbp_converge[c] += cluster_stat.lbp_stats.num_iters
+        cluster_size_table_lbp_converge_num[c] += 1
+        if not cluster_stat.lbp_stats.converged:
+            clusters_not_converged.append(c)
+
+    table = np.array([t for t in cluster_size_table_lbp_converge.items()])
+    table = table[table[:,0].argsort()]
+
+    nums = np.array([t for t in cluster_size_table_lbp_converge_num.items()])
+    nums = nums[nums[:,0].argsort()]
+
+    table[:,1] = table[:,1] / nums[:,1]
+
+    print(f"Num not converged: {len(clusters_not_converged)}")
+    clusters_not_converged = np.sort(np.array([c for c in set(clusters_not_converged)]))
+    print(clusters_not_converged)
+
+    fig, ax = plt.subplots(nrows=3)
+
+    ax[0].plot(*table.T)
+    ax[0].set_xlabel("Cluster cardinality")
+    ax[0].set_ylabel("LBP convergence average iterations")
+    for cnc in clusters_not_converged:
+        ax[0].axvline(cnc, color="red")
+
+    ax[1].plot(*nums.T)
+
+    ax[2].hist(clusters_not_converged, bins=25)
+    ax[2].set_title("Clusters not converged")
 
     plt.show()
-    
-    # fig.tight_layout()
-    # fig.savefig("sf.pdf", bbox_inches = 'tight')

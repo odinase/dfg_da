@@ -39,6 +39,8 @@ if __name__ == "__main__":
         if cluster_stat.lbp_stats is not None and not cluster_stat.lbp_stats.converged:
             mat_file = sl.MatFileParser(f"{PMBM_DATA_PATH}/{cluster_file.parent.name}.mat")
             break
+        
+    print(f"File that didn't converge: {cluster_file}")
 
     R_LC = mat_file.reward_matrix_lc
     cluster_idx = int("".join(d for d in cluster_file.name if d.isdigit()))

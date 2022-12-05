@@ -87,7 +87,7 @@ def loop_func(pmbm_file):
         try:
             exact_marginals, (exact_normalization_constants,) = exact_marginal_computer(R_LC, prior_hypotheses)
             exact_stats = sl.ExactStats(
-                marginals=sl.Marginals(exact_marginals),
+                marginals=sl.Marginals(exact_marginals[t_idx, :]),
                 normalization_constants=exact_normalization_constants
             )
             cluster_stats.exact_stats = exact_stats
@@ -101,19 +101,19 @@ def loop_func(pmbm_file):
             own_normalizing_constants=exact_normalization_constants
         )
         if lbp_williams_marginals_exact_norm_const is not None:
-            lbp_williams_marginals_exact_norm_const = sl.Marginals(lbp_williams_marginals_exact_norm_const)
+            lbp_williams_marginals_exact_norm_const = sl.Marginals(lbp_williams_marginals_exact_norm_const[t_idx, :])
 
         lbp_mh_marginals, (tot_iters, msg_iters, lbp_converged) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
 
         lbp_stats = sl.LBPStats(
             num_iters_msg=msg_iters,
             num_iters=tot_iters,
-            marginals=sl.Marginals(lbp_mh_marginals),
+            marginals=sl.Marginals(lbp_mh_marginals[t_idx, :]),
             converged=lbp_converged
         )
         williams_stats = sl.WilliamsStats(
             lbp_iters=williams_iters,
-            marginals=sl.Marginals(lbp_williams_marginals),
+            marginals=sl.Marginals(lbp_williams_marginals[t_idx, :]),
             marginals_exact_normalization_constant=lbp_williams_marginals_exact_norm_const,
             normalization_constants=approx_normalization_constants,
             converged_list=williams_converged_list
