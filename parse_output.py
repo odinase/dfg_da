@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ravens_parser_parallell import OUTPUT_PATH_BASE
+from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 from pathlib import Path
 import dfg_da.stats_logger as sl
 from tqdm import tqdm
@@ -22,47 +22,55 @@ if __name__ == "__main__":
     cluster_stats = dict()
 
     num_empty_clusters = [l for l in load_dirs if Path(l).name == "empty_cluster"]
-    cluster_stats = [sl.ClusterData.from_data(cluster_file) for cluster_file in load_dirs]
+    cluster_stats = []
+    for cluster_file in tqdm(load_dirs, total=num_files):
+        cluster_stats.append(
+            (sl.ClusterData.from_data(cluster_file), cluster_file)
+        )
 
-    num_lbp_converged = sum(cluster_stat.lbp_stats.converged for cluster_stat in cluster_stats if cluster_stat.lbp_stats is not None)
-    print(num_lbp_converged)
+    # num_lbp_converged = sum(cluster_stat.lbp_stats.converged for cluster_stat, _ in cluster_stats if cluster_stat.lbp_stats is not None)
+    # num_lbp_not_converged = sum(not cluster_stat.lbp_stats.converged for cluster_stat, _ in cluster_stats if cluster_stat.lbp_stats is not None)
+    # lbp_not_converged_files = [cluster_file for cluster_stat, cluster_file in cluster_stats if cluster_stat.lbp_stats is not None and not cluster_stat.lbp_stats.converged]
+    # print(num_lbp_converged)
+    # print(num_lbp_converged / (num_lbp_converged + num_lbp_not_converged))
 
-    print(num_empty_clusters)
+    for cluster_stat, cluster_file in cluster_stats:
+        if not cluster_stat.lbp_stats.converged:
+            mat_file = sl.MatFileParser(f"{PMBM_DATA_PATH}/{cluster_file.parent.name}.mat")
+            pass
 
-    k = 0
-    for cluster_file in tqdm(load_dirs, total=len(load_dirs)):
-        cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)
-        cluster_stats[cluster_file] = cluster_stat
-        if cluster_stat.skipped:
-            continue
+    # for cluster_file in tqdm(load_dirs, total=len(load_dirs)):
+    #     cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)
+    #     cluster_stats[cluster_file] = cluster_stat
+    #     if cluster_stat.skipped:
+    #         continue
 
 
+    #     lbp_iterations_total[k] = cluster_stat.lbp_stats.num_iters
+    #     lbp_iterations_msg[k] = cluster_stat.lbp_stats.num_iters_msg
+    #     k += 1
 
-        lbp_iterations_total[k] = cluster_stat.lbp_stats.num_iters
-        lbp_iterations_msg[k] = cluster_stat.lbp_stats.num_iters_msg
-        k += 1
-
-        # exact_marginals_list.append(cluster_stat.exact_stats.marginals)
-        # lbp_mh_marginals_list.append(cluster_stat.lbp_stats.marginals)
-        # lbp_williams_marginals_list.append(cluster_stat.williams_stats.marginals)
+    #     # exact_marginals_list.append(cluster_stat.exact_stats.marginals)
+    #     # lbp_mh_marginals_list.append(cluster_stat.lbp_stats.marginals)
+    #     # lbp_williams_marginals_list.append(cluster_stat.williams_stats.marginals)
         
 
-    fig, ax = plt.subplots(ncols=3)
+    # fig, ax = plt.subplots(ncols=3)
 
-    lbp_iterations = np.vstack([lbp_iterations_msg[:k], lbp_iterations_total[:k]])
+    # lbp_iterations = np.vstack([lbp_iterations_msg[:k], lbp_iterations_total[:k]])
 
     # ax.set_title(f"Mean: {lbp_iterations_total.mean()}, median: {np.median(lbp_iterations_total)}, max: {lbp_iterations_total.max()}")
-    labels = ["Iterations until messages converged", "Total number of iterations"]
-    m1 = np.argmax(lbp_iterations, axis=1)
-    maxes = lbp_iterations[:, m1]
-    print(m1)
-    print(maxes)
-    num_converged = np.sum(lbp_iterations[1] < 10_000)
-    num_not_converged = lbp_iterations.shape[1] - num_converged
-    fig.suptitle(f"Num not converged: {num_not_converged} ({num_not_converged / (num_not_converged + num_converged) * 100.0:.3f}%), num converged: {num_converged}, total: {lbp_iterations.shape[1]}")
-    ax[0].boxplot(lbp_iterations.T, labels=labels)
-    ax[1].hist(lbp_iterations[1], bins=50)
-    ax[2].plot(lbp_iterations[1], 'x')
+    # labels = ["Iterations until messages converged", "Total number of iterations"]
+    # m1 = np.argmax(lbp_iterations, axis=1)
+    # maxes = lbp_iterations[:, m1]
+    # print(m1)
+    # print(maxes)
+    # num_converged = np.sum(lbp_iterations[1] < 10_000)
+    # num_not_converged = lbp_iterations.shape[1] - num_converged
+    # fig.suptitle(f"Num not converged: {num_not_converged} ({num_not_converged / (num_not_converged + num_converged) * 100.0:.3f}%), num converged: {num_converged}, total: {lbp_iterations.shape[1]}")
+    # ax[0].boxplot(lbp_iterations.T, labels=labels)
+    # ax[1].hist(lbp_iterations[1], bins=50)
+    # ax[2].plot(lbp_iterations[1], 'x')
 
     # exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals_list)
     # lbp_mh_marginals: sl.Marginals = sl.Marginals.concatenate(lbp_mh_marginals_list)
@@ -77,4 +85,4 @@ if __name__ == "__main__":
     # ax.set_title("Correlation plot")
 
     # ax.legend()
-    plt.show()
+    # plt.show()

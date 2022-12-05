@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 OUTPUT_PATH_BASE = "./ravens_output"
-
+PMBM_DATA_PATH = "./data/pmbm_output_files"
 
 def plot_survival_function(axes, max_errors, abs_errors, misdetection_errors, detection_errors, nonexistence_errors, label="_"):
     assert len(axes) == 5
@@ -132,9 +132,8 @@ def loop_func(pmbm_file):
 
 if __name__ == "__main__":
     # Make list over all files
-    path = "./data/pmbm_output_files"
 
-    pmbm_files = glob(path + "/*.mat")
+    pmbm_files = glob(PMBM_DATA_PATH + "/*.mat")
     # pmbm_files = pmbm_files[:500]
     # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
