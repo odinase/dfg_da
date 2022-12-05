@@ -140,5 +140,11 @@ class ExactMarginals(MarginalsComputer):
 
 class LBPMarginalsFullAssociation(MarginalsComputer):
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
-        asso_prob, it, msg_it, converged = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
-        return asso_prob, (it, msg_it, converged)
+        out = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
+        asso_prob = out[0]
+        it, msg_it, converged = out[1:4]
+        if len(out[4:]) > 0:
+            extra = out[4:]
+        else:
+            extra = ()
+        return (asso_prob, (it, msg_it, converged)) + extra

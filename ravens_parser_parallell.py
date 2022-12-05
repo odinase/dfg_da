@@ -76,13 +76,14 @@ def loop_func(pmbm_file):
         cluster_stats.save_data(save_path)
         return
 
-
     digits = int(np.ceil(np.log10(num_clusters)))
-
 
     for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         cluster_stats = sl.ClusterData()
         save_path = f"{path}/cluster{str(k).zfill(digits)}"
+        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
+        t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
+
         try:
             exact_marginals, (exact_normalization_constants,) = exact_marginal_computer(R_LC, prior_hypotheses)
             exact_stats = sl.ExactStats(
@@ -121,7 +122,6 @@ def loop_func(pmbm_file):
         cluster_stats.lbp_stats = lbp_stats
         cluster_stats.williams_stats = williams_stats
 
-        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
         cluster_stats.cardinality = len(tracks_in_cluster)
 
         cluster_stats.tracks = tracks_in_cluster

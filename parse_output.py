@@ -1,9 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 from pathlib import Path
-import dfg_da.stats_logger as sl
 from tqdm import tqdm
+
+
+from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
+import dfg_da.stats_logger as sl
+import dfg_da.marginals_computers as mc
+
 
 if __name__ == "__main__":
     load_dirs = Path(OUTPUT_PATH_BASE).glob("*/*")
@@ -12,32 +16,49 @@ if __name__ == "__main__":
     lbp_mh_marginals_list = []
     lbp_williams_marginals_list = []
 
-
     load_dirs = list(load_dirs)
     num_files = len(load_dirs)
 
-    lbp_iterations_total = np.empty(num_files, dtype=int)
-    lbp_iterations_msg = np.empty(num_files, dtype=int)
-
-    cluster_stats = dict()
-
-    num_empty_clusters = [l for l in load_dirs if Path(l).name == "empty_cluster"]
-    cluster_stats = []
-    for cluster_file in tqdm(load_dirs, total=num_files):
-        cluster_stats.append(
-            (sl.ClusterData.from_data(cluster_file), cluster_file)
-        )
+    # num_empty_clusters = [l for l in load_dirs if Path(l).name == "empty_cluster"]
+    # cluster_stats = []
+    # for cluster_file in tqdm(load_dirs, total=num_files):
+    #     cluster_stats.append(
+    #         (sl.ClusterData.from_data(cluster_file), cluster_file)
+    #     )
 
     # num_lbp_converged = sum(cluster_stat.lbp_stats.converged for cluster_stat, _ in cluster_stats if cluster_stat.lbp_stats is not None)
     # num_lbp_not_converged = sum(not cluster_stat.lbp_stats.converged for cluster_stat, _ in cluster_stats if cluster_stat.lbp_stats is not None)
-    # lbp_not_converged_files = [cluster_file for cluster_stat, cluster_file in cluster_stats if cluster_stat.lbp_stats is not None and not cluster_stat.lbp_stats.converged]
+    # # lbp_not_converged_files = [cluster_file for cluster_stat, cluster_file in cluster_stats if cluster_stat.lbp_stats is not None and not cluster_stat.lbp_stats.converged]
     # print(num_lbp_converged)
     # print(num_lbp_converged / (num_lbp_converged + num_lbp_not_converged))
 
-    for cluster_stat, cluster_file in cluster_stats:
-        if not cluster_stat.lbp_stats.converged:
+    lbp_computer = mc.LBPMarginalsFullAssociation()
+
+    for cluster_file in tqdm(load_dirs, total=num_files):
+        cluster_stat = sl.ClusterData.from_data(cluster_file)
+        if cluster_stat.lbp_stats is not None and not cluster_stat.lbp_stats.converged:
             mat_file = sl.MatFileParser(f"{PMBM_DATA_PATH}/{cluster_file.parent.name}.mat")
-            pass
+            break
+
+    R_LC = mat_file.reward_matrix_lc
+    cluster_idx = int("".join(d for d in cluster_file.name if d.isdigit()))
+    prior_hypotheses = mat_file.prior_hypotheses_per_cluster[cluster_idx]
+    t = np.sort(np.array([t for t in cluster_stat.tracks])) - 1
+    out = lbp_computer(R_LC, prior_hypotheses, full_output=True)
+    ds = out[2]
+    prev_b_avg, b_avg, s_avg, max_norm_probs = out[3:]
+
+    fig, ax = plt.subplots(nrows=3)
+
+    # ax.plot(ds)
+    ax[0].plot(prev_b_avg[-15:], label="prev b")
+    ax[0].plot(b_avg[-15:], label="b")
+    ax[1].plot(s_avg[-15:], label="s")
+    ax[2].plot(max_norm_probs[-15:], label="max norm")
+
+    for ax in ax:
+        ax.legend()
+    plt.show()
 
     # for cluster_file in tqdm(load_dirs, total=len(load_dirs)):
     #     cluster_stat: sl.ClusterData = sl.ClusterData.from_data(cluster_file)

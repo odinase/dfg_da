@@ -150,8 +150,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     # Normalize with misdetection to make psi(0) = 1. We skip this step for nonexistence
     # llr = llr - llr[:, [0]]
-    w_nmd = np.exp(llr[:, 1:])
-    w_0 = np.exp(llr[:, [0]])
+    
     # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
     # w_nmd = np.hstack((w_nmd, w_N))
 
@@ -166,9 +165,18 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     t2h_idx = np.array([
         [t in hypo[0] for hypo in prior_hypotheses] for t in tracks
     ])
+
+    # At this point we need to look for tracks that don't exist in any prior hypotheses and remove them from the association problem as they can potential cause LBP to not converge
+    existing_tracks = t2h_idx.any(axis=1)
+    nonexisting_tracks = ~existing_tracks
+    n = existing_tracks.sum()
+
+    w_nmd = np.exp(llr[existing_tracks, 1:])
+    w_0 = np.exp(llr[existing_tracks, [0]]).reshape(-1, 1)
+
+    t2h_idx = t2h_idx[existing_tracks]
     t2noth_idx = ~t2h_idx
     h2t_idx = t2h_idx.T
-
     # Assume sigma(ai = N) = 1 for initialization
 
     # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende. 
@@ -191,10 +199,14 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     # We do both sums for each target, such that we slice the necessary 
 
+    full_ouput = False
+    if "full_output" in kwargs:
+        full_ouput = kwargs["full_output"]
+
     def compute_sigma(rho):
         rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
         a = (rho_prods*t2noth_idx*phi).sum(axis=1)
-        b = (rho_prods*t2h_idx*phi).sum(axis=1) / rho + 1e-16 # Add small epsilon to avoid divide by zero
+        b = (rho_prods*t2h_idx*phi).sum(axis=1) / rho
 
         return a / b
 
@@ -226,6 +238,13 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
     iter_last_marg_check = 0
 
+    if full_ouput:
+        ds = []
+        prev_b_avg = []
+        b_avg = []
+        s_avg = []
+        asso_prob_d = []
+
     while it < max_iter and not converged:
         # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
         w_times_msg = w_nmd * b2a_msg
@@ -237,14 +256,27 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
+
         rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
 
         sigma = compute_sigma(rho)
+
+        if full_ouput:
+            prev_b_avg.append(prev_b2a.mean())
+            b_avg.append(b2a_msg.mean())
+            s_avg.append(sigma.mean())
+            asso_prob = compute_asso_probs(sigma, b2a_msg)
+            d = np.abs(asso_prob - prev_asso_prob).max()
+            asso_prob_d.append(d)
+            prev_asso_prob = asso_prob.copy()
+
 
         it = it + 1
 
         if not msgs_converged:
             d = msg_norm(b2a_msg, prev_b2a)
+            if full_ouput:
+                ds.append(d)
             if d < msg_thresh:
                 msgs_converged = True
                 msg_it = it
@@ -262,7 +294,25 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     asso_prob = compute_asso_probs(sigma, b2a_msg)
 
-    return asso_prob, it, msg_it, converged
+    # Add in the nonexisting tracks
+    n = existing_tracks.sum() + nonexisting_tracks.sum()
+    tot_asso_prob = np.empty((n, m + 2))
+    tot_asso_prob[existing_tracks] = asso_prob
+    tot_asso_prob[nonexisting_tracks, :-1] = 0.0
+    tot_asso_prob[nonexisting_tracks, -1] = 1.0
+
+    out = tot_asso_prob, it, msg_it, converged
+    
+    if full_ouput:
+        ds = np.array(ds)
+        prev_b_avg = np.array(prev_b_avg)
+        b_avg = np.array(b_avg)
+        s_avg = np.array(s_avg)
+        asso_prob_d = np.array(asso_prob_d)
+        extra_output = (ds, prev_b_avg, b_avg, s_avg, asso_prob_d)
+        out += extra_output
+        
+    return out
 
 
 
