@@ -240,7 +240,7 @@ class LBPStats:
 class WilliamsStats:
     lbp_iters: np.ndarray
     marginals: Marginals
-    marginals_exact_normalization_constant: Marginals
+    marginals_exact_normalization_constant: Optional[Marginals]
     normalization_constants: List[float]
     converged_list: np.ndarray
 

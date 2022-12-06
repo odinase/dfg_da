@@ -25,6 +25,11 @@ from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 FIGURES_PATH = "./figures"
 
 
+def save_fig_to_pdf(fig, fig_name):
+    fig.tight_layout()
+    fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
+
+
 def cluster_stats_to_errors(cluster_stats: List[ClusterData]):
     lbp_errors = []
     williams_errors = []
@@ -90,11 +95,10 @@ def make_survival_function_plots(cluster_stats: List[ClusterData]):
     plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
     plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
 
-    fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/sf.pdf", bbox_inches='tight')
+    save_fig_to_pdf(fig, "sf")
 
 
-def make_raw_error_plot(cluster_stats: List[ClusterData]):
+def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     fig, ax = plt.subplots()
 
     lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
@@ -117,29 +121,58 @@ def make_raw_error_plot(cluster_stats: List[ClusterData]):
     for lh in leg.legendHandles: 
         lh.set_alpha(1)
 
-    bins = 75
+    bins = 100
 
-    x = lbp_errors.raw_errors
-    fig2, ax2 = plt.subplots(ncols=2, figsize=(10, 7), sharey=True)
-
-    ax2[0].hist(x, bins=bins)
-    ax2[0].semilogy()
-    ax2[0].set_title(f"MH-LBP error histogram. Min: {x.min():.3e}, max: {x.max():.3e}")
+    fig2, ax2 = plt.subplots(figsize=(10, 7))
 
     x = williams_errors.raw_errors
-    ax2[1].hist(x, bins=bins)
-    ax2[1].semilogy()
-    ax2[1].set_title(f"LBP-PHD error histogram. Min: {x.min():.3e}, max: {x.max():.3e}")
+    ax2.hist(x, bins=bins, label="Williams", alpha=0.5)
+    williams_larger_abs_75 = (np.abs(x) > 0.75).sum()
 
-    fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/raw_error.pdf", bbox_inches='tight')
+    x = lbp_errors.raw_errors
+    lbp_larger_abs_75 = (np.abs(x) > 0.75).sum()
+    ax2.hist(x, bins=bins, label="MH-LBP", alpha=0.5)
+    ax2.set_title(rf"MH-LBP error histogram. Min: {x.min():.3e}, max: {x.max():.3e} num errors $>|0.75|: {lbp_larger_abs_75}$ \\ LBP-PHD error histogram. Min: {x.min():.3e}, max: {x.max():.3e} num errors $>|0.75|: {williams_larger_abs_75}$")
+    ax2.semilogy()
+    ax2.legend()
 
-    fig2.tight_layout()
-    fig2.savefig(f"{FIGURES_PATH}/raw_error_histogram.pdf", bbox_inches='tight')
+    save_fig_to_pdf(fig, "raw_error")
+    save_fig_to_pdf(fig2, "raw_error_histogram")
 
 
 def make_correlation_plot(cluster_stats: List[ClusterData]):
     pass
+
+
+def make_divergence_comparison_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
+    lbp_max_errors = []
+    lbp_not_converged_idx = []
+    k = 0
+    for cluster_stat, cluster_file in cluster_stats:
+        if not cluster_stat.explicit_hypothesis_enumeration_error:
+            lbp_max_error = MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.lbp_stats.marginals).max_errors.max()
+            lbp_max_errors.append(lbp_max_error)
+            if not cluster_stat.lbp_stats.converged:
+                lbp_not_converged_idx.append(k)
+            
+            k += 1
+
+    lbp_max_errors = np.array(lbp_max_errors)
+    lbp_not_converged_idx = np.array(lbp_not_converged_idx)
+    
+    fig, ax = plt.subplots(figsize=(15, 6))
+
+    ax.plot(lbp_max_errors, 'b', label="max error per cluster")
+    lbp_max_errors_not_converged: np.ndarray = lbp_max_errors[lbp_not_converged_idx]
+    ax.plot(lbp_not_converged_idx, lbp_max_errors_not_converged, 'ro', label="Not converged clusters")
+    leg = ax.legend(frameon = True)
+    frame = leg.get_frame()
+    frame.set_facecolor('white')
+    frame.set_edgecolor('black')
+
+    ax.set_title(rf"Mean max error not converged: {lbp_max_errors_not_converged.mean()}$\pm${lbp_max_errors_not_converged.std()}")
+
+    save_fig_to_pdf(fig, "divergence_plot")
 
 
 def subsample(a: np.ndarray, inc: float) -> np.ndarray:
@@ -224,4 +257,5 @@ if __name__ == "__main__":
             )
 
 
-    make_raw_error_plot(cluster_stats)
+    # make_raw_error_plot(cluster_stats)
+    make_divergence_comparison_plot(cluster_stats)
