@@ -3,7 +3,6 @@ plt.rcParams['text.usetex'] = True
 plt.rcParams['text.latex.preamble'] = r'\usepackage{bm}'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.style.use("seaborn-v0_8-whitegrid")
 
 import numpy as np
 from typing import Optional, Tuple, List
@@ -19,6 +18,8 @@ import matplotlib.pyplot as plt
 
 
 from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData
+import dfg_da.stats_logger as sl
+from dfg_da.marginals_computers import LBPMarginalsFullAssociation
 from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
 
@@ -30,20 +31,27 @@ def save_fig_to_pdf(fig, fig_name):
     fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
 
 
-def cluster_stats_to_errors(cluster_stats: List[ClusterData]):
+def cluster_stats_to_errors(cluster_stats: List[Tuple[ClusterData, Path]], add_williams_exact: bool = False):
     lbp_errors = []
     williams_errors = []
+    if add_williams_exact:
+        williams_exact_errors = []
 
-    for cluster_stat, _ in cluster_stats: 
+    for cluster_stat, _ in cluster_stats:
         if cluster_stat.explicit_hypothesis_enumeration_error:
             continue
         lbp_errors.append(MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.lbp_stats.marginals))
         williams_errors.append(MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.williams_stats.marginals))
+        if add_williams_exact:
+            williams_exact_errors.append(MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.williams_stats.marginals_exact_normalization_constant))
+
 
     lbp_errors: MarginalsErrors = MarginalsErrors.concatenate(lbp_errors)
     williams_errors: MarginalsErrors = MarginalsErrors.concatenate(williams_errors)
+    if add_williams_exact:
+        williams_exact_errors: MarginalsErrors = MarginalsErrors.concatenate(williams_exact_errors)
 
-    return lbp_errors, williams_errors
+    return (lbp_errors, williams_errors) if not add_williams_exact else (lbp_errors, williams_errors, williams_exact_errors)
 
 
 def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
@@ -99,45 +107,65 @@ def make_survival_function_plots(cluster_stats: List[ClusterData]):
 
 
 def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
+
+    lbp_errors, williams_errors, williams_exact_errors = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
+
+    p = 0.1
+    lbp_errors_sample = np.random.choice(lbp_errors.raw_errors, int(p*len(lbp_errors.raw_errors)), replace=False)
+    # williams_errors_sample = np.random.choice(williams_errors.raw_errors, int(p*len(williams_errors.raw_errors)), replace=False)
+    # williams_errors_exact_sample = np.random.choice(williams_exact_errors.raw_errors, int(p*len(williams_exact_errors.raw_errors)), replace=False)
+
+    mh_lbp_label = "Multihypothesis LBP"
+    williams_label = "Hypothesis-conditioned LBP with PHD approximation"
+    williams_exact_label = "Hypothesis-conditioned LBP with exact normalization constant"
+
     fig, ax = plt.subplots()
 
-    lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
-
-    p = 0.01
-    lbp_errors_sample = np.random.choice(lbp_errors.raw_errors, int(p*len(lbp_errors.raw_errors)), replace=False)
-    williams_errors_sample = np.random.choice(williams_errors.raw_errors, int(p*len(williams_errors.raw_errors)), replace=False)
-
-    ax.plot(lbp_errors_sample, 'bo', label="Multihypothesis LBP", ms=2, alpha=0.2)
+    ax.plot(lbp_errors_sample, 'bo', label=mh_lbp_label, ms=2, alpha=0.2)
     ax.axhline(lbp_errors.raw_errors.mean(), color="blue")
-    ax.plot(williams_errors_sample, 'go', label="Hypothesis-conditioned LBP with PHD approximation", ms=2, alpha=0.2)
-    ax.axhline(williams_errors.raw_errors.mean(), color="green")
+    # ax.plot(williams_errors_sample, 'go', label=williams_label, ms=2, alpha=0.2)
+    # ax.axhline(williams_errors.raw_errors.mean(), color="green")
 
-    leg = ax.legend(frameon = True)
-    frame = leg.get_frame()
-    frame.set_facecolor('white')
-    frame.set_edgecolor('black')
-    ax.set_title(rf"Raw error of marginal error. MH-LBP mean: {lbp_errors.raw_errors.mean():.4e}$\pm${lbp_errors.raw_errors.std():.4e}, LBP-PHD mean: {williams_errors.raw_errors.mean():.4e}$\pm${williams_errors.raw_errors.std():.4e}")
-    #Disable opacity for legend
-    for lh in leg.legendHandles: 
-        lh.set_alpha(1)
+    # leg = ax.legend(frameon = True)
+    # frame = leg.get_frame()
+    # frame.set_facecolor('white')
+    # frame.set_edgecolor('black')
+    # for lh in leg.legendHandles: 
+    #     lh.set_alpha(1)
+
+    ax.set_title("Scatter plot over signed error for MH-LBP")
 
     bins = 100
+    hist_figsize = (10, 7)
 
-    fig2, ax2 = plt.subplots(figsize=(10, 7))
+    fig2, ax2 = plt.subplots(figsize=hist_figsize)
 
     x = williams_errors.raw_errors
-    ax2.hist(x, bins=bins, label="Williams", alpha=0.5)
-    williams_larger_abs_75 = (np.abs(x) > 0.75).sum()
+    ax2.hist(x, bins=bins, label=williams_label, alpha=0.5)
 
     x = lbp_errors.raw_errors
-    lbp_larger_abs_75 = (np.abs(x) > 0.75).sum()
-    ax2.hist(x, bins=bins, label="MH-LBP", alpha=0.5)
-    ax2.set_title(rf"MH-LBP error histogram. Min: {x.min():.3e}, max: {x.max():.3e} num errors $>|0.75|: {lbp_larger_abs_75}$ \\ LBP-PHD error histogram. Min: {x.min():.3e}, max: {x.max():.3e} num errors $>|0.75|: {williams_larger_abs_75}$")
+    ax2.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    ax2.set_title("Histogram over signed marginal errors")
     ax2.semilogy()
     ax2.legend()
 
-    save_fig_to_pdf(fig, "raw_error")
-    save_fig_to_pdf(fig2, "raw_error_histogram")
+    fig3, ax3 = plt.subplots(figsize=hist_figsize)
+
+    x = williams_exact_errors.raw_errors
+    ax3.hist(x, bins=bins, label=williams_exact_label, alpha=0.5)
+
+    x = lbp_errors.raw_errors
+    ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    ax3.set_title("Histogram over signed marginal errors")
+    ax3.semilogy()
+    ax3.legend()
+
+
+    save_fig_to_pdf(fig, "signed_error")
+    save_fig_to_pdf(fig2, "signed_error_histogram")
+    save_fig_to_pdf(fig3, "signed_error_histogram_exact")
 
 
 def make_correlation_plot(cluster_stats: List[ClusterData]):
@@ -173,6 +201,124 @@ def make_divergence_comparison_plot(cluster_stats: List[Tuple[ClusterData, Path]
     ax.set_title(rf"Mean max error not converged: {lbp_max_errors_not_converged.mean()}$\pm${lbp_max_errors_not_converged.std()}")
 
     save_fig_to_pdf(fig, "divergence_plot")
+
+
+def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
+    # lbp_computer = LBPMarginalsFullAssociation()
+    
+    # Compare num tracks, num hypotheses, max error
+    max_errors = defaultdict(list)
+    num_tracks = defaultdict(list)
+    num_hypos = defaultdict(list)
+    num_gated_measurements = defaultdict(list)
+    max_competing_tracks_for_measurement = defaultdict(list)
+
+    # def copmute_number_of
+
+    for cluster_stat, cluster_file in tqdm(cluster_stats):
+        if not cluster_stat.explicit_hypothesis_enumeration_error:
+            mat_file_path = PMBM_DATA_PATH + "/" + cluster_file.parent.name + ".mat"
+            mat_file: sl.MatFileParser = sl.MatFileParser(mat_file_path)
+            R_LC = mat_file.reward_matrix_lc
+            gated_measurements = np.isfinite(R_LC[:, 1:])
+            num_gated_measurements_c = gated_measurements.any(axis=0).sum()
+            cluster_idx = int("".join(d for d in cluster_file.name if d.isdigit()))
+            max_competing_tracks_for_measurement_c = -np.inf
+            for tracks, _ in mat_file.prior_hypotheses_per_cluster[cluster_idx]:
+                max_competing_tracks_for_measurement_hc = gated_measurements[tracks-1, :].sum(axis=0).max()
+                max_competing_tracks_for_measurement_c = max(max_competing_tracks_for_measurement_c, max_competing_tracks_for_measurement_hc)
+
+            max_competing_tracks_for_measurement_c = int(max_competing_tracks_for_measurement_c)               
+
+
+            def save_stat(result):
+                max_error = MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.lbp_stats.marginals).max_errors.max()
+                max_errors[result].append(max_error)
+                num_tracks_c = cluster_stat.cardinality
+                num_hypos_c = cluster_stat.num_hypotheses
+
+                num_tracks[result].append(num_tracks_c)
+                num_hypos[result].append(num_hypos_c)
+                num_gated_measurements[result].append(num_gated_measurements_c)
+                max_competing_tracks_for_measurement[result].append(max_competing_tracks_for_measurement_c)
+            
+            if not cluster_stat.lbp_stats.converged:
+                save_stat("divergent")
+            else:
+                save_stat("convergent")
+
+
+    def make_df(result):
+        return pd.DataFrame({
+            "Max marginal error": max_errors[result],
+            "Number of tracks": num_tracks[result],
+            "Number of hypotheses": num_hypos[result],
+            r"Number of gate\\measurements": num_gated_measurements[result],
+            r"Highest number of tracks\\competing for measurement": max_competing_tracks_for_measurement[result]
+        })
+
+    figsize = (9, 8)
+
+
+    df_divergent = make_df("divergent")
+    num_data = len(df_divergent.columns)
+    fig_divergent, ax_divergent = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
+    pd.plotting.scatter_matrix(df_divergent, alpha=0.6, ax=ax_divergent)
+    fig_divergent.suptitle("Statistics for divergent LBP")
+    save_fig_to_pdf(fig_divergent, "scatter_matrix_diverged_clusters")
+
+
+    df_convergent = make_df("convergent")
+    num_data = len(df_convergent.columns)
+    fig_convergent, ax_convergent = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
+    pd.plotting.scatter_matrix(df_convergent, alpha=0.6, ax=ax_convergent)
+    fig_convergent.suptitle("Statistics for convergent LBP")
+    save_fig_to_pdf(fig_convergent, "scatter_matrix_converged_clusters")
+
+
+    df_total = pd.concat((df_divergent, df_convergent))
+    num_data = len(df_total.columns)
+    fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
+    pd.plotting.scatter_matrix(df_total, alpha=0.6, ax=ax)
+    fig.suptitle("Statistics for all LBP")
+    save_fig_to_pdf(fig, "scatter_matrix_clusters")
+
+
+def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
+    exact_marginals = []
+    lbp_marginals = []
+
+    for cluster_stat, _ in cluster_stats:
+        if not cluster_stat.explicit_hypothesis_enumeration_error:
+            exact_marginals.append(cluster_stat.exact_stats.marginals)
+            lbp_marginals.append(cluster_stat.lbp_stats.marginals)
+
+    exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
+    lbp_marginals: Marginals = Marginals.concatenate(lbp_marginals)
+
+    num_bins = 100
+    xedges = np.linspace(0, 1, num_bins)
+    yedges = xedges
+    bins = (xedges, yedges)
+
+    heatmap = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)[0]
+
+    fig, ax = plt.subplots()
+
+    log_heatmap = np.log(heatmap)
+    log_heatmap[~np.isfinite(log_heatmap)] = np.nan
+    i = ax.imshow(log_heatmap)
+    ax.invert_yaxis()
+    ticks = np.arange(num_bins) - 0.5
+    ticks_step = num_bins // 5
+    ax.set_xticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in xedges[ticks_step - 1::ticks_step]], rotation=70)
+    ax.set_yticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in yedges[ticks_step - 1::ticks_step]])
+    ax.set_xlabel("MH-LBP marginals")
+    ax.set_ylabel("Exact marginals")
+    c=fig.colorbar(i)
+    c.ax.set_yticklabels(["$10^{" + str(int(cc)) + "}$" for cc in c.get_ticks()])
+    plt.show()
+    save_fig_to_pdf(fig, "heatmap_correlation")
 
 
 def subsample(a: np.ndarray, inc: float) -> np.ndarray:
@@ -258,4 +404,6 @@ if __name__ == "__main__":
 
 
     # make_raw_error_plot(cluster_stats)
-    make_divergence_comparison_plot(cluster_stats)
+    # make_divergence_comparison_plot(cluster_stats)
+    # make_scatter_compare_plot(cluster_stats)
+    make_heatmap_correlation(cluster_stats)

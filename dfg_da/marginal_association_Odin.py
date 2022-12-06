@@ -256,7 +256,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
-
         rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
 
         sigma = compute_sigma(rho)

@@ -17,7 +17,7 @@ def append_statistics(max_errors, abs_errors, marginal_abs_error):
 
 
 if __name__ == "__main__":
-    path = "/Users/odinase/prog/cpp/dfg_da/data/logged_data"
+    path = "./data/logged_data"
 
     log_files = glob(f"{path}/*.yaml")
 

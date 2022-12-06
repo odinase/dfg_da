@@ -18,7 +18,7 @@ class MatFileParser:
     prior_hypotheses_per_cluster: List[PriorHypotheses]
     clusters_sorted: np.ndarray
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, compute_hypotheses: bool = True):
         ws = loadmat(filename)
         self.ws = ws
         R_wrapping = ws["gainMatPostC"] # This R has a strange shape...
@@ -31,7 +31,8 @@ class MatFileParser:
         self.reward_matrix_edmund = R_wrapping[:n, :]
         self.reward_matrix_lc = np.hstack((np.diag(self.reward_matrix_edmund[:,m:])[:,None], self.reward_matrix_edmund[:,:m]))
 
-        self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses(ws)
+        if compute_hypotheses:
+            self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses(ws)
 
 
     def ws_to_prior_hypotheses(self, ws):
