@@ -12,25 +12,8 @@ import dfg_da.marginals_computers as mc
 if __name__ == "__main__":
     load_dirs = Path(OUTPUT_PATH_BASE).glob("*/*")
 
-    exact_marginals_list = []
-    lbp_mh_marginals_list = []
-    lbp_williams_marginals_list = []
-
     load_dirs = list(load_dirs)
     num_files = len(load_dirs)
-
-    # num_empty_clusters = [l for l in load_dirs if Path(l).name == "empty_cluster"]
-    # cluster_stats = []
-    # for cluster_file in tqdm(load_dirs, total=num_files):
-    #     cluster_stats.append(
-    #         (sl.ClusterData.from_data(cluster_file), cluster_file)
-    #     )
-
-    # num_lbp_converged = sum(cluster_stat.lbp_stats.converged for cluster_stat, _ in cluster_stats if cluster_stat.lbp_stats is not None)
-    # num_lbp_not_converged = sum(not cluster_stat.lbp_stats.converged for cluster_stat, _ in cluster_stats if cluster_stat.lbp_stats is not None)
-    # # lbp_not_converged_files = [cluster_file for cluster_stat, cluster_file in cluster_stats if cluster_stat.lbp_stats is not None and not cluster_stat.lbp_stats.converged]
-    # print(num_lbp_converged)
-    # print(num_lbp_converged / (num_lbp_converged + num_lbp_not_converged))
 
     lbp_computer = mc.LBPMarginalsFullAssociation()
 
