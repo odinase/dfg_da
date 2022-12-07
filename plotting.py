@@ -15,6 +15,8 @@ import pandas as pd
 import colorcet as cc
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="ticks")
 
 
 from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData
@@ -250,6 +252,7 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
 
     def make_df(result):
         return pd.DataFrame({
+            "Convergence": result.capitalize(),
             "Max marginal error": max_errors[result],
             "Number of tracks": num_tracks[result],
             "Number of hypotheses": num_hypos[result],
@@ -257,31 +260,32 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
             r"Highest number of tracks\\competing for measurement": max_competing_tracks_for_measurement[result]
         })
 
-    figsize = (9, 8)
+    figsize = (12, 8)
 
 
     df_divergent = make_df("divergent")
-    num_data = len(df_divergent.columns)
-    fig_divergent, ax_divergent = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
-    pd.plotting.scatter_matrix(df_divergent, alpha=0.6, ax=ax_divergent)
-    fig_divergent.suptitle("Statistics for divergent LBP")
-    save_fig_to_pdf(fig_divergent, "scatter_matrix_diverged_clusters")
-
-
     df_convergent = make_df("convergent")
-    num_data = len(df_convergent.columns)
-    fig_convergent, ax_convergent = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
-    pd.plotting.scatter_matrix(df_convergent, alpha=0.6, ax=ax_convergent)
-    fig_convergent.suptitle("Statistics for convergent LBP")
-    save_fig_to_pdf(fig_convergent, "scatter_matrix_converged_clusters")
+    df = pd.concat((df_convergent, df_divergent))
+    g = sns.pairplot(df, hue="Convergence", plot_kws={"alpha": 0.2})
+    g.fig.set_size_inches(*figsize)
+    plt.show()
+    save_fig_to_pdf(g.fig, "scatter_matrix_diverged_conv_clusters")
 
 
-    df_total = pd.concat((df_divergent, df_convergent))
-    num_data = len(df_total.columns)
-    fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
-    pd.plotting.scatter_matrix(df_total, alpha=0.6, ax=ax)
-    fig.suptitle("Statistics for all LBP")
-    save_fig_to_pdf(fig, "scatter_matrix_clusters")
+    # df_convergent = make_df("convergent")
+    # num_data = len(df_convergent.columns)
+    # fig_convergent, ax_convergent = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
+    # pd.plotting.scatter_matrix(df_convergent, alpha=0.6, ax=ax_convergent)
+    # fig_convergent.suptitle("Statistics for convergent LBP")
+    # save_fig_to_pdf(fig_convergent, "scatter_matrix_converged_clusters")
+
+
+    # df_total = pd.concat((df_divergent, df_convergent))
+    # num_data = len(df_total.columns)
+    # fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
+    # pd.plotting.scatter_matrix(df_total, alpha=0.6, ax=ax)
+    # fig.suptitle("Statistics for all LBP")
+    # save_fig_to_pdf(fig, "scatter_matrix_clusters")
 
 
 def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -306,7 +310,7 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     fig, ax = plt.subplots()
 
     log_heatmap = np.log(heatmap)
-    log_heatmap[~np.isfinite(log_heatmap)] = np.nan
+    # log_heatmap[~np.isfinite(log_heatmap)] = -np
     i = ax.imshow(log_heatmap)
     ax.invert_yaxis()
     ticks = np.arange(num_bins) - 0.5
@@ -405,5 +409,5 @@ if __name__ == "__main__":
 
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
-    # make_scatter_compare_plot(cluster_stats)
-    make_heatmap_correlation(cluster_stats)
+    make_scatter_compare_plot(cluster_stats)
+    # make_heatmap_correlation(cluster_stats)

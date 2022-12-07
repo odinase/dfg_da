@@ -55,7 +55,7 @@ void gtsam_test() {
 
     dfg_da::hypothesis::Hypotheses h{{h1, h2}};
 
-    Eigen::MatrixXd probs = dfg_da::hypothesis::association_marginal_posteriors(h, R);
+    Eigen::MatrixXd probs = dfg_da::hypothesis::association_marginal_posteriors(R, h);
 
     std::cout << probs << "\n";
 }
