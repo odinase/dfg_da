@@ -30,10 +30,28 @@ from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 FIGURES_PATH = "./figures"
 
 
-def save_fig_to_pdf(fig, fig_name):
-    fig.tight_layout()
+def save_fig_to_pdf(fig, fig_name, tight_layout=True):
+    if tight_layout:
+        fig.tight_layout()
     fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
 
+def cluster_file_to_mat_file(cluster_file):
+    return PMBM_DATA_PATH + "/" + cluster_file.parent.name + ".mat"
+
+def cluster_file_to_cluster_idx(cluster_file):
+    return int("".join(d for d in cluster_file.name if d.isdigit()))
+
+def split_cluster_stats_converged(cluster_stats: List[Tuple[ClusterData, Path]]):
+    cluster_stats_converged = []
+    cluster_stats_diverged = []
+
+    for cluster_stat, cluster_file in cluster_stats:
+        if cluster_stat.lbp_stats.converged:
+            cluster_stats_converged.append((cluster_stat, cluster_file))
+        else:
+            cluster_stats_diverged.append((cluster_stat, cluster_file))
+
+    return cluster_stats_converged, cluster_stats_diverged
 
 def cluster_stats_to_errors(cluster_stats: List[Tuple[ClusterData, Path]], add_williams_exact: bool = False):
     lbp_errors = []
@@ -110,6 +128,25 @@ def make_survival_function_plots(cluster_stats: List[ClusterData]):
     save_fig_to_pdf(fig, "sf")
 
 
+
+def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterData, Path]]):
+    cluster_stats_converged, cluster_stats_diverged = split_cluster_stats_converged(cluster_stats)
+    cluster_stats_list = [cluster_stats_converged, cluster_stats_diverged]
+
+    fig = plt.figure(figsize=(16, 12))
+    subfigs = fig.subfigures(ncols=2)
+    fig_titles = ["MH-LBP converged", "MH-LBP diverged"]
+    for cluster_stats, subfig, figtitle in zip(cluster_stats_list, subfigs, fig_titles):
+        subfig.suptitle(figtitle)
+        ax = subfig.subplots(nrows=5, sharey=True, sharex=True)
+        lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
+
+        plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
+        plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
+
+    save_fig_to_pdf(fig, "sf_conditioned", tight_layout=False)
+
+
 def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
 
     lbp_errors, williams_errors, williams_exact_errors = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
@@ -170,6 +207,43 @@ def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     save_fig_to_pdf(fig, "signed_error")
     save_fig_to_pdf(fig2, "signed_error_histogram")
     save_fig_to_pdf(fig3, "signed_error_histogram_exact")
+
+    cluster_stats_lbp_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if cluster_stat.lbp_stats.converged]
+    cluster_stats_lbp_not_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if not cluster_stat.lbp_stats.converged]
+    lbp_errors_converged, williams_errors_converged = cluster_stats_to_errors(cluster_stats_lbp_converged)
+    lbp_errors_not_converged, williams_errors_not_converged = cluster_stats_to_errors(cluster_stats_lbp_not_converged)
+
+
+    fig4, ax4 = plt.subplots(figsize=hist_figsize)
+
+    x = williams_errors_converged.raw_errors
+    ax4.hist(x, bins=bins, label=williams_label, alpha=0.5)
+
+    x = lbp_errors_converged.raw_errors
+    ax4.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    ax4.set_title("Histogram over signed marginal errors, MH-LBP converged")
+    ax4.semilogy()
+    ax4.legend()
+
+    save_fig_to_pdf(fig4, "signed_error_histogram_lbp_converged")
+
+
+    fig5, ax5 = plt.subplots(figsize=hist_figsize)
+
+    x = williams_errors_not_converged.raw_errors
+    ax5.hist(x, bins=bins, label=williams_label, alpha=0.5)
+
+    x = lbp_errors_not_converged.raw_errors
+    ax5.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    ax5.set_title("Histogram over signed marginal errors, MH-LBP did not converge")
+    ax5.semilogy()
+    ax5.legend()
+
+    save_fig_to_pdf(fig5, "signed_error_histogram_lbp_not_converged")
+
+
 
 
 def make_correlation_plot(cluster_stats: List[ClusterData]):
@@ -262,16 +336,16 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
             r"Highest number of tracks\\competing for measurement": max_competing_tracks_for_measurement[result]
         })
 
-    figsize = (12, 8)
+    figsize = (16, 10)
 
 
     df_divergent = make_df("divergent")
     df_convergent = make_df("convergent")
     df = pd.concat((df_convergent, df_divergent))
-    g = sns.pairplot(df, hue="Convergence", plot_kws={"alpha": 0.2})
+    g = sns.pairplot(df, hue="Convergence", diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
     g.fig.set_size_inches(*figsize)
     plt.show()
-    save_fig_to_pdf(g.fig, "scatter_matrix_diverged_conv_clusters")
+    save_fig_to_pdf(g.fig, "scatter_matrix_diverged_conv_clusters", tight_layout=False)
 
 
     # df_convergent = make_df("convergent")
@@ -290,51 +364,81 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     # save_fig_to_pdf(fig, "scatter_matrix_clusters")
 
 
+def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
+    runtimes_mhlbp = []
+    runtimes_wlbp = []
+
+    for cluster_stat, _ in cluster_stats:
+        runtimes_mhlbp.append(cluster_stat.lbp_stats.num_iters)
+        runtimes_wlbp.append(cluster_stat.williams_stats.lbp_iters.sum())
+
+    num_plots = 1
+    fig, ax = plt.subplots(nrows=num_plots)
+    if not isinstance(ax, np.ndarray):
+        ax = [ax]
+
+    ax[0].hist(runtimes_mhlbp, alpha=0.7, label="MH-LBP")
+    ax[0].hist(runtimes_wlbp, alpha=0.7, label="LBP-PHD")
+    ax[0].set_ylabel("Runtimes")
+    leg = ax[0].legend()
+    for lh in leg.legendHandles: 
+        lh.set_alpha(1)
+    ax[0].semilogy()
+
+    plt.show()
+
+
+    save_fig_to_pdf(fig, "mhlbp_lbpphd_compare")
+
+
 def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     exact_marginals = []
     lbp_marginals = []
+    williams_marginals = []
 
     for cluster_stat, _ in cluster_stats:
         if not cluster_stat.explicit_hypothesis_enumeration_error:
             exact_marginals.append(cluster_stat.exact_stats.marginals)
             lbp_marginals.append(cluster_stat.lbp_stats.marginals)
+            williams_marginals.append(cluster_stat.williams_stats.marginals)
 
     exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
     lbp_marginals: Marginals = Marginals.concatenate(lbp_marginals)
+    williams_marginals: Marginals = Marginals.concatenate(williams_marginals)
 
-    num_bins = 1000
+
+    num_bins = 200
     xedges = np.linspace(0, 1, num_bins)
     yedges = xedges
     bins = (xedges, yedges)
 
-    heatmap, xedges, yedges = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)
+    heatmap_lbp, xedges, yedges = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)
+    X_lbp, Y_lbp = np.meshgrid(xedges[:-1], yedges[:-1])
 
-    X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+    heatmap_w, xedges, yedges = np.histogram2d(williams_marginals.marginals, exact_marginals.marginals, bins=bins)
+    X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
 
-    df = pd.DataFrame({
-        "$x$": np.around(X.ravel(), decimals=3),
-        "$y$": np.around(Y.ravel(), decimals=3),
-        "hist": heatmap.ravel()
+    df_lbp = pd.DataFrame({
+        "MH-LBP marginals": np.around(X_lbp.ravel(), decimals=3),
+        "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
+        "hist": heatmap_lbp.ravel()
     })
+    df_lbp = df_lbp.pivot(index="Exact marginals", columns="MH-LBP marginals", values="hist")
 
-    df = df.pivot("$y$", "$x$", "hist")
-    # fig, ax = plt.subplots()
+    df_w = pd.DataFrame({
+        "LBP with PHD approximation marginals": np.around(X_w.ravel(), decimals=3),
+        "Exact marginals": np.around(Y_w.ravel(), decimals=3),
+        "hist": heatmap_w.ravel()
+    })
+    df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation marginals", values="hist")
 
-    # log_heatmap = np.log(heatmap)
-    # # log_heatmap[~np.isfinite(log_heatmap)] = -np
-    # i = ax.imshow(log_heatmap)
-    # ticks = np.arange(num_bins) - 0.5
-    # ticks_step = num_bins // 5
-    # ax.set_xticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in xedges[ticks_step - 1::ticks_step]], rotation=70)
-    # ax.set_yticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in yedges[ticks_step - 1::ticks_step]])
-    # ax.set_xlabel("MH-LBP marginals")
-    # ax.set_ylabel("Exact marginals")
-    # c=fig.colorbar(i)
-    # c.ax.set_yticklabels(["$10^{" + str(int(cc)) + "}$" for cc in c.get_ticks()])
+    dfs = [df_lbp, df_w]
 
-    fig, ax = plt.subplots(1,1)
-    sns.heatmap(df, square=True, norm=LogNorm())
-    ax.invert_yaxis()
+    fig, ax = plt.subplots(ncols=2, sharey=True)
+    for axx, df in zip(ax, dfs):
+        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Oranges", ax=axx)
+        axx.invert_yaxis()
+
     plt.show()
     save_fig_to_pdf(fig, "heatmap_correlation")
 
@@ -401,6 +505,83 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
             ax.legend()
 
 
+def condense_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
+    stats = defaultdict(list)
+
+    # IoU of hypotheses?
+    for cluster_stat, cluster_file in tqdm(cluster_stats):
+        # intersection_tracks = set()
+        # union_tracks = set()
+        # mat_file = sl.MatFileParser(cluster_file_to_mat_file(cluster_file))
+        # c_idx = cluster_file_to_cluster_idx(cluster_file)
+        # for tracks, p in mat_file.prior_hypotheses_per_cluster[c_idx]:
+        #     s_tracks = set(tracks)
+        #     intersection_tracks = intersection_tracks & s_tracks
+        #     union_tracks = union_tracks | s_tracks
+
+        # IoU = len(intersection_tracks) / len(union_tracks)
+        # stats["IoU"].append(IoU)
+        pass
+
+    
+    return stats
+
+
+def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]]):
+    cluster_stats_converged = []
+    cluster_stats_diverged = []
+
+    mh_lbp_solver: LBPMarginalsFullAssociation = LBPMarginalsFullAssociation()
+
+    for cluster_stat, cluster_file in cluster_stats:
+        if cluster_stat.lbp_stats.converged:
+            cluster_stats_converged.append((cluster_stat, cluster_file))
+        else:
+            mat_file = sl.MatFileParser(cluster_file_to_mat_file(cluster_file))
+            c_idx = cluster_file_to_cluster_idx(cluster_file)
+            R_LC = mat_file.reward_matrix_lc
+            (asso_prob, (it, msg_it, converged)) = mh_lbp_solver.compute_marginals(R_LC, mat_file.prior_hypotheses_per_cluster[c_idx])
+            print(converged)
+            if converged:
+                print(f"Converged!!")
+                break
+            cluster_stats_diverged.append((cluster_stat, cluster_file))
+
+    # converged_stats = condense_stats(cluster_stats_converged)
+    # diverged_stats = condense_stats(cluster_stats_diverged)
+
+    # # print(np.mean(converged_stats["IoU"]))
+    # print(np.mean(diverged_stats["IoU"]))
+
+
+def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
+    phd_normalization_constants = []
+    exact_normalization_constants = []
+
+    for cluster_stat, cluster_file in cluster_stats:
+        if not cluster_stat.explicit_hypothesis_enumeration_error:
+            phd_normalization_constants.append(cluster_stat.williams_stats.normalization_constants)
+            exact_normalization_constants.append(cluster_stat.exact_stats.normalization_constants)
+
+    phd_normalization_constants = np.hstack(phd_normalization_constants)
+    exact_normalization_constants = np.hstack(exact_normalization_constants)
+
+    fig, ax = plt.subplots()
+    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o')
+    # ax.plot(exact_normalization_constants, exact_normalization_constants, '--')
+    ax.set_xlabel("PHD approximation normalization constant")
+    ax.set_ylabel("Exact normalization constant")
+
+    save_fig_to_pdf(fig, "normalization_constant")
+
+
+def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
+    lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
+
+    print(f"lbp mean error: {lbp_errors.raw_errors.mean()}, std: {lbp_errors.raw_errors.std()}")
+    print(f"williams mean error: {williams_errors.raw_errors.mean()}, std: {williams_errors.raw_errors.std()}")
+
+
 if __name__ == "__main__":
     load_dirs = Path(OUTPUT_PATH_BASE).glob("*/*")
 
@@ -421,7 +602,13 @@ if __name__ == "__main__":
             )
 
 
+
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    make_heatmap_correlation(cluster_stats)
+    # make_heatmap_correlation(cluster_stats)
+    # compare_mhlbp_lbpphd(cluster_stats)
+    # compare_converge_not_converge(cluster_stats)
+    # normalization_constant_scatter_plot(cluster_stats)
+    # make_conditioned_survival_function_plots(cluster_stats)
+    print_raw_error_stats(cluster_stats)

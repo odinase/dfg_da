@@ -150,7 +150,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     # Normalize with misdetection to make psi(0) = 1. We skip this step for nonexistence
     # llr = llr - llr[:, [0]]
-    
+
     # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
     # w_nmd = np.hstack((w_nmd, w_N))
 
@@ -181,17 +181,25 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende. 
 
-    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + 1.0)
-    # The one in the numerator is due to no ai = 0, so no messages are compatible and the product is just 1
-    b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+    # Init meas->track = 1, so rho is immediately the below
+    rho = w_0.ravel() + (w_nmd).sum(axis=1)
 
     phi = np.array([hypo[1] for hypo in prior_hypotheses])
+    def compute_sigma(rho):
+        rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
+        a = (rho_prods*t2noth_idx*phi).sum(axis=1)
+        b = (rho_prods*t2h_idx*phi).sum(axis=1) / rho
+
+        return a / b
+
+    sigma = compute_sigma(rho)
+
+    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+    b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
     # we need messages from a to theta and theta to a
     # Let's do this carefully. Sigma should be nmber of tracks long, as we only store 1 number per track
 
-    # Multiply psi by nu and sum out measurements
-    rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
 
     # The message from theta to track is a little convoluted to compute
     # We need, for each track, to know what hypotheses it's present in and what it's not, and do two sums for each track
@@ -203,14 +211,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     if "full_output" in kwargs:
         full_ouput = kwargs["full_output"]
 
-    def compute_sigma(rho):
-        rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
-        a = (rho_prods*t2noth_idx*phi).sum(axis=1)
-        b = (rho_prods*t2h_idx*phi).sum(axis=1) / rho
-
-        return a / b
-
-    sigma = compute_sigma(rho)
 
     def msg_norm(m, n):
         return np.max(np.abs(np.log(n / m)))
@@ -251,14 +251,13 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
         if not msgs_converged:
             prev_b2a = b2a_msg.copy()
 
+        rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
+        sigma = compute_sigma(rho)
         # tracks x measurements
         a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
-        rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
-
-        sigma = compute_sigma(rho)
 
         if full_ouput:
             prev_b_avg.append(prev_b2a.mean())
