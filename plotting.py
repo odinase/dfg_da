@@ -15,6 +15,8 @@ import pandas as pd
 import colorcet as cc
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm, Normalize
+
 import seaborn as sns
 sns.set_theme(style="ticks")
 
@@ -300,27 +302,39 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
     lbp_marginals: Marginals = Marginals.concatenate(lbp_marginals)
 
-    num_bins = 100
+    num_bins = 1000
     xedges = np.linspace(0, 1, num_bins)
     yedges = xedges
     bins = (xedges, yedges)
 
-    heatmap = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)[0]
+    heatmap, xedges, yedges = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)
 
-    fig, ax = plt.subplots()
+    X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
 
-    log_heatmap = np.log(heatmap)
-    # log_heatmap[~np.isfinite(log_heatmap)] = -np
-    i = ax.imshow(log_heatmap)
+    df = pd.DataFrame({
+        "$x$": np.around(X.ravel(), decimals=3),
+        "$y$": np.around(Y.ravel(), decimals=3),
+        "hist": heatmap.ravel()
+    })
+
+    df = df.pivot("$y$", "$x$", "hist")
+    # fig, ax = plt.subplots()
+
+    # log_heatmap = np.log(heatmap)
+    # # log_heatmap[~np.isfinite(log_heatmap)] = -np
+    # i = ax.imshow(log_heatmap)
+    # ticks = np.arange(num_bins) - 0.5
+    # ticks_step = num_bins // 5
+    # ax.set_xticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in xedges[ticks_step - 1::ticks_step]], rotation=70)
+    # ax.set_yticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in yedges[ticks_step - 1::ticks_step]])
+    # ax.set_xlabel("MH-LBP marginals")
+    # ax.set_ylabel("Exact marginals")
+    # c=fig.colorbar(i)
+    # c.ax.set_yticklabels(["$10^{" + str(int(cc)) + "}$" for cc in c.get_ticks()])
+
+    fig, ax = plt.subplots(1,1)
+    sns.heatmap(df, square=True, norm=LogNorm())
     ax.invert_yaxis()
-    ticks = np.arange(num_bins) - 0.5
-    ticks_step = num_bins // 5
-    ax.set_xticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in xedges[ticks_step - 1::ticks_step]], rotation=70)
-    ax.set_yticks(ticks[ticks_step - 1::ticks_step], labels=[f"{i:.2f}" for i in yedges[ticks_step - 1::ticks_step]])
-    ax.set_xlabel("MH-LBP marginals")
-    ax.set_ylabel("Exact marginals")
-    c=fig.colorbar(i)
-    c.ax.set_yticklabels(["$10^{" + str(int(cc)) + "}$" for cc in c.get_ticks()])
     plt.show()
     save_fig_to_pdf(fig, "heatmap_correlation")
 
@@ -409,5 +423,5 @@ if __name__ == "__main__":
 
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
-    make_scatter_compare_plot(cluster_stats)
-    # make_heatmap_correlation(cluster_stats)
+    # make_scatter_compare_plot(cluster_stats)
+    make_heatmap_correlation(cluster_stats)
