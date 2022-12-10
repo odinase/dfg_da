@@ -57,7 +57,7 @@ target_include_directories(hypothesis PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-target_link_libraries(hypothesis PUBLIC
+target_link_libraries(hypothesis
     gtsam
     Eigen3::Eigen 
 )

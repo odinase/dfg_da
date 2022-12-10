@@ -91,5 +91,6 @@ target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE
     pybind11::windows_extras
     gtsam
     Eigen3::Eigen
-    dfg_da
+    ${PROJECT_NAME}
+    hypothesis
 )

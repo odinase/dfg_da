@@ -49,7 +49,6 @@ void gtsam_test() {
          5.37, -inf, -0.52, -inf,
          6.58, -inf, -inf, -0.60;
 
-
     dfg_da::hypothesis::Hypothesis h1({1, 2}, log(0.5));
     dfg_da::hypothesis::Hypothesis h2({1, 3}, log(0.5));
 
