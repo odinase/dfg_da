@@ -236,10 +236,9 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
         return rho * (a / b)
 
     sigma = compute_sigma(rho)
-    sigma_moment = 0.0
+    sigma_moment = 0.999
 
     a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
-    mu_moment = 0.0
 
     b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
@@ -301,14 +300,16 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             prev_b2a = b2a_msg.copy()
 
         rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
-        if it > 100:
-            sigma_new = compute_sigma(rho)
-            sigma = (1 - sigma_moment)*sigma_new + sigma_moment*sigma
-            a2b_msg_new = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
-            a2b_msg = (1 - mu_moment)*a2b_msg_new + mu_moment*a2b_msg
-        else:
-            sigma = compute_sigma(rho)
-            a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+        # if it > 100:
+        #     sigma_new = compute_sigma(rho)
+        #     sigma = sigma_moment*sigma_new + (1 - sigma_moment)*sigma
+        #     # a2b_msg_new = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+        #     # a2b_msg = (1 - mu_moment)*a2b_msg_new + mu_moment*a2b_msg
+        #     sigma_moment *= sigma_moment
+        # else:
+        sigma = compute_sigma(rho)
+        
+        a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
         # tracks x measurements
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))

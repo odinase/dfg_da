@@ -80,6 +80,8 @@ class MatFileParser:
                 tracks_in_hypothesis = hypos[start_idx:stop_idx]
                 tracks_in_hypotheses[h] = tracks_in_hypothesis
 
+        track_set = [set(h) for h in tracks_in_hypotheses]
+        assert (np.array([sum([kk == hh for hh in track_set if len(hh) > 0]) for kk in track_set if len(kk) > 0]) == 1).all(), f"{track_set}"
 
         assert all(h is not None for h in tracks_in_hypotheses)
 

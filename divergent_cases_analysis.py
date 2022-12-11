@@ -33,39 +33,53 @@ def msg_plot_lbp(cluster_file: Path):
     mat_file = MatFileParser(cluster_file_to_mat_file(cluster_file))
     print([len(ph) for ph in mat_file.prior_hypotheses_per_cluster])
     lbp_solve = mc.LBPMarginalsFullAssociation()
-    # c_idx = cluster_file_to_cluster_idx(cluster_file)
-    for k, prior_hypotheses in enumerate(mat_file.prior_hypotheses_per_cluster):
-        print(f"Cluster {k}")
+    exact_solve = mc.ExactMarginals()
+    c_idx = cluster_file_to_cluster_idx(cluster_file)
+    prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
 
-        asso_prob, (it, msg_it, converged), lbp_output = lbp_solve(mat_file.reward_matrix_lc, prior_hypotheses, lbp_output=True)
+    asso_prob, (it, msg_it, converged), lbp_output = lbp_solve(mat_file.reward_matrix_lc, prior_hypotheses, lbp_output=True)
+    exact_marginals, (exact_normalization_constants,) = exact_solve(mat_file.reward_matrix_lc, prior_hypotheses)
 
-        fig, axes = plt.subplots(ncols=4)
+    fig, axes = plt.subplots(ncols=4)
 
-        msg_names = ["track -- > hyp (rho)", "hyp -- > track (sigma)", "track -- > meas (mu)", "meas -- > track (nu)"]
+    msg_names = ["track -- > hyp (rho)", "hyp -- > track (sigma)", "track -- > meas (mu)", "meas -- > track (nu)"]
 
-        msg_minmaxs = lbp_output.minmaxs()
+    msg_minmaxs = lbp_output.minmaxs()
 
-        for msg_minmax, msg_name, ax in zip(msg_minmaxs, msg_names, axes):
-            mins, maxs = msg_minmax.T
-            ax.plot(mins, label='min')
-            ax.plot(maxs, label='max')
-            ax.set_title(msg_name)
-            ax.legend()
+    for msg_minmax, msg_name, ax in zip(msg_minmaxs, msg_names, axes):
+        mins, maxs = msg_minmax.T
+        ax.plot(mins, label='min')
+        ax.plot(maxs, label='max')
+        ax.set_title(msg_name)
+        ax.legend()
 
-        # phs: ph.PriorHypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
-        print(converged)
+    # phs: ph.PriorHypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
+    print(converged)
 
-        num_hyps_to_see = 15
-        # prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
-        num_hyps_to_see = min(num_hyps_to_see, len(prior_hypotheses))
-        fig2, ax2 = plt.subplots(ncols=num_hyps_to_see)
-        for (tracks, p), ax in zip(prior_hypotheses, ax2):
-            t = np.sort(tracks)
-            print(f"{t}: {p}")
-            I = ax.imshow(np.exp(mat_file.reward_matrix_lc[t-1, :]))
-            fig2.colorbar(I, ax=ax)
+    num_hyps_to_see = 15
+    # prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
+    num_hyps_to_see = min(num_hyps_to_see, len(prior_hypotheses))
+    print(len(prior_hypotheses))
+    fig2, ax2 = plt.subplots(ncols=num_hyps_to_see)
+    for (tracks, p), ax in zip(prior_hypotheses, ax2):
+        t = np.sort(tracks)
+        print(f"{t}: {p}")
+        I = ax.imshow(np.exp(mat_file.reward_matrix_lc[t-1, :]))
+        fig2.colorbar(I, ax=ax)
 
-        plt.show()
+    fig3, ax3 = plt.subplots()
+    ax3.plot(prior_hypotheses.hypothesis_probabilities())
+
+    lbp_marginals: sl.Marginals = sl.Marginals(asso_prob)
+    exact_marginals: sl.Marginals = sl.Marginals(exact_marginals)
+
+    fig4, ax4 = plt.subplots()
+    ax4.plot(lbp_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'rx', label="Misdetection")
+    ax4.plot(lbp_marginals.detection_marginals, exact_marginals.detection_marginals, 'gx', label="Detection")
+    ax4.plot(lbp_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'bx', label="Nonexistence")
+    ax4.legend()
+
+    plt.show()
 
 
 def hypothesis_distributions(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -168,10 +182,31 @@ def plot_num_meas_num_tracks(cluster_stats_converged: List[Tuple[ClusterData, Pa
 
     plt.show()
 
+
+def test_all_divergent_cases(cluster_files_diverged: List[Path]):
+    convergd_list = np.empty(len(cluster_files_diverged), dtype=bool)
+    for k, cluster_file in tqdm(enumerate(cluster_files_diverged), total=len(cluster_files_diverged)):
+        lbp_solve = mc.LBPMarginalsFullAssociation()
+        mat_file = sl.MatFileParser(cluster_file_to_mat_file(cluster_file))
+        c_idx = cluster_file_to_cluster_idx(cluster_file)
+        prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
+        asso_prob, (it, msg_it, converged) = lbp_solve(mat_file.reward_matrix_lc, prior_hypotheses)
+        convergd_list[k] = converged
+
+    num_converged = convergd_list.sum()
+    print(f"Num converged: {num_converged}, {num_converged / len(cluster_files_diverged) * 100.0:.3f}%")
+
+    
+
 if __name__ == "__main__":
     cluster_stats = load_cluster_stats()
 
     cluster_stats_converged, cluster_stats_diverged = split_cluster_stats_converged(cluster_stats)
+
+    # print(len(cluster_stats_converged))
+    # print(len(cluster_stats_diverged))
+    # print(cluster_stats_diverged[0])
+
 
     # cluster_summary_conv: ClustersSummary = ClustersSummary(cluster_stats_converged)
     # cluster_summary_div: ClustersSummary = ClustersSummary(cluster_stats_diverged)
@@ -202,22 +237,27 @@ if __name__ == "__main__":
 
     # plt.show()
 
-    cluster_stat, cluster_file = cluster_stats_diverged[550]
+    cluster_stat, cluster_file = cluster_stats_diverged[0]
 
     print(cluster_file)
     msg_plot_lbp(cluster_file)
 
-    cluster_stats_converge_many_hypotheses = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats_converged if cluster_stat.num_hypotheses > 50 and cluster_stat.cardinality > 15]
+    # cluster_stats_converge_many_hypotheses = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats_converged if cluster_stat.num_hypotheses > 50 and cluster_stat.cardinality > 15]
 
-    i = np.random.randint(0, len(cluster_stats_converge_many_hypotheses))
-    print(i)
+    # i = np.random.randint(0, len(cluster_stats_converge_many_hypotheses))
+    # print(i)
 
-    cluster_stat, cluster_file = cluster_stats_converge_many_hypotheses[i]
-    print(cluster_file)
+    # cluster_stat, cluster_file = cluster_stats_converge_many_hypotheses[i]
+    # print(cluster_file)
 
-    msg_plot_lbp(cluster_file)
+    # msg_plot_lbp(cluster_file)
 
     # plot_hypotheses_distributions(cluster_stats)
     # seed = None
     # plot_samples_reward_matices(cluster_stats_converged, cluster_stats_diverged, seed=seed, num_samples=8)
     # plot_num_meas_num_tracks(cluster_stats_converged, cluster_stats_diverged)
+
+    # cluster_files_diverged = [cluster_file for (cluster_stat, cluster_file) in cluster_stats_diverged]
+    # print(len(cluster_files_diverged))
+
+    # test_all_divergent_cases(cluster_files_diverged)
