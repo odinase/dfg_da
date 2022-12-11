@@ -41,7 +41,7 @@ def cluster_file_to_mat_file(cluster_file):
 def cluster_file_to_cluster_idx(cluster_file):
     return int("".join(d for d in cluster_file.name if d.isdigit()))
 
-def split_cluster_stats_converged(cluster_stats: List[Tuple[ClusterData, Path]]):
+def split_cluster_stats_converged(cluster_stats: List[Tuple[ClusterData, Path]]) -> Tuple[List[Tuple[ClusterData, Path]], List[Tuple[ClusterData, Path]]]:
     cluster_stats_converged = []
     cluster_stats_diverged = []
 
@@ -582,25 +582,31 @@ def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
     print(f"williams mean error: {williams_errors.raw_errors.mean()}, std: {williams_errors.raw_errors.std()}")
 
 
-if __name__ == "__main__":
+def load_cluster_stats(return_empty_clusters: bool = False):
     load_dirs = Path(OUTPUT_PATH_BASE).glob("*/*")
 
     load_dirs = list(load_dirs)
     num_files = len(load_dirs)
 
-
     cluster_stats: List[Tuple[ClusterData, Path]] = []
-    empty_clusters: List[Tuple[ClusterData, Path]] = []
+    if return_empty_clusters:
+        empty_clusters: List[Tuple[ClusterData, Path]] = []
     for cluster_file in tqdm(load_dirs, total=num_files):
-        if cluster_file.name == "empty_cluster":
-            empty_clusters.append(
-                (ClusterData.from_data(cluster_file), cluster_file)
-            )
-        else:
+        if cluster_file.name != "empty_cluster":
             cluster_stats.append(
                 (ClusterData.from_data(cluster_file), cluster_file)
             )
+        if return_empty_clusters and cluster_file.name == "empty_cluster":
+            empty_clusters.append(
+                (ClusterData.from_data(cluster_file), cluster_file)
+            )
 
+
+    return (cluster_stats, empty_clusters) if return_empty_clusters else cluster_stats
+
+
+if __name__ == "__main__":
+    cluster_stats = load_cluster_stats()
 
 
     # make_raw_error_plot(cluster_stats)

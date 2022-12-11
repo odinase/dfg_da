@@ -18,6 +18,9 @@ class MatFileParser:
     prior_hypotheses_per_cluster: List[PriorHypotheses]
     clusters_sorted: np.ndarray
 
+    num_tracks: int
+    num_measurements: int
+
     def __init__(self, filename: str, compute_hypotheses: bool = True):
         ws = loadmat(filename)
         self.ws = ws
@@ -27,6 +30,9 @@ class MatFileParser:
         
         n = track_file.shape[1]
         m = measurements.shape[1]
+
+        self.num_tracks = n
+        self.num_measurements = m
 
         self.reward_matrix_edmund = R_wrapping[:n, :]
         self.reward_matrix_lc = np.hstack((np.diag(self.reward_matrix_edmund[:,m:])[:,None], self.reward_matrix_edmund[:,:m]))

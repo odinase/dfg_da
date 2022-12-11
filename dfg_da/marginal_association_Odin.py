@@ -20,6 +20,8 @@ Author: Lars-Christian Ness Tokle (lars-christian.n.tokle@ntnu.no), last modifie
 """
 import numpy as np
 from scipy.special import logsumexp
+from dataclasses import dataclass
+from typing import List
 
 # controls some extra (potentially costly) checks done in asserts
 DEBUG: bool = True
@@ -114,6 +116,41 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     return prob, it, converged
 
 
+@dataclass
+class LBPOutput:
+    all_rho_msgs: List[np.ndarray] = None
+    all_sigma_msgs: List[np.ndarray] = None
+    all_mu_msgs: List[np.ndarray] = None
+    all_nu_msgs: List[np.ndarray] = None
+
+    def __post_init__(self):
+        self.all_rho_msgs = []
+        self.all_sigma_msgs = []
+        self.all_mu_msgs = []
+        self.all_nu_msgs = []
+
+
+    def append(self, rho, sigma, mu, nu):
+        self.all_rho_msgs.append(rho)
+        self.all_sigma_msgs.append(sigma)
+        self.all_mu_msgs.append(mu)
+        self.all_nu_msgs.append(nu)
+
+    def minmax(self, msg_list):
+        return np.array([
+            [np.min(msg), np.max(msg)] for msg in msg_list
+        ])
+
+    def minmaxs(self):
+        rho_minmax = self.minmax(self.all_rho_msgs)
+        sigma_minmax = self.minmax(self.all_sigma_msgs)
+        mu_minmax = self.minmax(self.all_mu_msgs)
+        nu_minmax = self.minmax(self.all_nu_msgs)
+
+        return np.stack((rho_minmax, sigma_minmax, mu_minmax, nu_minmax))
+
+
+
 def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
@@ -181,21 +218,33 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
     # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende. 
 
+    lbp_output_in_kwargs = False
+    if "lbp_output" in kwargs and kwargs["lbp_output"]:
+        lbp_output_in_kwargs = True
+        lbp_output = LBPOutput()
+
     # Init meas->track = 1, so rho is immediately the below
     rho = w_0.ravel() + (w_nmd).sum(axis=1)
 
     phi = np.array([hypo[1] for hypo in prior_hypotheses])
+    # phi = np.arange(len(phi))[::-1] + 1
     def compute_sigma(rho):
         rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
         a = (rho_prods*t2noth_idx*phi).sum(axis=1)
-        b = (rho_prods*t2h_idx*phi).sum(axis=1) / rho
+        b = (rho_prods*t2h_idx*phi).sum(axis=1)
 
-        return a / b
+        return rho * (a / b)
 
     sigma = compute_sigma(rho)
+    sigma_moment = 0.0
 
     a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+    mu_moment = 0.0
+
     b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+    if lbp_output_in_kwargs:
+        lbp_output.append(rho, sigma, a2b_msg, b2a_msg)
 
     # we need messages from a to theta and theta to a
     # Let's do this carefully. Sigma should be nmber of tracks long, as we only store 1 number per track
@@ -252,12 +301,21 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
             prev_b2a = b2a_msg.copy()
 
         rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
-        sigma = compute_sigma(rho)
+        if it > 100:
+            sigma_new = compute_sigma(rho)
+            sigma = (1 - sigma_moment)*sigma_new + sigma_moment*sigma
+            a2b_msg_new = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+            a2b_msg = (1 - mu_moment)*a2b_msg_new + mu_moment*a2b_msg
+        else:
+            sigma = compute_sigma(rho)
+            a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
         # tracks x measurements
-        a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
+
+        if lbp_output_in_kwargs:
+            lbp_output.append(rho, sigma, a2b_msg, b2a_msg)
 
         if full_ouput:
             prev_b_avg.append(prev_b2a.mean())
@@ -309,6 +367,9 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
         asso_prob_d = np.array(asso_prob_d)
         extra_output = (ds, prev_b_avg, b_avg, s_avg, asso_prob_d)
         out += extra_output
+
+    if lbp_output_in_kwargs:
+        out += (lbp_output,)
         
     return out
 
