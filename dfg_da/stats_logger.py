@@ -71,19 +71,22 @@ class MatFileParser:
 
         # Before we start looping over clusters, let's do this the simple way of making a list of lists, containing tracks contained in each hypothesis, then we sort it afterwards
         tracks_in_hypotheses = [None] * hyposCard.shape[0]
+        endInd = np.cumsum(hyposCard)
+        beginInd = endInd - hyposCard
         for hypos_in_cluster in hypotheses_per_cluster:
             for h in hypos_in_cluster:
-                start_idx = h
-                stop_idx = h + hyposCard[h]
+                start_idx = beginInd[h]
+                stop_idx = endInd[h]
                 tracks_in_hypothesis = hypos[start_idx:stop_idx]
                 tracks_in_hypotheses[h] = tracks_in_hypothesis
+
 
         assert all(h is not None for h in tracks_in_hypotheses)
 
         # We now have all we need to return proper prior hypotheses
 
         # Compute the clusters we consider
-        clusters_to_use = np.argsort(clustersCard)[::-1][:num_clusters]
+        clusters_to_use = np.arange(num_clusters)#np.argsort(clustersCard)[::-1][:num_clusters]
 
         prior_hypotheses_per_cluster = []
         for c in clusters_to_use:
