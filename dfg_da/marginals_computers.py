@@ -1,5 +1,5 @@
 import numpy as np
-from .marginal_association_Odin import lbp_marginal, exact_marginal, lbp_marginal_nonexistence
+from .marginal_association_Odin import lbp_marginal, exact_marginal, lbp_marginal_nonexistence, lbp_marginal_nonexistence_alternative
 from abc import ABC, abstractmethod
 from .prior_hypothesis import PriorHypotheses, PriorHypothesis
 from typing import Tuple, Optional, Union
@@ -141,6 +141,18 @@ class ExactMarginals(MarginalsComputer):
 class LBPMarginalsFullAssociation(MarginalsComputer):
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
         out = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
+        asso_prob = out[0]
+        it, msg_it, converged = out[1:4]
+        if len(out[4:]) > 0:
+            extra = out[4:]
+        else:
+            extra = ()
+        return (asso_prob, (it, msg_it, converged)) + extra
+
+
+class LBPMarginalsFullAssociationAlternative(MarginalsComputer):
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+        out = lbp_marginal_nonexistence_alternative(R_LC, prior_hypotheses, **kwargs)
         asso_prob = out[0]
         it, msg_it, converged = out[1:4]
         if len(out[4:]) > 0:

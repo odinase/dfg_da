@@ -32,7 +32,8 @@ class ClustersSummary:
 def msg_plot_lbp(cluster_file: Path):
     mat_file = MatFileParser(cluster_file_to_mat_file(cluster_file))
     print([len(ph) for ph in mat_file.prior_hypotheses_per_cluster])
-    lbp_solve = mc.LBPMarginalsFullAssociation()
+    lbp_solve = mc.LBPMarginalsFullAssociationAlternative()
+    # lbp_solve = mc.LBPMarginalsFullAssociation()
     exact_solve = mc.ExactMarginals()
     c_idx = cluster_file_to_cluster_idx(cluster_file)
     prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
@@ -66,6 +67,10 @@ def msg_plot_lbp(cluster_file: Path):
         print(f"{t}: {p}")
         I = ax.imshow(np.exp(mat_file.reward_matrix_lc[t-1, :]))
         fig2.colorbar(I, ax=ax)
+    
+    fig69, ax69 = plt.subplots()
+    I = ax69.imshow(np.exp(mat_file.reward_matrix_lc))
+    fig69.colorbar(I, ax=ax69)
 
     fig3, ax3 = plt.subplots()
     ax3.plot(prior_hypotheses.hypothesis_probabilities())
@@ -78,6 +83,14 @@ def msg_plot_lbp(cluster_file: Path):
     ax4.plot(lbp_marginals.detection_marginals, exact_marginals.detection_marginals, 'gx', label="Detection")
     ax4.plot(lbp_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'bx', label="Nonexistence")
     ax4.legend()
+
+    tracks = np.sort(np.array(cluster_stat.tracks))
+    fig5, ax5 = plt.subplots()
+    sigmas_concat = np.vstack((lbp_output.all_sigma_msgs))
+    for t, sigmas in zip(tracks, sigmas_concat.T):
+        ax5.plot(sigmas[:100], label=f"Track {t}")
+    
+    ax5.legend()
 
     plt.show()
 

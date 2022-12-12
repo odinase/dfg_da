@@ -209,6 +209,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     n = existing_tracks.sum()
 
     w_nmd = np.exp(llr[existing_tracks, 1:])
+    # w_nmd = (w_nmd - w_nmd[np.isfinite(w_nmd)].min()) / (w_nmd[np.isfinite(w_nmd)].max() - w_nmd[np.isfinite(w_nmd)].min())
     w_0 = np.exp(llr[existing_tracks, [0]]).reshape(-1, 1)
 
     t2h_idx = t2h_idx[existing_tracks]
@@ -227,6 +228,9 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     rho = w_0.ravel() + (w_nmd).sum(axis=1)
 
     phi = np.array([hypo[1] for hypo in prior_hypotheses])
+    num_hyp = len(prior_hypotheses)
+        
+
     # phi = np.arange(len(phi))[::-1] + 1
     def compute_sigma(rho):
         rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
@@ -296,10 +300,11 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     while it < max_iter and not converged:
         # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
         w_times_msg = w_nmd * b2a_msg
+        w_times_msg_sum = w_times_msg.sum(axis=1, keepdims=True)
         if not msgs_converged:
             prev_b2a = b2a_msg.copy()
 
-        rho = w_0.ravel() + (w_nmd*b2a_msg).sum(axis=1)
+        rho = w_0.ravel() + w_times_msg_sum.ravel()
         # if it > 100:
         #     sigma_new = compute_sigma(rho)
         #     sigma = sigma_moment*sigma_new + (1 - sigma_moment)*sigma
@@ -309,7 +314,236 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
         # else:
         sigma = compute_sigma(rho)
         
-        a2b_msg = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:,None])
+        # tracks x measurements
+
+        b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+
+        if lbp_output_in_kwargs:
+            lbp_output.append(rho, sigma, a2b_msg, b2a_msg)
+
+        if full_ouput:
+            prev_b_avg.append(prev_b2a.mean())
+            b_avg.append(b2a_msg.mean())
+            s_avg.append(sigma.mean())
+            asso_prob = compute_asso_probs(sigma, b2a_msg)
+            d = np.abs(asso_prob - prev_asso_prob).max()
+            asso_prob_d.append(d)
+            prev_asso_prob = asso_prob.copy()
+
+
+        it = it + 1
+
+        if not msgs_converged:
+            d = msg_norm(b2a_msg, prev_b2a)
+            if full_ouput:
+                ds.append(d)
+            if d < msg_thresh:
+                msgs_converged = True
+                msg_it = it
+                prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
+        else:
+            iter_last_marg_check += 1
+            if iter_last_marg_check >= iters_per_marg_check:
+                asso_prob = compute_asso_probs(sigma, b2a_msg)
+                d = np.abs(asso_prob - prev_asso_prob).max()
+                if d < marginal_max_error_diff:
+                    converged = True
+                else:
+                    prev_asso_prob = asso_prob.copy()
+                iter_last_marg_check = 0
+
+    asso_prob = compute_asso_probs(sigma, b2a_msg)
+
+    # Add in the nonexisting tracks
+    n = existing_tracks.sum() + nonexisting_tracks.sum()
+    tot_asso_prob = np.empty((n, m + 2))
+    tot_asso_prob[existing_tracks] = asso_prob
+    tot_asso_prob[nonexisting_tracks, :-1] = 0.0
+    tot_asso_prob[nonexisting_tracks, -1] = 1.0
+
+    out = tot_asso_prob, it, msg_it, converged
+    
+    if full_ouput:
+        ds = np.array(ds)
+        prev_b_avg = np.array(prev_b_avg)
+        b_avg = np.array(b_avg)
+        s_avg = np.array(s_avg)
+        asso_prob_d = np.array(asso_prob_d)
+        extra_output = (ds, prev_b_avg, b_avg, s_avg, asso_prob_d)
+        out += extra_output
+
+    if lbp_output_in_kwargs:
+        out += (lbp_output,)
+        
+    return out
+
+
+
+def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Calculate marginal association probabilities using loopy belief propagation [1].
+
+    Parameters
+    ----------
+    llr : np.ndarray[(N, M + 1)]
+        log likelihood ratios. llr[:, 0] is the missed detection.
+    max_prob_diff_from_conv : float, optional
+        when to deem the iterations as converged, by default 1e-3
+    max_iter : int, optional
+        upper bound on the number of iterations to do, by default 300
+    iter_per_check : int, optional
+        how often to check for convergence, by default 5
+
+    Returns
+    -------
+    track_to_meas_probability: np.ndarray[float, (N, M + 1)]
+    new_track_probability: np.ndarray[float, (M,)]
+
+    References
+    ----------
+    [1] Williams, J., Lau, R. (2014).
+        Approximate evaluation of marginal association probabilities with belief propagation.
+        IEEE Transactions on Aerospace and Electronic Systems, 50(4), 2942-2959.
+        https://doi.org/10.1109/TAES.2014.120568
+
+    """
+    n, mp1 = llr.shape
+    m = mp1 - 1
+    if n == 0 or m == 0:
+        return np.zeros((n, mp1)), np.ones(m)
+
+    tracks = range(1, n + 1)
+
+    # Normalize with misdetection to make psi(0) = 1. We skip this step for nonexistence
+    # llr = llr - llr[:, [0]]
+
+    # We instead want psi such that psi(0) = m, psi(1, 2, ..., mk) = l and psi(N) = 1
+    # w_nmd = np.hstack((w_nmd, w_N))
+
+    # note parenthesis for underflow problems
+
+    # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
+    # The nominator should only be over actual measurements, denominator however is over all values of ai / bj, so it should include misdetection and nonexistence
+
+
+    # Initialize useful data structures for later: - We'll need index lists that broadcast arrays to correct sizes
+    # List over each track what hypotheses it exists in. I.e., each row is a track, and that row is true or false for all hypotheses
+    t2h_idx = np.array([
+        [t in hypo[0] for hypo in prior_hypotheses] for t in tracks
+    ])
+
+    # At this point we need to look for tracks that don't exist in any prior hypotheses and remove them from the association problem as they can potential cause LBP to not converge
+    existing_tracks = t2h_idx.any(axis=1)
+    nonexisting_tracks = ~existing_tracks
+    n = existing_tracks.sum()
+
+    w_nmd = np.exp(llr[existing_tracks, 1:])
+    # w_nmd = (w_nmd - w_nmd[np.isfinite(w_nmd)].min()) / (w_nmd[np.isfinite(w_nmd)].max() - w_nmd[np.isfinite(w_nmd)].min())
+    w_0 = np.exp(llr[existing_tracks, [0]]).reshape(-1, 1)
+
+    t2h_idx = t2h_idx[existing_tracks]
+    t2noth_idx = ~t2h_idx
+    h2t_idx = t2h_idx.T
+    noth2t_idx = ~h2t_idx
+    # Assume sigma(ai = N) = 1 for initialization
+
+    # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende. 
+
+    lbp_output_in_kwargs = False
+    if "lbp_output" in kwargs and kwargs["lbp_output"]:
+        lbp_output_in_kwargs = True
+        lbp_output = LBPOutput()
+
+    # Init meas->track = 1, so rho is immediately the below
+    rho = 1.0 / (w_0.ravel() + (w_nmd).sum(axis=1))
+
+    phi = np.array([hypo[1] for hypo in prior_hypotheses])
+
+    # phi = np.arange(len(phi))[::-1] + 1
+    def compute_sigma(rho):
+        rho_prods = (rho * noth2t_idx + h2t_idx).prod(axis=1)
+        a = (rho_prods*t2noth_idx*phi).sum(axis=1)
+        b = rho * (rho_prods*t2h_idx*phi).sum(axis=1)
+
+        return (a / b)
+
+    sigma = compute_sigma(rho)
+    sigma_moment = 0.999
+
+    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+
+    b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+    if lbp_output_in_kwargs:
+        lbp_output.append(rho, sigma, a2b_msg, b2a_msg)
+
+    # we need messages from a to theta and theta to a
+    # Let's do this carefully. Sigma should be nmber of tracks long, as we only store 1 number per track
+
+
+    # The message from theta to track is a little convoluted to compute
+    # We need, for each track, to know what hypotheses it's present in and what it's not, and do two sums for each track
+    # However, the sum involves doing a product over all other tracks for the rho message, where the product changes
+
+    # We do both sums for each target, such that we slice the necessary 
+
+    full_ouput = False
+    if "full_output" in kwargs:
+        full_ouput = kwargs["full_output"]
+
+
+    def msg_norm(m, n):
+        return np.max(np.abs(np.log(n / m)))
+
+    converged = False
+    msgs_converged = False
+
+    def compute_asso_probs(sigma, b2a_msg):
+        asso_prob = np.empty((n, m + 2))
+        # Misdetection, only the prior factor in misdetection
+        asso_prob[:, [0]] = w_0
+        # Association, use the messages from b
+        asso_prob[:, 1:-1] = w_nmd * b2a_msg
+        # Nonexistence, use sigma
+        asso_prob[:, -1] = sigma
+
+        asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
+
+        return asso_prob
+
+
+    it = 0
+    msg_it = 0
+
+    prev_asso_prob = compute_asso_probs(sigma, b2a_msg)
+    iter_last_marg_check = 0
+
+    if full_ouput:
+        ds = []
+        prev_b_avg = []
+        b_avg = []
+        s_avg = []
+        asso_prob_d = []
+
+    while it < max_iter and not converged:
+        # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
+        w_times_msg = w_nmd * b2a_msg
+        w_times_msg_sum = w_times_msg.sum(axis=1, keepdims=True)
+        if not msgs_converged:
+            prev_b2a = b2a_msg.copy()
+
+        rho = 1.0 / (w_0.ravel() + w_times_msg_sum.ravel())
+        # if it > 100:
+        #     sigma_new = compute_sigma(rho)
+        #     sigma = sigma_moment*sigma_new + (1 - sigma_moment)*sigma
+        #     # a2b_msg_new = w_nmd / (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None])
+        #     # a2b_msg = (1 - mu_moment)*a2b_msg_new + mu_moment*a2b_msg
+        #     sigma_moment *= sigma_moment
+        # else:
+        sigma = compute_sigma(rho)
+        
+        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:,None])
         # tracks x measurements
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))

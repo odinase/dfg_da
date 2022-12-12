@@ -34,7 +34,8 @@ class MatFileParser:
         self.num_tracks = n
         self.num_measurements = m
 
-        self.reward_matrix_edmund = R_wrapping[:n, :]
+        npm = n + m
+        self.reward_matrix_edmund = R_wrapping[:n, :npm]
         self.reward_matrix_lc = np.hstack((np.diag(self.reward_matrix_edmund[:,m:])[:,None], self.reward_matrix_edmund[:,:m]))
 
         if compute_hypotheses:
