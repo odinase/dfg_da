@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from plotting import load_cluster_stats, split_cluster_stats_converged, cluster_file_to_mat_file, cluster_file_to_cluster_idx
+from plotting import load_cluster_stats, split_cluster_stats_converged, cluster_file_to_mat_file, cluster_file_to_cluster_idx, save_fig_to_pdf
 from typing import List, Tuple
 from pathlib import Path
 from multiprocessing import Pool
@@ -32,8 +32,8 @@ class ClustersSummary:
 def msg_plot_lbp(cluster_file: Path):
     mat_file = MatFileParser(cluster_file_to_mat_file(cluster_file))
     print([len(ph) for ph in mat_file.prior_hypotheses_per_cluster])
-    lbp_solve = mc.LBPMarginalsFullAssociationAlternative()
-    # lbp_solve = mc.LBPMarginalsFullAssociation()
+    # lbp_solve = mc.LBPMarginalsFullAssociationAlternative()
+    lbp_solve = mc.LBPMarginalsFullAssociation()
     exact_solve = mc.ExactMarginals()
     c_idx = cluster_file_to_cluster_idx(cluster_file)
     prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
@@ -67,10 +67,40 @@ def msg_plot_lbp(cluster_file: Path):
         print(f"{t}: {p}")
         I = ax.imshow(np.exp(mat_file.reward_matrix_lc[t-1, :]))
         fig2.colorbar(I, ax=ax)
-    
-    fig69, ax69 = plt.subplots()
-    I = ax69.imshow(np.exp(mat_file.reward_matrix_lc))
-    fig69.colorbar(I, ax=ax69)
+
+    tracks_to_look_for = [9, 11]
+    # for k, (tracks, p) in enumerate(prior_hypotheses):
+    #     print(f"Are tracks {tracks_to_look_for} in {np.sort(tracks)}?")
+    #     if all(t in tracks for t in tracks_to_look_for):
+    #         print(f"All tracks {tracks_to_look_for} are in hypothesis {k+1} which has probability {p}")
+    for track_to_look_for in tracks_to_look_for:
+        pp = 0
+        print(f"Track {track_to_look_for} exists in:")
+        for k, (tracks, p) in enumerate(prior_hypotheses):
+            if track_to_look_for in tracks:
+                print(f"Hypothesis {k+1} with probability {p}")
+                pp += p
+        print(f"total probability: {pp}")
+
+    tracks = np.sort(np.fromiter(cluster_stat.tracks, dtype=int))
+    fig69, ax69 = plt.subplots(figsize=(16, 10), ncols=2)
+    I = ax69[1].imshow(np.exp(mat_file.reward_matrix_lc[tracks - 1, :]), cmap="Blues")
+    ax69[1].set_yticks(np.arange(len(tracks)), labels=[str(t) for t in tracks])
+    fig69.colorbar(I, ax=ax69[1])
+    ax69[1].set_title("Reward matrix")
+    ax69[1].set_xlabel("Measurements")
+    ax69[1].set_ylabel("Tracks")
+
+    sigmas_concat = np.vstack((lbp_output.all_sigma_msgs))
+    for t, sigmas in zip(tracks, sigmas_concat.T):
+        ax69[0].plot(sigmas[:20], label=f"Track {t}")
+
+    ax69[0].legend()
+    ax69[0].set_title(r"Oscillations of $\sigma_t$ (hypothesis $\to$ track) messages")
+    ax69[0].set_xlabel("iterations")
+    ax69[0].set_ylabel("Message value")
+
+    save_fig_to_pdf(fig69, "sigma_msg_oscillations")
 
     fig3, ax3 = plt.subplots()
     ax3.plot(prior_hypotheses.hypothesis_probabilities())
@@ -84,13 +114,7 @@ def msg_plot_lbp(cluster_file: Path):
     ax4.plot(lbp_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'bx', label="Nonexistence")
     ax4.legend()
 
-    tracks = np.sort(np.array(cluster_stat.tracks))
-    fig5, ax5 = plt.subplots()
-    sigmas_concat = np.vstack((lbp_output.all_sigma_msgs))
-    for t, sigmas in zip(tracks, sigmas_concat.T):
-        ax5.plot(sigmas[:100], label=f"Track {t}")
     
-    ax5.legend()
 
     plt.show()
 
@@ -216,8 +240,8 @@ if __name__ == "__main__":
 
     cluster_stats_converged, cluster_stats_diverged = split_cluster_stats_converged(cluster_stats)
 
-    # print(len(cluster_stats_converged))
-    # print(len(cluster_stats_diverged))
+    print(len(cluster_stats_converged))
+    print(len(cluster_stats_diverged))
     # print(cluster_stats_diverged[0])
 
 

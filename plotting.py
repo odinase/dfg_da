@@ -120,9 +120,10 @@ def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
 def make_survival_function_plots(cluster_stats: List[ClusterData]):
     fig, ax = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
 
-    lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
+    lbp_errors, williams_errors, williams_errors_exact  = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
 
     plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
+    plot_survival_function(ax, williams_errors_exact, "Hypothesis-conditioned LBP with exact normalization constant")
     plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
 
     save_fig_to_pdf(fig, "sf")
@@ -344,7 +345,7 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     df = pd.concat((df_convergent, df_divergent))
     g = sns.pairplot(df, hue="Convergence", diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
     g.fig.set_size_inches(*figsize)
-    plt.show()
+    # # # plt.show()
     save_fig_to_pdf(g.fig, "scatter_matrix_diverged_conv_clusters", tight_layout=False)
 
 
@@ -385,7 +386,7 @@ def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
         lh.set_alpha(1)
     ax[0].semilogy()
 
-    plt.show()
+    # plt.show/(
 
 
     save_fig_to_pdf(fig, "mhlbp_lbpphd_compare")
@@ -439,16 +440,21 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Oranges", ax=axx)
         axx.invert_yaxis()
 
-    plt.show()
+    # plt.show/(
     save_fig_to_pdf(fig, "heatmap_correlation")
 
 
-def subsample(a: np.ndarray, inc: float) -> np.ndarray:
+def subsample(a: np.ndarray, inc: float, first_val=0) -> np.ndarray:
     """
     Returns the indices that subsamples the array.
     """
     idxs = [0]
-    for k in range(1, len(a)):
+    k = 0
+    while a[k] < first_val:
+        k += 1
+    idxs.append(k)
+
+    for k in range(idxs[0], len(a)):
         if a[k] - a[idxs[-1]] > inc:
             idxs.append(k)
 
@@ -459,7 +465,6 @@ def subsample(a: np.ndarray, inc: float) -> np.ndarray:
 def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, label: str = "_"):
     max_errors = np.sort(marginals_errors.max_errors)
     abs_errors = np.sort(marginals_errors.abs_errors)
-    # raw_errors = np.sort(marginals_errors.abs_errors)
     misdetection_errors = np.sort(marginals_errors.misdetection_errors)
     detection_errors = np.sort(marginals_errors.detection_errors)
     nonexistence_errors = np.sort(marginals_errors.nonexistence_errors)
@@ -467,7 +472,6 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
     errors = [
         max_errors,
         abs_errors,
-        # raw_errors,
         misdetection_errors,
         detection_errors,
         nonexistence_errors
@@ -487,12 +491,15 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
     for ax, error, title in zip(axes, errors, titles):
         ax.set_title(title)
         steps = np.linspace(1.0, 0.0, len(error))
-        idxs = subsample(np.log(error), 1e-7)
+        first_nonzero = np.where(error > 0)[0][0]
+        first_val = error[first_nonzero]
+        idxs = subsample(np.log10(error), 1e-10, first_val=np.log10(first_val)) # Use -5 as first val since we are logarithmic
         print(f"Subsampling {title} for {label} reduced data to {len(idxs)/len(error)*100.0:.3f}%")
         error = error[idxs]
         steps = steps[idxs]
         ax.step(error, steps, label=label)
-        ax.set_xscale('symlog', linthresh=error[1])
+        print(error[1])
+        ax.set_xscale('symlog', linthresh=first_val)
         log_err = np.linspace(np.log10(error[1]), np.log10(error[-1]*1.1), 9).astype(int)
         xticks = np.array([0, *((10.0)**log_err)])
         print(f"Using xticks {xticks}")
@@ -609,7 +616,7 @@ if __name__ == "__main__":
     cluster_stats = load_cluster_stats()
 
 
-    make_raw_error_plot(cluster_stats)
+    # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
     # make_heatmap_correlation(cluster_stats)
@@ -618,4 +625,4 @@ if __name__ == "__main__":
     # normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
-    # make_survival_function_plots(cluster_stats)
+    make_survival_function_plots(cluster_stats)
