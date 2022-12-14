@@ -16,6 +16,8 @@ import colorcet as cc
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
+from copy import deepcopy
+
 
 import seaborn as sns
 sns.set_theme(style="ticks")
@@ -29,11 +31,24 @@ from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
 FIGURES_PATH = "./figures"
 
-
 def save_fig_to_pdf(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
     fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
+    print(f"Saved {FIGURES_PATH}/{fig_name}.pdf")
+
+
+def save_fig_to_png(fig, fig_name, tight_layout=True):
+    if tight_layout:
+        fig.tight_layout()
+    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight')
+    print(f"Saved {FIGURES_PATH}/{fig_name}.png")
+
+
+def save_fig(fig, fig_name, tight_layout=True):
+    save_fig_to_pdf(fig, fig_name, tight_layout=tight_layout)
+    save_fig_to_png(fig, fig_name, tight_layout=tight_layout)
+
 
 def cluster_file_to_mat_file(cluster_file):
     return PMBM_DATA_PATH + "/" + cluster_file.parent.name + ".mat"
@@ -126,7 +141,7 @@ def make_survival_function_plots(cluster_stats: List[ClusterData]):
     plot_survival_function(ax, williams_errors_exact, "Hypothesis-conditioned LBP with exact normalization constant")
     plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
 
-    save_fig_to_pdf(fig, "sf")
+    save_fig(fig, "sf")
 
 
 
@@ -145,15 +160,15 @@ def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterDa
         plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
         plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
 
-    save_fig_to_pdf(fig, "sf_conditioned", tight_layout=False)
+    save_fig(fig, "sf_conditioned", tight_layout=False)
 
 
 def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
 
     lbp_errors, williams_errors, williams_exact_errors = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
 
-    p = 0.1
-    lbp_errors_sample = np.random.choice(lbp_errors.raw_errors, int(p*len(lbp_errors.raw_errors)), replace=False)
+    # p = 0.1
+    # lbp_errors_sample = np.random.choice(lbp_errors.raw_errors, int(p*len(lbp_errors.raw_errors)), replace=False)
     # williams_errors_sample = np.random.choice(williams_errors.raw_errors, int(p*len(williams_errors.raw_errors)), replace=False)
     # williams_errors_exact_sample = np.random.choice(williams_exact_errors.raw_errors, int(p*len(williams_exact_errors.raw_errors)), replace=False)
 
@@ -161,10 +176,10 @@ def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     williams_label = "Hypothesis-conditioned LBP with PHD approximation"
     williams_exact_label = "Hypothesis-conditioned LBP with exact normalization constant"
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
 
-    ax.plot(lbp_errors_sample, 'bo', label=mh_lbp_label, ms=2, alpha=0.2)
-    ax.axhline(lbp_errors.raw_errors.mean(), color="blue")
+    # ax.plot(lbp_errors_sample, 'bo', label=mh_lbp_label, ms=2, alpha=0.2)
+    # ax.axhline(lbp_errors.raw_errors.mean(), color="blue")
     # ax.plot(williams_errors_sample, 'go', label=williams_label, ms=2, alpha=0.2)
     # ax.axhline(williams_errors.raw_errors.mean(), color="green")
 
@@ -175,7 +190,7 @@ def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     # for lh in leg.legendHandles: 
     #     lh.set_alpha(1)
 
-    ax.set_title("Scatter plot over signed error for MH-LBP")
+    # ax.set_title("Scatter plot over signed error for MH-LBP")
 
     bins = 100
     hist_figsize = (10, 7)
@@ -183,66 +198,67 @@ def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     fig2, ax2 = plt.subplots(figsize=hist_figsize)
 
     x = williams_errors.raw_errors
-    ax2.hist(x, bins=bins, label=williams_label, alpha=0.5)
+    ax2.hist(x, bins=bins, label=williams_label, alpha=0.33)
 
     x = lbp_errors.raw_errors
-    ax2.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+    ax2.hist(x, bins=bins, label=mh_lbp_label, alpha=0.33)
+
+    x = williams_exact_errors.raw_errors
+    ax2.hist(x, bins=bins, label=williams_exact_label, alpha=0.34)
 
     ax2.set_title("Histogram over signed marginal errors")
     ax2.semilogy()
     ax2.legend()
 
-    fig3, ax3 = plt.subplots(figsize=hist_figsize)
 
-    x = williams_exact_errors.raw_errors
-    ax3.hist(x, bins=bins, label=williams_exact_label, alpha=0.5)
+    # fig3, ax3 = plt.subplots(figsize=hist_figsize)
 
-    x = lbp_errors.raw_errors
-    ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+    # x = lbp_errors.raw_errors
+    # ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
 
-    ax3.set_title("Histogram over signed marginal errors")
-    ax3.semilogy()
-    ax3.legend()
+    # ax3.set_title("Histogram over signed marginal errors")
+    # ax3.semilogy()
+    # ax3.legend()
 
 
-    save_fig_to_pdf(fig, "signed_error")
-    save_fig_to_pdf(fig2, "signed_error_histogram")
-    save_fig_to_pdf(fig3, "signed_error_histogram_exact")
+    # save_fig_to_pdf(fig, "signed_error")
+    save_fig(fig2, "signed_error_histogram")
+    # save_fig_to_pdf(fig3, "signed_error_histogram_exact")
 
-    cluster_stats_lbp_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if cluster_stat.lbp_stats.converged]
-    cluster_stats_lbp_not_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if not cluster_stat.lbp_stats.converged]
-    lbp_errors_converged, williams_errors_converged = cluster_stats_to_errors(cluster_stats_lbp_converged)
-    lbp_errors_not_converged, williams_errors_not_converged = cluster_stats_to_errors(cluster_stats_lbp_not_converged)
-
-
-    fig4, ax4 = plt.subplots(figsize=hist_figsize)
-
-    x = williams_errors_converged.raw_errors
-    ax4.hist(x, bins=bins, label=williams_label, alpha=0.5)
-
-    x = lbp_errors_converged.raw_errors
-    ax4.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
-
-    ax4.set_title("Histogram over signed marginal errors, MH-LBP converged")
-    ax4.semilogy()
-    ax4.legend()
-
-    save_fig_to_pdf(fig4, "signed_error_histogram_lbp_converged")
+    # cluster_stats_lbp_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if cluster_stat.lbp_stats.converged]
+    # cluster_stats_lbp_not_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if not cluster_stat.lbp_stats.converged]
+    # lbp_errors_converged, williams_errors_converged = cluster_stats_to_errors(cluster_stats_lbp_converged)
+    # lbp_errors_not_converged, williams_errors_not_converged = cluster_stats_to_errors(cluster_stats_lbp_not_converged)
 
 
-    fig5, ax5 = plt.subplots(figsize=hist_figsize)
+    # fig4, ax4 = plt.subplots(figsize=hist_figsize)
 
-    x = williams_errors_not_converged.raw_errors
-    ax5.hist(x, bins=bins, label=williams_label, alpha=0.5)
+    # x = williams_errors_converged.raw_errors
+    # ax4.hist(x, bins=bins, label=williams_label, alpha=0.5)
 
-    x = lbp_errors_not_converged.raw_errors
-    ax5.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+    # x = lbp_errors_converged.raw_errors
+    # ax4.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
 
-    ax5.set_title("Histogram over signed marginal errors, MH-LBP did not converge")
-    ax5.semilogy()
-    ax5.legend()
+    # ax4.set_title("Histogram over signed marginal errors, MH-LBP converged")
+    # ax4.semilogy()
+    # ax4.legend()
 
-    save_fig_to_pdf(fig5, "signed_error_histogram_lbp_not_converged")
+    # save_fig_to_pdf(fig4, "signed_error_histogram_lbp_converged")
+
+
+    # fig5, ax5 = plt.subplots(figsize=hist_figsize)
+
+    # x = williams_errors_not_converged.raw_errors
+    # ax5.hist(x, bins=bins, label=williams_label, alpha=0.5)
+
+    # x = lbp_errors_not_converged.raw_errors
+    # ax5.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    # ax5.set_title("Histogram over signed marginal errors, MH-LBP did not converge")
+    # ax5.semilogy()
+    # ax5.legend()
+
+    # save_fig_to_pdf(fig5, "signed_error_histogram_lbp_not_converged")
 
 
 
@@ -279,7 +295,7 @@ def make_divergence_comparison_plot(cluster_stats: List[Tuple[ClusterData, Path]
 
     ax.set_title(rf"Mean max error not converged: {lbp_max_errors_not_converged.mean()}$\pm${lbp_max_errors_not_converged.std()}")
 
-    save_fig_to_pdf(fig, "divergence_plot")
+    save_fig(fig, "divergence_plot")
 
 
 def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -321,10 +337,12 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
                 num_gated_measurements[result].append(num_gated_measurements_c)
                 max_competing_tracks_for_measurement[result].append(max_competing_tracks_for_measurement_c)
             
-            if not cluster_stat.lbp_stats.converged:
-                save_stat("divergent")
-            else:
-                save_stat("convergent")
+            # if not cluster_stat.lbp_stats.converged:
+            #     save_stat("divergent")
+            # else:
+            #     save_stat("convergent")
+
+            save_stat("all")
 
 
     def make_df(result):
@@ -337,16 +355,20 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
             r"Highest number of tracks\\competing for measurement": max_competing_tracks_for_measurement[result]
         })
 
-    figsize = (16, 10)
+    figsize = (16, 16)
 
 
-    df_divergent = make_df("divergent")
-    df_convergent = make_df("convergent")
-    df = pd.concat((df_convergent, df_divergent))
-    g = sns.pairplot(df, hue="Convergence", diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
-    g.fig.set_size_inches(*figsize)
+    # df_divergent = make_df("divergent")
+    # df_convergent = make_df("convergent")
+    # df = pd.concat((df_convergent, df_divergent))
+    df = make_df("all").drop(columns=["Convergence"])
+    num_data = len(df.columns)
+    fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
+    pd.plotting.scatter_matrix(df, alpha=0.3, ax=ax)
+    # g = sns.pairplot(df, diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
+    # g.fig.set_size_inches(*figsize)
     # # # plt.show()
-    save_fig_to_pdf(g.fig, "scatter_matrix_diverged_conv_clusters", tight_layout=False)
+    save_fig(fig, "scatter_matrix", tight_layout=False)
 
 
     # df_convergent = make_df("convergent")
@@ -389,23 +411,26 @@ def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
     # plt.show/(
 
 
-    save_fig_to_pdf(fig, "mhlbp_lbpphd_compare")
+    save_fig(fig, "mhlbp_lbpphd_compare")
 
 
 def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     exact_marginals = []
     lbp_marginals = []
     williams_marginals = []
+    williams_marginals_exact = []
 
     for cluster_stat, _ in cluster_stats:
         if not cluster_stat.explicit_hypothesis_enumeration_error:
             exact_marginals.append(cluster_stat.exact_stats.marginals)
             lbp_marginals.append(cluster_stat.lbp_stats.marginals)
             williams_marginals.append(cluster_stat.williams_stats.marginals)
+            williams_marginals_exact.append(cluster_stat.williams_stats.marginals_exact_normalization_constant)
 
     exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
     lbp_marginals: Marginals = Marginals.concatenate(lbp_marginals)
     williams_marginals: Marginals = Marginals.concatenate(williams_marginals)
+    williams_marginals_exact: Marginals = Marginals.concatenate(williams_marginals_exact)
 
 
     num_bins = 200
@@ -416,7 +441,18 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     heatmap_lbp, xedges, yedges = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)
     X_lbp, Y_lbp = np.meshgrid(xedges[:-1], yedges[:-1])
 
+    num_bins = 200
+    xedges = np.linspace(0, 1, num_bins)
+    yedges = xedges
+    bins = (xedges, yedges)
     heatmap_w, xedges, yedges = np.histogram2d(williams_marginals.marginals, exact_marginals.marginals, bins=bins)
+    X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
+
+    num_bins = 200
+    xedges = np.linspace(0, 1, num_bins)
+    yedges = xedges
+    bins = (xedges, yedges)
+    heatmap_we, xedges, yedges = np.histogram2d(williams_marginals_exact.marginals, exact_marginals.marginals, bins=bins)
     X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
 
     df_lbp = pd.DataFrame({
@@ -427,21 +463,32 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     df_lbp = df_lbp.pivot(index="Exact marginals", columns="MH-LBP marginals", values="hist")
 
     df_w = pd.DataFrame({
-        "LBP with PHD approximation marginals": np.around(X_w.ravel(), decimals=3),
+        "LBP with PHD approximation normalization constants": np.around(X_w.ravel(), decimals=3),
         "Exact marginals": np.around(Y_w.ravel(), decimals=3),
         "hist": heatmap_w.ravel()
     })
-    df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation marginals", values="hist")
+    df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
 
-    dfs = [df_lbp, df_w]
+    df_we = pd.DataFrame({
+        "LBP with exact normalization constants": np.around(X_w.ravel(), decimals=3),
+        "Exact marginals": np.around(Y_w.ravel(), decimals=3),
+        "hist": heatmap_we.ravel()
+    })
+    df_we = df_we.pivot(index="Exact marginals", columns="LBP with exact normalization constants", values="hist")
 
-    fig, ax = plt.subplots(ncols=2, sharey=True)
-    for axx, df in zip(ax, dfs):
+    dfs = [df_lbp, df_w, df_we]
+    figsize = (8, 16)
+
+    nrows = len(dfs)
+    fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    for k, (axx, df) in enumerate(zip(ax, dfs)):
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Oranges", ax=axx)
         axx.invert_yaxis()
+        if k < nrows - 1:
+            axx.tick_params(bottom=False)
 
-    # plt.show/(
-    save_fig_to_pdf(fig, "heatmap_correlation")
+
+    save_fig(fig, "heatmap_correlation_with_williams_exact")
 
 
 def subsample(a: np.ndarray, inc: float, first_val=0) -> np.ndarray:
@@ -574,13 +621,45 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, P
     exact_normalization_constants = np.hstack(exact_normalization_constants)
 
     fig, ax = plt.subplots()
-    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o')
-    # ax.plot(exact_normalization_constants, exact_normalization_constants, '--')
+    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
     ax.set_xlabel("PHD approximation normalization constant")
     ax.set_ylabel("Exact normalization constant")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
 
-    save_fig_to_pdf(fig, "normalization_constant")
+    fig2, ax2 = plt.subplots()
+    ax2.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    ax2.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    ax2.set_xlabel("PHD approximation normalization constant")
+    ax2.set_ylabel("Exact normalization constant")
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
 
+    ax2.loglog()
+
+    fig3, ax3 = plt.subplots(figsize=(10, 5), ncols=2)
+    ax3[0].plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    ax3[0].plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    ax3[0].set_xlabel("PHD approximation normalization constant")
+    ax3[0].set_ylabel("Exact normalization constant")
+    ax3[0].grid(True, alpha=0.3)
+    ax3[0].legend()
+    ax3[0].set_title("Linear scale")
+
+    ax3[1].plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    ax3[1].plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    ax3[1].set_xlabel("PHD approximation normalization constant")
+    ax3[1].set_ylabel("Exact normalization constant")
+    ax3[1].grid(True, alpha=0.3)
+    ax3[1].legend()
+    ax3[1].loglog()
+    ax3[1].set_title("Logarithmic scale")
+
+
+    save_fig(fig, "normalization_constant")
+    save_fig(fig2, "normalization_constant_logscale")
+    save_fig(fig3, "normalization_constant_subplots")
 
 def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
     lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
@@ -616,7 +695,7 @@ if __name__ == "__main__":
     cluster_stats = load_cluster_stats()
 
 
-    # make_raw_error_plot(cluster_stats)
+    make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
     # make_heatmap_correlation(cluster_stats)
@@ -625,4 +704,4 @@ if __name__ == "__main__":
     # normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
-    make_survival_function_plots(cluster_stats)
+    # make_survival_function_plots(cluster_stats)
