@@ -351,24 +351,23 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
             "Max marginal error": max_errors[result],
             "Number of tracks": num_tracks[result],
             "Number of hypotheses": num_hypos[result],
-            r"Number of gate\\measurements": num_gated_measurements[result],
+            r"Number of gated\\measurements": num_gated_measurements[result],
             r"Highest number of tracks\\competing for measurement": max_competing_tracks_for_measurement[result]
         })
 
     figsize = (16, 16)
 
-
     # df_divergent = make_df("divergent")
     # df_convergent = make_df("convergent")
     # df = pd.concat((df_convergent, df_divergent))
-    df = make_df("all").drop(columns=["Convergence"])
+    df = make_df("all").drop(columns=["Convergence", "Max marginal error"])
     num_data = len(df.columns)
     fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
     pd.plotting.scatter_matrix(df, alpha=0.3, ax=ax)
     # g = sns.pairplot(df, diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
     # g.fig.set_size_inches(*figsize)
     # # # plt.show()
-    save_fig(fig, "scatter_matrix", tight_layout=False)
+    save_fig(fig, "scatter_matrix_we_max_marginal_error", tight_layout=False)
 
 
     # df_convergent = make_df("convergent")
@@ -453,7 +452,7 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     yedges = xedges
     bins = (xedges, yedges)
     heatmap_we, xedges, yedges = np.histogram2d(williams_marginals_exact.marginals, exact_marginals.marginals, bins=bins)
-    X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
+    X_we, Y_we = np.meshgrid(xedges[:-1], yedges[:-1])
 
     df_lbp = pd.DataFrame({
         "MH-LBP marginals": np.around(X_lbp.ravel(), decimals=3),
@@ -470,8 +469,8 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
 
     df_we = pd.DataFrame({
-        "LBP with exact normalization constants": np.around(X_w.ravel(), decimals=3),
-        "Exact marginals": np.around(Y_w.ravel(), decimals=3),
+        "LBP with exact normalization constants": np.around(X_we.ravel(), decimals=3),
+        "Exact marginals": np.around(Y_we.ravel(), decimals=3),
         "hist": heatmap_we.ravel()
     })
     df_we = df_we.pivot(index="Exact marginals", columns="LBP with exact normalization constants", values="hist")
@@ -489,6 +488,55 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
 
 
     save_fig(fig, "heatmap_correlation_with_williams_exact")
+
+
+def make_heatmap_correlation_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
+    exact_marginals = []
+    williams_marginals = []
+
+    for cluster_stat, _ in cluster_stats:
+        if not cluster_stat.explicit_hypothesis_enumeration_error:
+            exact_marginals.append(cluster_stat.exact_stats.marginals)
+            williams_marginals.append(cluster_stat.williams_stats.marginals)
+            
+
+    exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
+    williams_marginals: Marginals = Marginals.concatenate(williams_marginals)
+
+    marginals_to_compare = [
+        (exact_marginals.misdetection_marginals, williams_marginals.misdetection_marginals),
+        (exact_marginals.detection_marginals, williams_marginals.detection_marginals),
+        (exact_marginals.nonexistence_marginals, williams_marginals.nonexistence_marginals)
+    ]
+
+    marginal_names = ["Misdetection", "Detection", "Nonexistence"]
+
+    figsize = (8, 16)
+
+    nrows = len(marginals_to_compare)
+    fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    for k, (axx, (exact_marg, approx_marg), marginal_name) in enumerate(zip(ax, marginals_to_compare, marginal_names)):
+        num_bins = 200
+        xedges = np.linspace(0, 1, num_bins)
+        yedges = xedges
+        bins = (xedges, yedges)
+        heatmap_w, xedges, yedges = np.histogram2d(approx_marg, exact_marg, bins=bins)
+        X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
+
+        df = pd.DataFrame({
+            "LBP with PHD approximation normalization constants": np.around(X_w.ravel(), decimals=3),
+            "Exact marginals": np.around(Y_w.ravel(), decimals=3),
+            "hist": heatmap_w.ravel()
+        })
+        df = df.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
+
+        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Oranges", ax=axx)
+        axx.invert_yaxis()
+        axx.set_title(marginal_name)
+        if k < nrows - 1:
+            axx.tick_params(bottom=False)
+
+    save_fig(fig, "heatmap_correlation_williams_margs")
 
 
 def subsample(a: np.ndarray, inc: float, first_val=0) -> np.ndarray:
@@ -553,6 +601,7 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         ax.set_xticks(xticks)
         xticks_labels = [0] + [rf'$10^{{{l}}}$' for l in log_err]
         ax.set_xticklabels(xticks_labels)
+        # ax.set_yscale('symlog', linthresh=steps[1])
         ax.semilogy()
         ax.grid(True, alpha=0.2)
         if label != "_":
@@ -662,10 +711,11 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, P
     save_fig(fig3, "normalization_constant_subplots")
 
 def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
-    lbp_errors, williams_errors = cluster_stats_to_errors(cluster_stats)
+    lbp_errors, williams_errors, williams_errors_exact = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
 
-    print(f"lbp mean error: {lbp_errors.raw_errors.mean()}, std: {lbp_errors.raw_errors.std()}")
-    print(f"williams mean error: {williams_errors.raw_errors.mean()}, std: {williams_errors.raw_errors.std()}")
+    print(f"lbp mean error:\n{lbp_errors.raw_errors.mean():.4e} {lbp_errors.raw_errors.std():.4f}")
+    print(f"williams mean error:\n{williams_errors.raw_errors.mean():.4e} {williams_errors.raw_errors.std():.4f}")
+    print(f"williams exact mean error\n{williams_errors_exact.raw_errors.mean():.4e} {williams_errors_exact.raw_errors.std():.4f}")
 
 
 def load_cluster_stats(return_empty_clusters: bool = False):
@@ -694,8 +744,7 @@ def load_cluster_stats(return_empty_clusters: bool = False):
 if __name__ == "__main__":
     cluster_stats = load_cluster_stats()
 
-
-    make_raw_error_plot(cluster_stats)
+    # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
     # make_heatmap_correlation(cluster_stats)
@@ -705,3 +754,4 @@ if __name__ == "__main__":
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)
+    make_heatmap_correlation_lbpphd(cluster_stats)

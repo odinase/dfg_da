@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from plotting import load_cluster_stats, split_cluster_stats_converged, cluster_file_to_mat_file, cluster_file_to_cluster_idx, save_fig_to_pdf
+from plotting import load_cluster_stats, split_cluster_stats_converged, cluster_file_to_mat_file, cluster_file_to_cluster_idx, save_fig_to_pdf, save_fig
 from typing import List, Tuple
 from pathlib import Path
 from multiprocessing import Pool
@@ -30,6 +30,7 @@ class ClustersSummary:
 
 
 def msg_plot_lbp(cluster_file: Path):
+    cluster_stat = ClusterData.from_data(str(cluster_file))
     mat_file = MatFileParser(cluster_file_to_mat_file(cluster_file))
     print([len(ph) for ph in mat_file.prior_hypotheses_per_cluster])
     # lbp_solve = mc.LBPMarginalsFullAssociationAlternative()
@@ -38,7 +39,21 @@ def msg_plot_lbp(cluster_file: Path):
     c_idx = cluster_file_to_cluster_idx(cluster_file)
     prior_hypotheses = mat_file.prior_hypotheses_per_cluster[c_idx]
 
-    asso_prob, (it, msg_it, converged), lbp_output = lbp_solve(mat_file.reward_matrix_lc, prior_hypotheses, lbp_output=True)
+    # print(np.exp(mat_file.reward_matrix_lc[8, 7]), np.exp(mat_file.reward_matrix_lc[10, 7]))
+
+    # mat_file.reward_matrix_lc[8, 7] = np.log(10)
+    # mat_file.reward_matrix_lc[10, 7] = np.log(10)
+    # mat_file.reward_matrix_lc[13, 4] = np.log(10)
+
+    # exp_R = np.exp(mat_file.reward_matrix_lc)
+    # d = exp_R.max() - exp_R.min()
+    # print(np.log(d))
+
+    # exp_R = (exp_R - exp_R.min()) / d
+    # R_LC = np.log(exp_R)
+    R_LC = mat_file.reward_matrix_lc
+
+    asso_prob, (it, msg_it, converged), lbp_output = lbp_solve(R_LC, prior_hypotheses, lbp_output=True)
     exact_marginals, (exact_normalization_constants,) = exact_solve(mat_file.reward_matrix_lc, prior_hypotheses)
 
     fig, axes = plt.subplots(ncols=4)
@@ -100,7 +115,7 @@ def msg_plot_lbp(cluster_file: Path):
     ax69[0].set_xlabel("iterations")
     ax69[0].set_ylabel("Message value")
 
-    save_fig_to_pdf(fig69, "sigma_msg_oscillations")
+    # save_fig(fig69, "sigma_msg_oscillations")
 
     fig3, ax3 = plt.subplots()
     ax3.plot(prior_hypotheses.hypothesis_probabilities())
@@ -113,8 +128,6 @@ def msg_plot_lbp(cluster_file: Path):
     ax4.plot(lbp_marginals.detection_marginals, exact_marginals.detection_marginals, 'gx', label="Detection")
     ax4.plot(lbp_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'bx', label="Nonexistence")
     ax4.legend()
-
-    
 
     plt.show()
 
@@ -236,12 +249,12 @@ def test_all_divergent_cases(cluster_files_diverged: List[Path]):
     
 
 if __name__ == "__main__":
-    cluster_stats = load_cluster_stats()
+    # cluster_stats = load_cluster_stats()
 
-    cluster_stats_converged, cluster_stats_diverged = split_cluster_stats_converged(cluster_stats)
+    # cluster_stats_converged, cluster_stats_diverged = split_cluster_stats_converged(cluster_stats)
 
-    print(len(cluster_stats_converged))
-    print(len(cluster_stats_diverged))
+    # print(len(cluster_stats_converged))
+    # print(len(cluster_stats_diverged))
     # print(cluster_stats_diverged[0])
 
 
@@ -274,7 +287,8 @@ if __name__ == "__main__":
 
     # plt.show()
 
-    cluster_stat, cluster_file = cluster_stats_diverged[0]
+    # cluster_stat, cluster_file = cluster_stats_diverged[0]
+    cluster_file = Path("ravens_output/priorLikelihood_iMC7k1210/cluster01")
 
     print(cluster_file)
     msg_plot_lbp(cluster_file)
