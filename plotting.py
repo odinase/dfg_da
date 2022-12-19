@@ -41,7 +41,7 @@ def save_fig_to_pdf(fig, fig_name, tight_layout=True):
 def save_fig_to_png(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight')
+    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight', dpi=1200)
     print(f"Saved {FIGURES_PATH}/{fig_name}.png")
 
 
@@ -206,9 +206,11 @@ def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     x = williams_exact_errors.raw_errors
     ax2.hist(x, bins=bins, label=williams_exact_label, alpha=0.34)
 
-    ax2.set_title("Histogram over signed marginal errors")
+    ax2.set_title("Histogram over signed marginal errors", fontsize=20)
     ax2.semilogy()
-    ax2.legend()
+    ax2.legend(fontsize=10)
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='minor', labelsize=18)
 
 
     # fig3, ax3 = plt.subplots(figsize=hist_figsize)
@@ -351,8 +353,8 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
             "Max marginal error": max_errors[result],
             "Number of tracks": num_tracks[result],
             "Number of hypotheses": num_hypos[result],
-            r"Number of gated\\measurements": num_gated_measurements[result],
-            r"Highest number of tracks\\competing for measurement": max_competing_tracks_for_measurement[result]
+            "Number of gated measurements": num_gated_measurements[result],
+            "Highest number of tracks competing for measurement": max_competing_tracks_for_measurement[result]
         })
 
     figsize = (16, 16)
@@ -362,12 +364,22 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     # df = pd.concat((df_convergent, df_divergent))
     df = make_df("all").drop(columns=["Convergence", "Max marginal error"])
     num_data = len(df.columns)
-    fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
-    pd.plotting.scatter_matrix(df, alpha=0.3, ax=ax)
+    fig, ax = plt.subplots(figsize=figsize, nrows=2, ncols=2)
+
+    for axx, d_name in zip(ax.ravel(), df.columns):
+        axx.hist(df[d_name])
+        axx.set_title(d_name, fontsize=20)
+        axx.tick_params(axis='both', which='major', labelsize=18)
+        axx.tick_params(axis='both', which='minor', labelsize=18)
+
+    save_fig(fig, "hist_stats", tight_layout=False)
+
+
+    # pd.plotting.scatter_matrix(df, alpha=0.3, ax=ax)
     # g = sns.pairplot(df, diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
     # g.fig.set_size_inches(*figsize)
     # # # plt.show()
-    save_fig(fig, "scatter_matrix_we_max_marginal_error", tight_layout=False)
+    # save_fig(fig, "scatter_matrix_we_max_marginal_error", tight_layout=False)
 
 
     # df_convergent = make_df("convergent")
@@ -480,11 +492,38 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
 
     nrows = len(dfs)
     fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    num_ticks = 5
+    depth_list = np.linspace(0, 1, num_ticks)
+    # the index of the position of yticks
+    # yticks = np.arange(0, num_bins, num_bins // num_ticks)
+    # xticks = yticks
+    # # # the content of labels of these yticks
+    # yticklabes = np.linspace()
+    # xticklabes = yticklabes
     for k, (axx, df) in enumerate(zip(ax, dfs)):
-        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Oranges", ax=axx)
+        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
+        # axx.set_xticks(xticks)
+        # axx.set_yticks(yticks)
+        axx.tick_params(axis='both', which='major', labelsize=16)
+        axx.tick_params(axis='both', which='minor', labelsize=16)
+        cbar = axx.collections[0].colorbar
+        axx.set_ylabel(df.index.name, fontsize=18)
+        axx.set_xlabel(df.columns.name, fontsize=16)
+        # here set the labelsize by 20
+        cbar.ax.tick_params(labelsize=18)
         axx.invert_yaxis()
         if k < nrows - 1:
             axx.tick_params(bottom=False)
+
+    # params = {
+    #         # 'legend.fontsize': 'x-large',
+    #         # 'figure.figsize': (15, 5),
+    #         # 'axes.labelsize': 30,
+    #         # 'axes.titlesize':'x-large',
+    #         # 'xtick.labelsize':'x-large',
+    #         # 'ytick.labelsize':'x-large'
+    #         }
+    # plt.rcParams.update(params)
 
 
     save_fig(fig, "heatmap_correlation_with_williams_exact")
@@ -584,7 +623,7 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
     titles = [title.capitalize().replace("_", " ") for title in titles]
 
     for ax, error, title in zip(axes, errors, titles):
-        ax.set_title(title)
+        ax.set_title(title, fontsize=18)
         steps = np.linspace(1.0, 0.0, len(error))
         first_nonzero = np.where(error > 0)[0][0]
         first_val = error[first_nonzero]
@@ -601,11 +640,13 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         ax.set_xticks(xticks)
         xticks_labels = [0] + [rf'$10^{{{l}}}$' for l in log_err]
         ax.set_xticklabels(xticks_labels)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        ax.tick_params(axis='both', which='minor', labelsize=14)
         # ax.set_yscale('symlog', linthresh=steps[1])
         ax.semilogy()
         ax.grid(True, alpha=0.2)
         if label != "_":
-            ax.legend()
+            ax.legend(fontsize=10)
 
 
 def condense_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -747,11 +788,11 @@ if __name__ == "__main__":
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    # make_heatmap_correlation(cluster_stats)
+    make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
     # normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)
-    make_heatmap_correlation_lbpphd(cluster_stats)
+    # make_heatmap_correlation_lbpphd(cluster_stats)

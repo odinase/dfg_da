@@ -65,8 +65,8 @@ def main():
 
 
     ax.grid(True, alpha=0.2)
-    ax.set_xlim([0, 2.5])
-    ax.set_ylim([0, 2.5])
+    # ax.set_xlim([0, 2.5])
+    # ax.set_ylim([0, 2.5])
 
     plt.show()
 

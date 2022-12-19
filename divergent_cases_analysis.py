@@ -52,6 +52,7 @@ def msg_plot_lbp(cluster_file: Path):
     # exp_R = (exp_R - exp_R.min()) / d
     # R_LC = np.log(exp_R)
     R_LC = mat_file.reward_matrix_lc
+    R_LC[:, 0] += 2.5
 
     asso_prob, (it, msg_it, converged), lbp_output = lbp_solve(R_LC, prior_hypotheses, lbp_output=True)
     exact_marginals, (exact_normalization_constants,) = exact_solve(mat_file.reward_matrix_lc, prior_hypotheses)
@@ -101,35 +102,45 @@ def msg_plot_lbp(cluster_file: Path):
     fig69, ax69 = plt.subplots(figsize=(16, 10), ncols=2)
     I = ax69[1].imshow(np.exp(mat_file.reward_matrix_lc[tracks - 1, :]), cmap="Blues")
     ax69[1].set_yticks(np.arange(len(tracks)), labels=[str(t) for t in tracks])
-    fig69.colorbar(I, ax=ax69[1])
-    ax69[1].set_title("Reward matrix")
-    ax69[1].set_xlabel("Measurements")
-    ax69[1].set_ylabel("Tracks")
+    cbar = fig69.colorbar(I, ax=ax69[1])
+    ax69[1].set_title("Reward matrix", fontsize=24)
+    ax69[1].set_xlabel("Measurements", fontsize=24)
+    ax69[1].set_ylabel("Tracks", fontsize=24)
+
+    ax69[1].tick_params(axis='both', which='major', labelsize=20)
+    ax69[1].tick_params(axis='both', which='minor', labelsize=20)
+
 
     sigmas_concat = np.vstack((lbp_output.all_sigma_msgs))
     for t, sigmas in zip(tracks, sigmas_concat.T):
-        ax69[0].plot(sigmas[:20], label=f"Track {t}")
+        ax69[0].plot(sigmas[:150], label=f"Track {t}")
 
-    ax69[0].legend()
-    ax69[0].set_title(r"Oscillations of $\sigma_t$ (hypothesis $\to$ track) messages")
-    ax69[0].set_xlabel("iterations")
-    ax69[0].set_ylabel("Message value")
+    ax69[0].legend(fontsize=16)
+    ax69[0].set_title(r"Oscillations of $\sigma_t$ (hypothesis $\to$ track) messages", fontsize=24)
+    ax69[0].set_xlabel("iterations", fontsize=24)
+    ax69[0].set_ylabel("Message value", fontsize=24)
 
-    # save_fig(fig69, "sigma_msg_oscillations")
+    ax69[0].tick_params(axis='both', which='major', labelsize=20)
+    ax69[0].tick_params(axis='both', which='minor', labelsize=20)
 
-    fig3, ax3 = plt.subplots()
-    ax3.plot(prior_hypotheses.hypothesis_probabilities())
+    # cbar = ax69[1].collections[0].colorbar
+    cbar.ax.tick_params(labelsize=18)
 
-    lbp_marginals: sl.Marginals = sl.Marginals(asso_prob)
-    exact_marginals: sl.Marginals = sl.Marginals(exact_marginals)
+    save_fig(fig69, "sigma_msg_oscillations_low_SNR")
 
-    fig4, ax4 = plt.subplots()
-    ax4.plot(lbp_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'rx', label="Misdetection")
-    ax4.plot(lbp_marginals.detection_marginals, exact_marginals.detection_marginals, 'gx', label="Detection")
-    ax4.plot(lbp_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'bx', label="Nonexistence")
-    ax4.legend()
+    # fig3, ax3 = plt.subplots()
+    # ax3.plot(prior_hypotheses.hypothesis_probabilities())
 
-    plt.show()
+    # lbp_marginals: sl.Marginals = sl.Marginals(asso_prob)
+    # exact_marginals: sl.Marginals = sl.Marginals(exact_marginals)
+
+    # fig4, ax4 = plt.subplots()
+    # ax4.plot(lbp_marginals.misdetection_marginals, exact_marginals.misdetection_marginals, 'rx', label="Misdetection")
+    # ax4.plot(lbp_marginals.detection_marginals, exact_marginals.detection_marginals, 'gx', label="Detection")
+    # ax4.plot(lbp_marginals.nonexistence_marginals, exact_marginals.nonexistence_marginals, 'bx', label="Nonexistence")
+    # ax4.legend()
+
+    # plt.show()
 
 
 def hypothesis_distributions(cluster_stats: List[Tuple[ClusterData, Path]]):
