@@ -1,5 +1,6 @@
 import factorgraph as fg
-from dfg_da.marginal_association_Odin import lbp_marginal_nonexistence_multicluster
+from dfg_da.marginal_association_Odin import lbp_marginal_nonexistence_multicluster, lbp_marginal, exact_marginal
+from dfg_da.marginals_computers import LBPMarginalsByTotalProb, ExactMarginals
 from time import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -159,6 +160,18 @@ def vanilla_lbp(R_LC: np.ndarray):
 
 
 
+def bethe_constant(w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> float:
+    w_times_msg = w_nmd * nu
+    
+    F_bethe = (
+        -np.sum(np.log(1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)))
+        -np.sum(np.log(1 + (mu.sum(axis=0, keepdims=True) - mu)))
+        +np.sum(np.log(1 + nu * mu))
+    )
+
+    return np.exp(-F_bethe)
+
+
 
 if __name__ == "__main__":
     R = np.array([
@@ -192,3 +205,14 @@ if __name__ == "__main__":
     print(meas_probs)
     for theta_p in theta_probs:
         print(theta_p)
+
+    lbp_williams = LBPMarginalsByTotalProb()
+    exact_marginal_comp = ExactMarginals()
+
+    prob, it, converged = lbp_marginal(R_LC)
+    JPDAprobs, notTrackProb, loglikelihood = exact_marginal(R_LC)
+
+    for prior_hypotheses in prior_hypotheses_per_cluster:
+        exact_marginals, (exact_normalization_constants,) = exact_marginal_comp(R_LC, prior_hypotheses)
+        lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_williams(R_LC, prior_hypotheses)
+        
