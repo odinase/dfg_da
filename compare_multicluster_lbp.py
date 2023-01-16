@@ -1,10 +1,11 @@
 import factorgraph as fg
-from dfg_da.marginal_association_Odin import exact_marginal, lbp_marginal, lbp_marginal_nonexistence
+from dfg_da.marginal_association_Odin import lbp_marginal_nonexistence_multicluster
 from time import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-if __name__ == "__main__":
+
+def vanilla_lbp(R_LC: np.ndarray):
     # Make an empty graph
     g = fg.Graph()
 
@@ -135,19 +136,6 @@ if __name__ == "__main__":
         [1., 1., 1., 1., 1., 0.],
     ]))
 
-    R = np.array([
-        [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-        [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-        [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-        [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-        [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-    ])
-
-    n, mpn = R.shape
-    m = mpn - n
-
-    R_LC = np.hstack((np.diag(R[:, m:])[:,None], R[:,:m]))
-
     ms = np.exp(R_LC[:,0])
     ls = np.exp(R_LC[:,1:])
 
@@ -168,3 +156,36 @@ if __name__ == "__main__":
 
     # Print out the final marginals
     g.print_rv_marginals(normalize=True)
+
+
+
+
+if __name__ == "__main__":
+    R = np.array([
+        [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+        [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+        [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    ])
+
+    n, mpn = R.shape
+    m = mpn - n
+
+    R_LC = np.hstack((np.diag(R[:, m:])[:,None], R[:,:m]))
+
+    prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]] = [
+        [
+            ([1, 2], 0.5),
+            ([1, 3], 0.5)
+        ],
+        [
+            ([4], 0.5),
+            ([5], 0.5)
+        ]
+    ]
+
+    vanilla_lbp(R_LC)
+    asso_probs = lbp_marginal_nonexistence_multicluster(R_LC, prior_hypotheses_per_cluster)
+    np.set_printoptions(precision=6, suppress=True)
+    print(asso_probs)

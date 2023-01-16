@@ -381,6 +381,127 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
 
 
 
+def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Calculate marginal association probabilities using loopy belief propagation [1].
+
+    Parameters
+    ----------
+    llr : np.ndarray[(N, M + 1)]
+        log likelihood ratios. llr[:, 0] is the missed detection.
+    max_prob_diff_from_conv : float, optional
+        when to deem the iterations as converged, by default 1e-3
+    max_iter : int, optional
+        upper bound on the number of iterations to do, by default 300
+    iter_per_check : int, optional
+        how often to check for convergence, by default 5
+
+    Returns
+    -------
+    track_to_meas_probability: np.ndarray[float, (N, M + 1)]
+    new_track_probability: np.ndarray[float, (M,)]
+
+    References
+    ----------
+    [1] Williams, J., Lau, R. (2014).
+        Approximate evaluation of marginal association probabilities with belief propagation.
+        IEEE Transactions on Aerospace and Electronic Systems, 50(4), 2942-2959.
+        https://doi.org/10.1109/TAES.2014.120568
+
+    """
+    n, mp1 = llr.shape
+    m = mp1 - 1
+    if n == 0 or m == 0:
+        return np.zeros((n, mp1)), np.ones(m)
+
+    t2h_idx_per_cluster = []
+    t2noth_idx_per_cluster = []
+    h2t_idx_per_cluster = []
+    track_idx_per_cluster = []
+
+    for prior_hypotheses in prior_hypotheses_per_cluster:
+        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
+        t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
+        track_idx_per_cluster.append(t_idx)
+
+        t2h_idx = np.array([[t in hypo[0] for hypo in prior_hypotheses] for t in tracks_in_cluster])
+        t2noth_idx = ~t2h_idx
+        h2t_idx = t2h_idx.T
+
+        t2h_idx_per_cluster.append(t2h_idx)
+        t2noth_idx_per_cluster.append(t2noth_idx)
+        h2t_idx_per_cluster.append(h2t_idx)
+
+
+    w_nmd = np.exp(llr[:, 1:])
+    w_0 = np.exp(llr[:, [0]]).reshape(-1, 1)
+
+    rho = w_0.ravel() + (w_nmd).sum(axis=1)
+
+    phi_per_cluster = []
+    for prior_hypotheses in prior_hypotheses_per_cluster:
+        phi = np.array([hypo[1] for hypo in prior_hypotheses])
+        phi_per_cluster.append(phi)
+
+    sigma: np.ndarray = np.empty_like(rho)
+    def compute_sigma(rho: np.ndarray) -> np.ndarray:
+        for phi, t_idx, h2t_idx, t2noth_idx, t2h_idx in zip(phi_per_cluster, track_idx_per_cluster, h2t_idx_per_cluster, t2noth_idx_per_cluster, t2h_idx_per_cluster):
+            rho_c = rho[t_idx]
+            rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
+            a = (rho_prods*t2noth_idx*phi).sum(axis=1)
+            b = (rho_prods*t2h_idx*phi).sum(axis=1)
+            sigma[t_idx] = rho_c * (a / b)
+
+        return sigma
+
+    sigma: np.ndarray = compute_sigma(rho)
+
+    a2b_msg: np.ndarray = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+
+    b2a_msg: np.ndarray = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+    converged = False
+    msgs_converged = False
+
+    def compute_asso_probs(sigma, b2a_msg):
+        asso_prob = np.empty((n, m + 2))
+        # Misdetection, only the prior factor in misdetection
+        asso_prob[:, [0]] = w_0
+        # Association, use the messages from b
+        asso_prob[:, 1:-1] = w_nmd * b2a_msg
+        # Nonexistence, use sigma
+        asso_prob[:, -1] = sigma
+
+        asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
+
+        return asso_prob
+
+    it = 0
+
+    while it < max_iter and not converged:
+        # We only multiply w_nmd by b2a_msg as for ai = 0 and ai = N all messages multiply to 1 due to normalization
+        w_times_msg = w_nmd * b2a_msg
+        w_times_msg_sum = w_times_msg.sum(axis=1, keepdims=True)
+
+        rho = w_0.ravel() + w_times_msg_sum.ravel()
+        sigma = compute_sigma(rho)
+        
+        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:,None])
+
+        b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
+
+        it += 1
+
+    asso_prob = compute_asso_probs(sigma, b2a_msg)
+
+
+    tot_asso_prob = np.empty((n, m + 2))
+    tot_asso_prob = asso_prob
+
+    out = tot_asso_prob
+            
+    return out
+
+
+
 def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
