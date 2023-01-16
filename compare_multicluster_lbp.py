@@ -15,56 +15,147 @@ if __name__ == "__main__":
     g.rv('a1', 4)
     g.rv('a2', 4)
     g.rv('a3', 4)
-    g.rv('a4', 4)    
+    g.rv('a4', 4)
     g.rv('a5', 4)
     
-    g.rv('b', 6)
+    g.rv('b1', 6)
+    g.rv('b2', 6)
 
     g.factor(['th1'], potential=np.array([0.5, 0.5]))
     g.factor(['th2'], potential=np.array([0.5, 0.5]))
 
     # Cluster 1
     # Add factors between theta and tracks a
-    g.factor(['th', 'a1'], potential=np.array([
-        [1., 1., 0.],
-        [1., 1., 0.]
+    g.factor(['th1', 'a1'], potential=np.array([
+        [1., 1., 1., 0.],
+        [1., 1., 1., 0.]
     ]))
 
-    g.factor(['th', 'a2'], potential=np.array([
-        [1., 1., 0.],
-        [0., 0., 1.]
+    g.factor(['th1', 'a2'], potential=np.array([
+        [1., 1., 1., 0.],
+        [0., 0., 0., 1.]
     ]))
 
-    g.factor(['th', 'a3'], potential=np.array([
-        [0., 0., 1.],
-        [1., 1., 0.]
+    g.factor(['th1', 'a3'], potential=np.array([
+        [0., 0., 0., 1.],
+        [1., 1., 1., 0.]
+    ]))
+
+    # Cluster 2
+    g.factor(['th2', 'a4'], potential=np.array([
+        [1., 1., 1., 0.],
+        [0., 0., 0., 1.]
+    ]))
+
+    g.factor(['th2', 'a5'], potential=np.array([
+        [0., 0., 0., 1.],
+        [1., 1., 1., 0.]
     ]))
 
     # Add factors between tracks a and measurement b
-    g.factor(['a1', 'b'], potential=np.array([
-        [1., 0., 1., 1.],
-        [0., 1., 0., 0.],
-        [1., 0., 1., 1.],
+    g.factor(['a1', 'b1'], potential=np.array([
+        [1., 0., 1., 1., 1., 1.],
+        [0., 1., 0., 0., 0., 0.],
+        [1., 0., 1., 1., 1., 1.],
+        [1., 0., 1., 1., 1., 1.],
     ]))
 
-    g.factor(['a2', 'b'], potential=np.array([
-        [1., 1., 0., 1.],
-        [0., 0., 1., 0.],
-        [1., 1., 0., 1.],
+    # Add factors between tracks a and measurement b
+    g.factor(['a2', 'b1'], potential=np.array([
+        [1., 1., 0., 1., 1., 1.],
+        [0., 0., 1., 0., 0., 0.],
+        [1., 1., 0., 1., 1., 1.],
+        [1., 1., 0., 1., 1., 1.],
     ]))
 
-    g.factor(['a3', 'b'], potential=np.array([
-        [1., 1., 1., 0.],
-        [0., 0., 0., 1.],
-        [1., 1., 1., 0.],
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a3', 'b1'], potential=np.array([
+        [1., 1., 1., 0., 1., 1.],
+        [0., 0., 0., 1., 0., 0.],
+        [1., 1., 1., 0., 1., 1.],
+        [1., 1., 1., 0., 1., 1.],
     ]))
 
-    # Assume two clusters
+    # Add factors between tracks a and measurement b
+    g.factor(['a4', 'b1'], potential=np.array([
+        [1., 1., 1., 1., 0., 1.],
+        [0., 0., 0., 0., 1., 0.],
+        [1., 1., 1., 1., 0., 1.],
+        [1., 1., 1., 1., 0., 1.],
+    ]))
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a5', 'b1'], potential=np.array([
+        [1., 1., 1., 1., 1., 0.],
+        [0., 0., 0., 0., 0., 1.],
+        [1., 1., 1., 1., 1., 0.],
+        [1., 1., 1., 1., 1., 0.],
+    ]))
+
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a1', 'b2'], potential=np.array([
+        [1., 0., 1., 1., 1., 1.],
+        [1., 0., 1., 1., 1., 1.],
+        [0., 1., 0., 0., 0., 0.],
+        [1., 0., 1., 1., 1., 1.],
+    ]))
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a2', 'b2'], potential=np.array([
+        [1., 1., 0., 1., 1., 1.],
+        [1., 1., 0., 1., 1., 1.],
+        [0., 0., 1., 0., 0., 0.],
+        [1., 1., 0., 1., 1., 1.],
+    ]))
+
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a3', 'b2'], potential=np.array([
+        [1., 1., 1., 0., 1., 1.],
+        [1., 1., 1., 0., 1., 1.],
+        [0., 0., 0., 1., 0., 0.],
+        [1., 1., 1., 0., 1., 1.],
+    ]))
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a4', 'b2'], potential=np.array([
+        [1., 1., 1., 1., 0., 1.],
+        [1., 1., 1., 1., 0., 1.],
+        [0., 0., 0., 0., 1., 0.],
+        [1., 1., 1., 1., 0., 1.],
+    ]))
+
+    # Add factors between tracks a and measurement b
+    g.factor(['a5', 'b2'], potential=np.array([
+        [1., 1., 1., 1., 1., 0.],
+        [1., 1., 1., 1., 1., 0.],
+        [0., 0., 0., 0., 0., 1.],
+        [1., 1., 1., 1., 1., 0.],
+    ]))
+
+    R = np.array([
+        [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+        [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+        [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    ])
+
+    n, mpn = R.shape
+    m = mpn - n
+
+    R_LC = np.hstack((np.diag(R[:, m:])[:,None], R[:,:m]))
+
+    ms = np.exp(R_LC[:,0])
+    ls = np.exp(R_LC[:,1:])
 
     # Add prior factors on tracks
-    g.factor(['a1'], potential=np.array([m_1, l_11, 1.0]))
-    g.factor(['a2'], potential=np.array([m_2, l_21, 1.0]))
-    g.factor(['a3'], potential=np.array([m_3, l_31, 1.0]))
+    n, m = ls.shape
+    for i in range(n):
+        print(np.array([ms[i], *ls[i], 1.0]))
+        g.factor([f'a{i+1}'], potential=np.array([ms[i], *ls[i], 1.0]))
 
     # Run (loopy) belief propagation (LBP)
     iters, converged = g.lbp(normalize=True)
