@@ -417,6 +417,7 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
     t2noth_idx_per_cluster = []
     h2t_idx_per_cluster = []
     track_idx_per_cluster = []
+    phi_per_cluster = []
 
     for prior_hypotheses in prior_hypotheses_per_cluster:
         tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
@@ -431,16 +432,13 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
         t2noth_idx_per_cluster.append(t2noth_idx)
         h2t_idx_per_cluster.append(h2t_idx)
 
+        phi = np.array([hypo[1] for hypo in prior_hypotheses])
+        phi_per_cluster.append(phi)
 
     w_nmd = np.exp(llr[:, 1:])
     w_0 = np.exp(llr[:, [0]]).reshape(-1, 1)
 
     rho = w_0.ravel() + (w_nmd).sum(axis=1)
-
-    phi_per_cluster = []
-    for prior_hypotheses in prior_hypotheses_per_cluster:
-        phi = np.array([hypo[1] for hypo in prior_hypotheses])
-        phi_per_cluster.append(phi)
 
     sigma: np.ndarray = np.empty_like(rho)
     def compute_sigma(rho: np.ndarray) -> np.ndarray:
@@ -496,8 +494,22 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
     tot_asso_prob = np.empty((n, m + 2))
     tot_asso_prob = asso_prob
 
-    out = tot_asso_prob
-            
+
+    meas_probs = np.empty((m, n + 1))
+    meas_probs[:, 0] = 1
+    meas_probs[:, 1:] = a2b_msg.T
+    meas_probs = meas_probs / meas_probs.sum(axis=1, keepdims=True)
+
+    theta_probs = []
+    for phi, t_idx, h2t_idx, t2noth_idx, t2h_idx in zip(phi_per_cluster, track_idx_per_cluster, h2t_idx_per_cluster, t2noth_idx_per_cluster, t2h_idx_per_cluster):
+        rho_c = rho[t_idx]
+        rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
+        p = rho_prods*phi
+        p = p / p.sum()
+        theta_probs.append(p)
+
+    out = tot_asso_prob, meas_probs, theta_probs
+
     return out
 
 
