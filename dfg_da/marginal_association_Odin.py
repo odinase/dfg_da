@@ -113,7 +113,12 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
 
     converged = not (conv_val >= stop_crit and it < max_iter)
 
-    return prob, it, converged
+    out = prob, it, converged
+
+    if ("return_mu_nu_w_nmd" in kwargs) and kwargs["return_mu_nu_w_nmd"]:
+        out += (a2b_msg, b2a_msg, w_nmd)
+
+    return out
 
 
 @dataclass

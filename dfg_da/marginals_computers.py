@@ -99,6 +99,68 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
         return out
 
 
+
+class LBPMarginalsByTotalProbBethe(MarginalsComputer):
+    def bethe_constant(self, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> float:
+        w_times_msg = w_nmd * nu
+        
+        F_bethe = (
+            -np.sum(np.log(1 + w_times_msg.sum(axis=1)))
+            -np.sum(np.log(1 + mu.sum(axis=0)))
+            +np.sum(np.log(1 + nu * mu))
+        )
+
+        return np.exp(-F_bethe)
+
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+        n, mp1 = R_LC.shape
+        m = mp1 - 1
+        all_tracks_idx = np.arange(n)
+        
+        lbp_marginal_total = np.zeros((n, m + 1 + 1))
+
+        conditioned_marginals = np.empty((n, m + 2))
+
+        normalizing_constants = np.empty(len(prior_hypotheses))
+
+        for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
+
+            R_sub = R_LC[tracks-1, :]
+
+            if len(tracks) > 0:
+                lbp_probs, it_from_lbp, converged, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+            else:
+                # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
+                lbp_probs = np.empty((0, R_LC.shape[1]))
+                it_from_lbp = 0
+                converged = True
+            
+            # We need to concatenate the JPDAprobs with all tracks and existence probs
+            existing_tracks_idx = tracks - 1
+            non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+
+            existing_probs = np.hstack((lbp_probs, np.zeros((lbp_probs.shape[0], 1))))
+            nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
+
+            conditioned_marginals[existing_tracks_idx] = existing_probs
+            conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
+
+            normalizing_constant = self.bethe_constant(mu, nu, w_nmd)
+
+            normalizing_constants[k] = normalizing_constant
+
+            lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
+
+
+        lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
+
+        assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
+        assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
+
+        return lbp_marginal_total, normalizing_constants
+
+
+
 class ExactMarginals(MarginalsComputer):
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
         n, mp1 = R_LC.shape

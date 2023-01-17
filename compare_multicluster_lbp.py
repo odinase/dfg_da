@@ -1,6 +1,6 @@
 import factorgraph as fg
 from dfg_da.marginal_association_Odin import lbp_marginal_nonexistence_multicluster, lbp_marginal, exact_marginal
-from dfg_da.marginals_computers import LBPMarginalsByTotalProb, ExactMarginals
+from dfg_da.marginals_computers import LBPMarginalsByTotalProb, ExactMarginals, LBPMarginalsByTotalProbBethe
 from time import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -189,30 +189,43 @@ if __name__ == "__main__":
 
     prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]] = [
         [
-            ([1, 2], 0.5),
-            ([1, 3], 0.5)
+            (np.array([1, 2]), 0.5),
+            (np.array([1, 3]), 0.5)
         ],
         [
-            ([4], 0.5),
-            ([5], 0.5)
+            (np.array([4]), 0.5),
+            (np.array([5]), 0.5)
         ]
     ]
 
-    vanilla_lbp(R_LC)
+    # vanilla_lbp(R_LC)
     asso_probs, meas_probs, theta_probs = lbp_marginal_nonexistence_multicluster(R_LC, prior_hypotheses_per_cluster)
     np.set_printoptions(precision=6, suppress=True)
     print(asso_probs)
-    print(meas_probs)
-    for theta_p in theta_probs:
-        print(theta_p)
+    # print(meas_probs)
+    # for theta_p in theta_probs:
+    #     print(theta_p)
 
-    lbp_williams = LBPMarginalsByTotalProb()
+    lbp_bethe = LBPMarginalsByTotalProbBethe()
+    lbp_phd = LBPMarginalsByTotalProb()
     exact_marginal_comp = ExactMarginals()
 
     prob, it, converged = lbp_marginal(R_LC)
-    JPDAprobs, notTrackProb, loglikelihood = exact_marginal(R_LC)
 
-    for prior_hypotheses in prior_hypotheses_per_cluster:
-        exact_marginals, (exact_normalization_constants,) = exact_marginal_comp(R_LC, prior_hypotheses)
-        lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_williams(R_LC, prior_hypotheses)
+    for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
+        print(f"\n:::::::::: HYPOTHESIS {k+1} :::::::::::::::::")
+        # exact_marginals, (exact_normalization_constants,) 
+        marginal_total, (normalizing_constants,) = exact_marginal_comp(R_LC, prior_hypotheses)
+        print("\n\nEXACT\n\n")
+        print(marginal_total)
+        print(normalizing_constants)
+        lbp_bethe_probs, bethe_const = lbp_bethe(R_LC, prior_hypotheses)
+        print("\n\nBETHE\n\n")
+        print(lbp_bethe_probs)
+        print(bethe_const)
+
+        lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_phd(R_LC, prior_hypotheses)
+        print("\n\nPHD\n\n")
+        print(lbp_williams_marginals)
+        print(approx_normalization_constants)
         
