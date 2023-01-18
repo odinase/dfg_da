@@ -198,19 +198,19 @@ if __name__ == "__main__":
         ]
     ]
 
-    # vanilla_lbp(R_LC)
+    vanilla_lbp(R_LC)
     asso_probs, meas_probs, theta_probs = lbp_marginal_nonexistence_multicluster(R_LC, prior_hypotheses_per_cluster)
     np.set_printoptions(precision=6, suppress=True)
     print(asso_probs)
-    # print(meas_probs)
-    # for theta_p in theta_probs:
-    #     print(theta_p)
+    print(meas_probs)
+    for theta_p in theta_probs:
+        print(theta_p)
 
     lbp_bethe = LBPMarginalsByTotalProbBethe()
     lbp_phd = LBPMarginalsByTotalProb()
     exact_marginal_comp = ExactMarginals()
 
-    prob, it, converged = lbp_marginal(R_LC)
+    # prob, it, converged = lbp_marginal(R_LC)
 
     for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         print(f"\n:::::::::: HYPOTHESIS {k+1} :::::::::::::::::")

@@ -111,9 +111,35 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     prob[:, 1:] = w_times_msg / s
     prob[:, [0]] = 1 / s
 
+    not_track_prob: np.ndarray = 1 / (1 + a2b_msg.sum(axis=0))
+
     converged = not (conv_val >= stop_crit and it < max_iter)
 
     out = prob, it, converged
+
+    is_finite = np.isfinite(llr)
+    gated_prob = prob[is_finite]
+    U_B = - np.sum(gated_prob * llr[is_finite])
+    H_B_true = - np.sum(gated_prob * np.log(gated_prob))
+
+    onemprob = (1 - prob)
+    pos_onemprob = onemprob[onemprob > 0]
+    H_B_false =  np.sum(pos_onemprob * np.log(pos_onemprob))
+
+    H_B_t2m = H_B_true + H_B_false
+
+    pos_new = not_track_prob[not_track_prob > 0]
+    H_B_new_true = - np.sum(pos_new * np.log(pos_new))
+
+    nonunit_onemnew = 1 - not_track_prob[not_track_prob < 1]
+    H_B_new_false = np.sum(nonunit_onemnew * np.log(nonunit_onemnew))
+
+    H_B_new = H_B_new_true + H_B_new_false
+    H_B = H_B_t2m + H_B_new
+    F_B = U_B - H_B
+    loglikelihood: float = -F_B
+
+    out += (loglikelihood,)
 
     if ("return_mu_nu_w_nmd" in kwargs) and kwargs["return_mu_nu_w_nmd"]:
         out += (a2b_msg, b2a_msg, w_nmd)

@@ -50,7 +50,7 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
             R_sub = R_LC[tracks-1, :]
 
             if len(tracks) > 0:
-                lbp_probs, it_from_lbp, converged = lbp_marginal(R_sub)
+                lbp_probs, it_from_lbp, converged, _ = lbp_marginal(R_sub)
             else:
                 # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
                 lbp_probs = np.empty((0, R_LC.shape[1]))
@@ -128,7 +128,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             R_sub = R_LC[tracks-1, :]
 
             if len(tracks) > 0:
-                lbp_probs, it_from_lbp, converged, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                lbp_probs, it_from_lbp, converged, bethe_log, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
             else:
                 # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
                 lbp_probs = np.empty((0, R_LC.shape[1]))
@@ -145,7 +145,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             conditioned_marginals[existing_tracks_idx] = existing_probs
             conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
-            normalizing_constant = self.bethe_constant(mu, nu, w_nmd)
+            normalizing_constant = np.exp(bethe_log) # self.bethe_constant(mu, nu, w_nmd)
 
             normalizing_constants[k] = normalizing_constant
 
