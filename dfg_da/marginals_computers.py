@@ -29,7 +29,7 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
         n, mp1 = R_LC.shape
         m = mp1 - 1
         all_tracks_idx = np.arange(n)
-        
+
         lbp_marginal_total = np.zeros((n, m + 1 + 1))
 
         conditioned_marginals = np.empty((n, m + 2))
@@ -56,7 +56,7 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
                 lbp_probs = np.empty((0, R_LC.shape[1]))
                 it_from_lbp = 0
                 converged = True
-            
+
             iters_list[k] = it_from_lbp
             converged_list[k] = converged
 
@@ -99,18 +99,27 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
         return out
 
 
-
 class LBPMarginalsByTotalProbBethe(MarginalsComputer):
-    def bethe_constant(self, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> float:
-        w_times_msg = w_nmd * nu
-        
-        F_bethe = (
-            -np.sum(np.log(1 + w_times_msg.sum(axis=1)))
-            -np.sum(np.log(1 + mu.sum(axis=0)))
-            +np.sum(np.log(1 + nu * mu))
-        )
+    def track_normalizing_constant(self, w_nmd: np.ndarray, nu: np.ndarray) -> np.ndarray:
+        return (w_nmd*nu).sum(axis=1) + 1
 
-        return np.exp(-F_bethe)
+    def meas_normalizing_constant(self, mu: np.ndarray) -> np.ndarray:
+        return mu.sum(axis=0) + 1
+
+    def edge_normalizing_constant(self, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> np.ndarray:
+        w_times_msg = w_nmd * nu
+        Ztj = (1 + (mu.sum(axis=0, keepdims=True) - mu)) * (1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)) + w_nmd
+        return Ztj
+
+    def bethe_constant(self, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> float:
+        Zt = self.track_normalizing_constant(w_nmd, nu)
+        Zj = self.meas_normalizing_constant(mu)
+        Ztj = self.edge_normalizing_constant(w_nmd, mu, nu)
+
+        n, m = mu.shape
+        F_B_pseudo = (m - 1)*np.log(Zt).sum() + (n - 1)*np.log(Zj).sum() - np.log(Ztj).sum()
+
+        return F_B_pseudo
 
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
         n, mp1 = R_LC.shape
@@ -121,7 +130,8 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
         conditioned_marginals = np.empty((n, m + 2))
 
-        normalizing_constants = np.empty(len(prior_hypotheses))
+        lc_normalizing_constants = np.empty(len(prior_hypotheses))
+        odin_normalizing_constants = np.empty(len(prior_hypotheses))
 
         for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
 
@@ -134,6 +144,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
                 lbp_probs = np.empty((0, R_LC.shape[1]))
                 it_from_lbp = 0
                 converged = True
+                bethe_log = 0
             
             # We need to concatenate the JPDAprobs with all tracks and existence probs
             existing_tracks_idx = tracks - 1
@@ -146,8 +157,13 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
             normalizing_constant = np.exp(bethe_log) # self.bethe_constant(mu, nu, w_nmd)
+            F_b_psuedo = self.bethe_constant(w_nmd, mu, nu)
+            odin_normalizing_constant = np.exp(-F_b_psuedo)
+            odin_normalizing_constants[k] = odin_normalizing_constant
 
-            normalizing_constants[k] = normalizing_constant
+            lc_normalizing_constants[k] = normalizing_constant
+
+            normalizing_constant = odin_normalizing_constant
 
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
@@ -157,7 +173,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
 
-        return lbp_marginal_total, normalizing_constants
+        return lbp_marginal_total, lc_normalizing_constants, odin_normalizing_constants
 
 
 

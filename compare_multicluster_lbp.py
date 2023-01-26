@@ -214,15 +214,15 @@ if __name__ == "__main__":
 
     for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         print(f"\n:::::::::: HYPOTHESIS {k+1} :::::::::::::::::")
-        # exact_marginals, (exact_normalization_constants,) 
         marginal_total, (normalizing_constants,) = exact_marginal_comp(R_LC, prior_hypotheses)
         print("\n\nEXACT\n\n")
         print(marginal_total)
         print(normalizing_constants)
-        lbp_bethe_probs, bethe_const = lbp_bethe(R_LC, prior_hypotheses)
+        lbp_bethe_probs, bethe_const, odin_bethe_const = lbp_bethe(R_LC, prior_hypotheses)
         print("\n\nBETHE\n\n")
         print(lbp_bethe_probs)
         print(bethe_const)
+        print(odin_bethe_const)
 
         lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_phd(R_LC, prior_hypotheses)
         print("\n\nPHD\n\n")

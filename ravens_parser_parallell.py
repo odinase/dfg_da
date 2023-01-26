@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 from typing import List
 import numpy as np
-
+from tqdm import tqdm
 
 from multiprocessing import Pool
 import time
@@ -105,6 +105,8 @@ def loop_func(pmbm_file):
 
         lbp_mh_marginals, (tot_iters, msg_iters, lbp_converged) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
 
+        lbp_marginals_bethe, bethe_constants = approx_marginal_computers["lbp_bethe"](R_LC, prior_hypotheses)
+
         lbp_stats = sl.LBPStats(
             num_iters_msg=msg_iters,
             num_iters=tot_iters,
@@ -119,8 +121,14 @@ def loop_func(pmbm_file):
             converged_list=williams_converged_list
         )
 
+        bethe_stats = sl.BetheStats(
+            marginals=sl.Marginals(lbp_marginals_bethe[t_idx, :]),
+            normalization_constants=bethe_constants
+        )
+
         cluster_stats.lbp_stats = lbp_stats
         cluster_stats.williams_stats = williams_stats
+        cluster_stats.bethe_stats = bethe_stats
 
         cluster_stats.cardinality = len(tracks_in_cluster)
 
@@ -140,13 +148,16 @@ if __name__ == "__main__":
     exact_marginal_computer = mc.ExactMarginals()
     approx_marginal_computers = {
         "lbp_williams": mc.LBPMarginalsByTotalProb(),
-        "lbp_mh": mc.LBPMarginalsFullAssociation()
+        "lbp_mh": mc.LBPMarginalsFullAssociation(),
+        "lbp_bethe": mc.LBPMarginalsByTotalProbBethe()
     }
 
     print("Starting pool")
     start = time.time()
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    for pmbm_file in tqdm(pmbm_files):
+        loop_func(pmbm_file)
+    # with Pool() as p:
+    #     p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

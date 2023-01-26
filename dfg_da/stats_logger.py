@@ -258,6 +258,11 @@ class WilliamsStats:
     converged_list: np.ndarray
 
 @dataclass
+class BetheStats:
+    marginals: Marginals
+    normalization_constants: List[float]
+
+@dataclass
 class ExactStats:
     marginals: Marginals
     normalization_constants: List[float]
@@ -273,6 +278,7 @@ class ClusterData:
 
     lbp_stats: Optional[LBPStats] = None
     williams_stats: Optional[WilliamsStats] = None
+    bethe_stats: Optional[BetheStats] = None
     exact_stats: Optional[ExactStats] = None
 
     def save_data(self, path):

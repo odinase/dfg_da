@@ -58,7 +58,8 @@ if __name__ == "__main__":
     exact_marginal_computer = mc.ExactMarginals()
     approx_marginal_computers = {
         "lbp_williams": mc.LBPMarginalsByTotalProb(),
-        "lbp_mh": mc.LBPMarginalsFullAssociation()
+        "lbp_mh": mc.LBPMarginalsFullAssociation(),
+        "lbp_bethe": mc.LBPMarginalsByTotalProbBethe()
     }
 
     lbp_mh_all_errors: List[sl.StatsLogger] = []

@@ -10,9 +10,7 @@ from tqdm import tqdm
 from pathlib import Path
 from collections import defaultdict
 
-import datashader as ds
 import pandas as pd
-import colorcet as cc
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
@@ -41,7 +39,7 @@ def save_fig_to_pdf(fig, fig_name, tight_layout=True):
 def save_fig_to_png(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight', dpi=1200)
+    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight', dpi=600)
     print(f"Saved {FIGURES_PATH}/{fig_name}.png")
 
 
@@ -700,56 +698,60 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
 
 def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     phd_normalization_constants = []
+    bethe_normalization_constants = []
     exact_normalization_constants = []
 
     for cluster_stat, cluster_file in cluster_stats:
         if not cluster_stat.explicit_hypothesis_enumeration_error:
             phd_normalization_constants.append(cluster_stat.williams_stats.normalization_constants)
             exact_normalization_constants.append(cluster_stat.exact_stats.normalization_constants)
+            bethe_normalization_constants.append(cluster_stat.bethe_stats.normalization_constants)
 
     phd_normalization_constants = np.hstack(phd_normalization_constants)
+    bethe_normalization_constants = np.hstack(bethe_normalization_constants)
     exact_normalization_constants = np.hstack(exact_normalization_constants)
 
     fig, ax = plt.subplots()
-    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.3, label="PHD")
+    ax.plot(bethe_normalization_constants, exact_normalization_constants, 'o', alpha=0.3, label="Bethe")
     ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
-    ax.set_xlabel("PHD approximation normalization constant")
+    ax.set_xlabel("Approximate normalization constant")
     ax.set_ylabel("Exact normalization constant")
     ax.grid(True, alpha=0.3)
     ax.legend()
+    ax.loglog()
 
-    fig2, ax2 = plt.subplots()
-    ax2.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
-    ax2.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
-    ax2.set_xlabel("PHD approximation normalization constant")
-    ax2.set_ylabel("Exact normalization constant")
-    ax2.grid(True, alpha=0.3)
-    ax2.legend()
+    # fig2, ax2 = plt.subplots()
+    # ax2.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    # ax2.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    # ax2.set_xlabel("PHD approximation normalization constant")
+    # ax2.set_ylabel("Exact normalization constant")
+    # ax2.grid(True, alpha=0.3)
+    # ax2.legend()
 
-    ax2.loglog()
 
-    fig3, ax3 = plt.subplots(figsize=(10, 5), ncols=2)
-    ax3[0].plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
-    ax3[0].plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
-    ax3[0].set_xlabel("PHD approximation normalization constant")
-    ax3[0].set_ylabel("Exact normalization constant")
-    ax3[0].grid(True, alpha=0.3)
-    ax3[0].legend()
-    ax3[0].set_title("Linear scale")
+    # fig3, ax3 = plt.subplots(figsize=(10, 5), ncols=2)
+    # ax3[0].plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    # ax3[0].plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    # ax3[0].set_xlabel("PHD approximation normalization constant")
+    # ax3[0].set_ylabel("Exact normalization constant")
+    # ax3[0].grid(True, alpha=0.3)
+    # ax3[0].legend()
+    # ax3[0].set_title("Linear scale")
 
-    ax3[1].plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
-    ax3[1].plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
-    ax3[1].set_xlabel("PHD approximation normalization constant")
-    ax3[1].set_ylabel("Exact normalization constant")
-    ax3[1].grid(True, alpha=0.3)
-    ax3[1].legend()
-    ax3[1].loglog()
-    ax3[1].set_title("Logarithmic scale")
+    # ax3[1].plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
+    # ax3[1].plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    # ax3[1].set_xlabel("PHD approximation normalization constant")
+    # ax3[1].set_ylabel("Exact normalization constant")
+    # ax3[1].grid(True, alpha=0.3)
+    # ax3[1].legend()
+    # ax3[1].loglog()
+    # ax3[1].set_title("Logarithmic scale")
 
 
     save_fig(fig, "normalization_constant")
-    save_fig(fig2, "normalization_constant_logscale")
-    save_fig(fig3, "normalization_constant_subplots")
+    # save_fig(fig2, "normalization_constant_logscale")
+    # save_fig(fig3, "normalization_constant_subplots")
 
 def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
     lbp_errors, williams_errors, williams_errors_exact = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
@@ -788,10 +790,10 @@ if __name__ == "__main__":
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    make_heatmap_correlation(cluster_stats)
+    # make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
-    # normalization_constant_scatter_plot(cluster_stats)
+    normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)
