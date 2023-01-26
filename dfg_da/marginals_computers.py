@@ -130,8 +130,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
         conditioned_marginals = np.empty((n, m + 2))
 
-        lc_normalizing_constants = np.empty(len(prior_hypotheses))
-        odin_normalizing_constants = np.empty(len(prior_hypotheses))
+        normalizing_constants = np.empty(len(prior_hypotheses))
 
         for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
 
@@ -139,6 +138,8 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
             if len(tracks) > 0:
                 lbp_probs, it_from_lbp, converged, bethe_log, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                F_b_psuedo = self.bethe_constant(w_nmd, mu, nu)
+                bethe_log = -F_b_psuedo
             else:
                 # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
                 lbp_probs = np.empty((0, R_LC.shape[1]))
@@ -157,13 +158,6 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
             normalizing_constant = np.exp(bethe_log) # self.bethe_constant(mu, nu, w_nmd)
-            F_b_psuedo = self.bethe_constant(w_nmd, mu, nu)
-            odin_normalizing_constant = np.exp(-F_b_psuedo)
-            odin_normalizing_constants[k] = odin_normalizing_constant
-
-            lc_normalizing_constants[k] = normalizing_constant
-
-            normalizing_constant = odin_normalizing_constant
 
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
@@ -173,7 +167,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
 
-        return lbp_marginal_total, lc_normalizing_constants, odin_normalizing_constants
+        return lbp_marginal_total, normalizing_constants
 
 
 

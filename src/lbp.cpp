@@ -87,5 +87,6 @@ Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypo
     return asso_probs;
 }
 
+
 } // namespace lbp
 } // namespace dfg_da
