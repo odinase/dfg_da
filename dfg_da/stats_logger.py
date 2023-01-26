@@ -260,7 +260,8 @@ class WilliamsStats:
 @dataclass
 class BetheStats:
     marginals: Marginals
-    normalization_constants: List[float]
+    normalization_constants_odin: List[float]
+    normalization_constants_lc: List[float]
 
 @dataclass
 class ExactStats:

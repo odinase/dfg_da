@@ -698,22 +698,26 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
 
 def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     phd_normalization_constants = []
-    bethe_normalization_constants = []
+    bethe_normalization_constants_odin = []
+    bethe_normalization_constants_lc = []
     exact_normalization_constants = []
 
     for cluster_stat, cluster_file in cluster_stats:
         if not cluster_stat.explicit_hypothesis_enumeration_error:
             phd_normalization_constants.append(cluster_stat.williams_stats.normalization_constants)
             exact_normalization_constants.append(cluster_stat.exact_stats.normalization_constants)
-            bethe_normalization_constants.append(cluster_stat.bethe_stats.normalization_constants)
+            bethe_normalization_constants_odin.append(cluster_stat.bethe_stats.normalization_constants_odin)
+            bethe_normalization_constants_lc.append(cluster_stat.bethe_stats.normalization_constants_lc)
 
     phd_normalization_constants = np.hstack(phd_normalization_constants)
-    bethe_normalization_constants = np.hstack(bethe_normalization_constants)
+    bethe_normalization_constants_lc = np.hstack(bethe_normalization_constants_lc)
+    bethe_normalization_constants_odin = np.hstack(bethe_normalization_constants_odin)
     exact_normalization_constants = np.hstack(exact_normalization_constants)
 
     fig, ax = plt.subplots()
-    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.3, label="PHD")
-    ax.plot(bethe_normalization_constants, exact_normalization_constants, 'o', alpha=0.3, label="Bethe")
+    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
+    ax.plot(bethe_normalization_constants_odin, exact_normalization_constants, 'o', alpha=0.2, label="Bethe Odin")
+    ax.plot(bethe_normalization_constants_lc, exact_normalization_constants, 'o', alpha=0.2, label="Bethe LC")
     ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
     ax.set_xlabel("Approximate normalization constant")
     ax.set_ylabel("Exact normalization constant")

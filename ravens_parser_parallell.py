@@ -105,7 +105,7 @@ def loop_func(pmbm_file):
 
         lbp_mh_marginals, (tot_iters, msg_iters, lbp_converged) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
 
-        lbp_marginals_bethe, bethe_constants = approx_marginal_computers["lbp_bethe"](R_LC, prior_hypotheses)
+        lbp_marginals_bethe, bethe_constants_odin, bethe_constants_lc = approx_marginal_computers["lbp_bethe"](R_LC, prior_hypotheses)
 
         lbp_stats = sl.LBPStats(
             num_iters_msg=msg_iters,
@@ -123,7 +123,8 @@ def loop_func(pmbm_file):
 
         bethe_stats = sl.BetheStats(
             marginals=sl.Marginals(lbp_marginals_bethe[t_idx, :]),
-            normalization_constants=bethe_constants
+            normalization_constants_odin=bethe_constants_odin,
+            normalization_constants_lc=bethe_constants_lc
         )
 
         cluster_stats.lbp_stats = lbp_stats

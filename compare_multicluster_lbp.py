@@ -218,11 +218,10 @@ if __name__ == "__main__":
         print("\n\nEXACT\n\n")
         print(marginal_total)
         print(normalizing_constants)
-        lbp_bethe_probs, bethe_const, odin_bethe_const = lbp_bethe(R_LC, prior_hypotheses)
+        lbp_bethe_probs, bethe_const = lbp_bethe(R_LC, prior_hypotheses)
         print("\n\nBETHE\n\n")
         print(lbp_bethe_probs)
         print(bethe_const)
-        print(odin_bethe_const)
 
         lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_phd(R_LC, prior_hypotheses)
         print("\n\nPHD\n\n")
