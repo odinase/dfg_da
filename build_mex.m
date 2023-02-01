@@ -1,5 +1,11 @@
-mex_dir = fullfile(pwd, '/build_mex');
+build_dir = '/build_mex';
+mex_dir = fullfile(pwd, build_dir);
 srcs = {'mex_lbp.cpp'};
 srcs = cellfun(@(s) fullfile(mex_dir, s), srcs,'UniformOutput', false);
-include_dir = fullfile(pwd, '/include');
-mex('CXXFLAGS=$CXXFLAGS -std=c++17', srcs{:}, ['-I', include_dir]);
+includes = {'./include',...
+            mex_dir,...
+            '/usr/include/eigen3'...
+};
+includes = cellfun(@(s) ['-I', s], includes,'UniformOutput', false);
+eigen_path = '/usr/include/eigen3'; % Have no idea how to get around this...
+mex('CXXFLAGS=$CXXFLAGS -std=c++17', srcs{:}, includes{:});
