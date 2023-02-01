@@ -1,0 +1,16 @@
+load tempFileCM.mat
+
+pTrueAve = mean(pTrueDmc(:,:,dd),2);pBestAve = mean(successOrFailureDmc(:,:,dd),2);
+figure;plot(pTrueAve,'r');hold on;plot(pBestAve,'m-.');hold on;plot(pBestAve.^2,'m:');
+
+
+pTrueAve = mean(pTrueAveAngel(:,:,dd),2);pBestAve = mean(successOrFailureDmcAngel(:,:,dd),2);
+plot(pTrueAve,'b');hold on;plot(pBestAve,'c-.');hold on;plot(pBestAve.^2,'c:');
+
+hold on;
+
+
+
+hold off;
+
+legend('

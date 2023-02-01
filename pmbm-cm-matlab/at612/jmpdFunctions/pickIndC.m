@@ -1,0 +1,92 @@
+function [aRemove,tCloudRemove,aRemain,tCloudRemain] = pickIndC(c,tCloud)
+
+% Function to pick/move/remove entire partitions
+% Written by Edmund Brekke during December 2007
+% @c:       C-level indices of partitions to be removed
+% @tCloud:  Lengths of all partitions
+% >aRemove:         All A-level indices of these partitions
+% >tCloudRemove:    Lengths of the partitions to be removed
+% >aRemain:         All A-level indices of remaining partitions
+% >tCloudRemain:    Lengths of the remaining partitions
+% $bc2a
+% $tCloud2BegInd
+% Notice that this function is a more advanced version of removeC()
+
+% The ABC-hierarchy
+% level A: All partitions stacked along 2nd dimension
+% level B: Inside each partition
+% level C: Partitions as entities
+
+if(max(c) > length(tCloud))
+    error('Cannot access partition with higher C index than number of partitions');
+end
+if(sum(c < 0) > 0)
+    error('Cannot access partitions with negative C index');
+end
+
+tCloudRemove = tCloud(c);
+
+% Need B and C level indices of all elements to be removed
+
+b = zeros(1,sum(tCloudRemove));
+cEnlarged = zeros(1,sum(tCloudRemove));
+
+% for ii=1:length(tCloudRemove)
+%     bPointer
+%     b(bPointer:(bPointer+tCloudRemove(ii)-1)) = 1:tCloudRemove(ii);
+%     cEnlarged(bPointer:(bPointer+tCloudRemove(ii)-1)) = c(ii);
+%     bPointer = bPointer+tCloudRemove(ii);
+% end
+
+cFind = find(c);
+bPointer = 1;
+for ii=1:length(tCloudRemove)
+    b(bPointer:(bPointer+tCloudRemove(ii)-1)) = 1:tCloudRemove(ii);
+    cEnlarged(bPointer:(bPointer+tCloudRemove(ii)-1)) = c(ii);
+    bPointer = bPointer+tCloudRemove(ii);
+end
+
+
+begInd = tCloud2BegInd(tCloud);
+
+
+
+a = begInd(cEnlarged) + b - 1;
+% With b and cEnlarged constructed, bc2a() gives the A-level indices of removed partitions
+
+% How come cEnlarged contains zeros?
+
+% b
+% cEnlarged
+% tCloud
+if(sum(b > tCloud(cEnlarged)) > 0)
+   error('Should not have any B-index that exceeds corresponding T'); 
+end
+
+aRemove = bc2a(b,cEnlarged,tCloud);
+
+% If desirable, also describe remaining partitions
+% This section is still not working right
+
+
+if(nargout == 4)
+    
+    % Find A-level indices of remaining partitions
+    
+    aRemain = 1:sum(tCloud);
+    aRemain(aRemove) = [];
+    
+    % List partition lengths of remaining partitions
+    
+    %c
+    
+    logicalC = false(1,length(tCloud));
+    logicalC(c) = true;
+    tCloudRemain = tCloud;
+    tCloudRemain(logicalC) = [];    
+    
+    %tCloud
+    %tCloudRemove
+    %tCloudRemain
+    
+end

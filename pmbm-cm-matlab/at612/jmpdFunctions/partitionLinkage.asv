@@ -1,0 +1,35 @@
+function assoc = partitionLinkage(CAND,metric)
+
+k = size(CAND,2);
+assoc = zeros(2,k);
+threshold = 1;
+
+for p=1:k
+    if(assoc(2,p) == 0)
+        assoc(2,p) = p; 
+        assoc(1,p) = 1;
+    end
+    for i=[1:p-1,p+1:k]
+        if(metric(CAND(:,i),CAND(:,p)) < threshold)
+            if(assoc(2,i) == 0)
+                assoc(2,i) = assoc(2,p);
+            elseif(assoc(2,i) > p)
+                slaveIndices = find(assoc(2,:) == assoc(2,i));
+                assoc(1,slaveIndices(2:end)) = 0;
+                if(slaveIndices(1) > p)
+                    assoc(1,slaveIndices(1)) = 0;
+                end
+                assoc(2,slaveIndices) = assoc(2,p);
+                assoc(1,i) = 0;
+            else
+                slaveIndices = find(assoc(2,:) == assoc(2,p));
+                assoc(1,slaveIndices(2:end)) = 0;
+                if(slaveIndices(1) > i)
+                    assoc(1,slaveIndices(1)) = 0;
+                end                       
+                assoc(2,slaveIndices) = assoc(2,i);
+                assoc(1,p) = 0;
+            end 
+        end      
+    end
+end

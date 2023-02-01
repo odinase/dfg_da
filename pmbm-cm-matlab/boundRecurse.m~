@@ -1,0 +1,21 @@
+function [bound,localHolder] = boundRecurse(ii,nodes,scores,bounds,children)
+
+ch = children(ii).children;
+if(~isempty(ch))
+    
+    boundsBelowI = zeros(size(ch));
+    holdersBelowI = zeros(size(ch));
+    for jj=1:length(ch)
+       [boundJ,holderBelowI] = boundRecurse(ch(jj),nodes,scores,bounds,children) ;
+        boundsBelowI(jj) = boundJ;
+        holdersBelowI(jj) = h
+        
+    end
+    
+    
+    
+else
+    
+   bound = bounds(ii);
+   localHolder = ii;
+end
