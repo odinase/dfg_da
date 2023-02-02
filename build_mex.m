@@ -1,6 +1,6 @@
 build_dir = '/build_mex';
 mex_dir = fullfile(pwd, build_dir);
-srcs = {'mex_lbp.cpp'};
+srcs = {'lbp_mex.cpp'};
 srcs = cellfun(@(s) fullfile(mex_dir, s), srcs,'UniformOutput', false);
 includes = {'./include',...
             mex_dir,...
