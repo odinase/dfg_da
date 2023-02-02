@@ -1,6 +1,6 @@
 #pragma once
 
-#include <gtsam/base/Vector.h>
+// #include <gtsam/base/Vector.h>
 #include <math.h>
 
 #include <limits>
@@ -55,16 +55,16 @@ inline std::vector<double> logNormalize(const std::vector<double> &logProbs)
     // Numerical tolerance for floating point comparisons
     double tol = 1e-9;
 
-    if (!gtsam::fpEqual(checkNormalization, 1.0, tol))
-    {
-        std::string errMsg =
-            std::string("expNormalize failed to normalize probabilities. ") +
-            std::string("Expected normalization constant = 1.0. Got value: ") +
-            std::to_string(checkNormalization) +
-            std::string(
-                "\n This could have resulted from numerical overflow/underflow.");
-        throw std::logic_error(errMsg);
-    }
+    // if (!gtsam::fpEqual(checkNormalization, 1.0, tol))
+    // {
+    //     std::string errMsg =
+    //         std::string("expNormalize failed to normalize probabilities. ") +
+    //         std::string("Expected normalization constant = 1.0. Got value: ") +
+    //         std::to_string(checkNormalization) +
+    //         std::string(
+    //             "\n This could have resulted from numerical overflow/underflow.");
+    //     throw std::logic_error(errMsg);
+    // }
 
     return log_probs_normalized;
 }
