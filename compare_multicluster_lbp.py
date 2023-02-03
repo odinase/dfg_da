@@ -159,8 +159,38 @@ def vanilla_lbp(R_LC: np.ndarray):
     g.print_rv_marginals(normalize=True)
 
 
+def normalization_constant_thetas(rho: np.ndarray, prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]]) -> float:
+    # prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]] = [
+    #     [
+    #         (np.array([1, 2]), 0.5),
+    #         (np.array([1, 3]), 0.5)
+    #     ],
+    #     [
+    #         (np.array([4]), 0.5),
+    #         (np.array([5]), 0.5)
+    #     ]
+    # ]
+    Z_thl = np.empty(len(prior_hypotheses_per_cluster))
+    for prior_hypotheses in prior_hypotheses_per_cluster:
+        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
+        t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
+        phi = np.array([hypo[1] for hypo in prior_hypotheses])
 
-def bethe_constant(w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> float:
+        t2h_idx = np.array([[t in hypo[0] for hypo in prior_hypotheses] for t in tracks_in_cluster])
+        t2noth_idx = ~t2h_idx
+        h2t_idx = t2h_idx.T
+        rho_c = rho[t_idx]
+        rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
+
+        Z_thl[k] = np.sum(phi * rho_prods)
+        
+    return Z_thl
+
+def normalization_constant_theta_tracks(w_nmd: np.ndarray, nu: np.ndarray, rho: np.ndarray, prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]]) -> float:
+    pass
+
+
+def bethe_constant_multicluster(w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray, rho: np.ndarray, prior_hypotheses_per_cluster) -> float:
     w_times_msg = w_nmd * nu
     
     F_bethe = (
@@ -170,6 +200,8 @@ def bethe_constant(w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray) -> float:
     )
 
     return np.exp(-F_bethe)
+
+
 
 
 
@@ -199,7 +231,7 @@ if __name__ == "__main__":
     ]
 
     vanilla_lbp(R_LC)
-    asso_probs, meas_probs, theta_probs = lbp_marginal_nonexistence_multicluster(R_LC, prior_hypotheses_per_cluster)
+    asso_probs, meas_probs, theta_probs, mu, nu, rho, sigma = lbp_marginal_nonexistence_multicluster(R_LC, prior_hypotheses_per_cluster)
     np.set_printoptions(precision=6, suppress=True)
     print(asso_probs)
     print(meas_probs)

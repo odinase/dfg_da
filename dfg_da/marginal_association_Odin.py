@@ -408,6 +408,8 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     if lbp_output_in_kwargs:
         out += (lbp_output,)
         
+    out += (a2b_msg, b2a_msg, rho, sigma)
+
     return out
 
 
@@ -539,7 +541,7 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
         p = p / p.sum()
         theta_probs.append(p)
 
-    out = tot_asso_prob, meas_probs, theta_probs
+    out = tot_asso_prob, meas_probs, theta_probs, a2b_msg, b2a_msg, rho, sigma
 
     return out
 

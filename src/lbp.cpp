@@ -16,7 +16,41 @@ namespace dfg_da
     namespace lbp
     {
 
-        Eigen::ArrayXXd lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters)
+        Eigen::ArrayXXd MHLBPSingleClusterOutput::track_association_marginals() const
+        {
+            Eigen::ArrayXXd asso_probs(2 + num_measurements, num_tracks);
+            asso_probs.topRows<1>() = w_0;
+            asso_probs.block(1, 0, num_measurements, num_tracks) = (w_nmd * nu).transpose();
+            asso_probs.bottomRows<1>() = sigma;
+
+            asso_probs.rowwise() /= asso_probs.colwise().sum();
+
+            return asso_probs;
+        }
+        Eigen::ArrayXXd MHLBPSingleClusterOutput::measurement_association_marginals() const
+        {
+            Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);
+            meas_probs.topRows<1>() = 1;
+            meas_probs.block(1, 0, num_tracks, num_measurements) = mu;
+            meas_probs.rowwise() /= meas_probs.colwise().sum();
+
+            return meas_probs;
+        }
+        Eigen::ArrayXd MHLBPSingleClusterOutput::hypotheses_marginal() const
+        {
+            auto rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
+            Eigen::ArrayXd hypo_probs(num_hypotheses);
+            hypo_probs = phi * rho_prods;
+            hypo_probs /= hypo_probs.sum();
+
+            return hypo_probs;
+        }
+
+        double MHLBPSingleClusterOutput::bethe_pseudodual() const
+        {
+        }
+
+        MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
             const size_t m = reward_matrix.cols() - n;
@@ -70,58 +104,43 @@ namespace dfg_da
                 iter += 1;
             }
 
-            // Column-major, so each column is a marginal distribution
-            Eigen::ArrayXXd asso_probs(2 + m, n), meas_probs(1 + n, m);
+            return MHLBPSingleClusterOutput(
+                std::move(mu),
+                std::move(nu),
+                std::move(rho),
+                std::move(sigma),
+                std::move(w_nmd),
+                std::move(w_0),
+                std::move(t2h),
+                std::move(t2h_not),
+                std::move(phi));
+        }
+
+        Eigen::ArrayXXd MHLBPMultilusterOutput::track_association_marginals() const
+        {
+            Eigen::ArrayXXd asso_probs(2 + num_measurements, num_tracks);
             asso_probs.topRows<1>() = w_0;
-            asso_probs.block(1, 0, m, n) = (w_nmd * nu).transpose();
+            asso_probs.block(1, 0, num_measurements, num_tracks) = (w_nmd * nu).transpose();
             asso_probs.bottomRows<1>() = sigma;
 
             asso_probs.rowwise() /= asso_probs.colwise().sum();
 
-            // meas_probs.topRows<1>() = 1;
-            // meas_probs.block(1, 0, n, m) = mu;
-            // meas_probs.rowwise() /= meas_probs.colwise().sum();
-            // std::cout << meas_probs << "\n";
-
-            // rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
-            // Eigen::ArrayXd hypo_probs(num_hypotheses);
-            // hypo_probs = phi * rho_prods;
-            // hypo_probs /= hypo_probs.sum();
-            // std::cout << hypo_probs << "\n";
-
             return asso_probs;
         }
-
-        struct ClusterData
+        Eigen::ArrayXXd MHLBPMultilusterOutput::measurement_association_marginals() const
         {
-            std::vector<double> phi__;
-            std::vector<size_t> t_idx;
-            Eigen::ArrayXXd t2h_not;
-            Eigen::ArrayXXd t2h;
+            Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);
+            meas_probs.topRows<1>() = 1;
+            meas_probs.block(1, 0, num_tracks, num_measurements) = mu;
+            meas_probs.rowwise() /= meas_probs.colwise().sum();
 
-            ClusterData(
-                std::vector<double> &&phi_,
-                std::vector<size_t> &&tracks_,
-                Eigen::ArrayXXd &&t2hnot_idx_,
-                Eigen::ArrayXXd &&t2h_idx_)
-                : phi__(std::move(phi_)),
-                  t_idx(std::move(tracks_)),
-                  t2h_not(std::move(t2hnot_idx_)),
-                  t2h(std::move(t2h_idx_))
-            {
-                size_t nt = t_idx.size();
-                for (size_t t = 0; t < nt; t++) {
-                    t_idx[t] -= 1;
-                }
-            }
-            inline Eigen::Map<const Eigen::ArrayXd> phi() const {
-                return Eigen::Map<const Eigen::ArrayXd>(phi__.data(), phi__.size());
-            }
-        };
+            return meas_probs;
+        }
 
         void update_sigma(Eigen::Ref<Eigen::ArrayXd> sigma, const Eigen::Ref<const Eigen::ArrayXd> &rho, const std::vector<ClusterData> &cluster_data)
         {
-            for (const auto& d : cluster_data) {
+            for (const auto &d : cluster_data)
+            {
                 auto rho_c = rho(d.t_idx);
                 auto rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
                 auto sigma_n = (d.t2h_not.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
@@ -130,7 +149,7 @@ namespace dfg_da
             }
         }
 
-        Eigen::ArrayXXd lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
+        MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
             const size_t m = reward_matrix.cols() - n;
@@ -149,13 +168,15 @@ namespace dfg_da
             for (const auto &prior_hypotheses : prior_hypotheses_per_cluster)
             {
                 std::set<size_t> tracks_set;
-                for (auto h = prior_hypotheses.cbegin(); h != prior_hypotheses.cend(); h++) {
-                    for (const size_t t : h->tracks()) {
+                for (auto h = prior_hypotheses.cbegin(); h != prior_hypotheses.cend(); h++)
+                {
+                    for (const size_t t : h->tracks())
+                    {
                         tracks_set.insert(t);
                     }
                 }
                 std::vector<size_t> tracks(tracks_set.begin(), tracks_set.end());
-                const size_t num_tracks_in_cluster= tracks.size();
+                const size_t num_tracks_in_cluster = tracks.size();
                 std::vector<double> prior_probs = prior_hypotheses.hypothesis_probabilites();
                 const size_t num_hypotheses = prior_hypotheses.num_hypotheses();
                 Eigen::ArrayXXd t2h(num_tracks_in_cluster, num_hypotheses), t2h_not(num_tracks_in_cluster, num_hypotheses);
@@ -171,8 +192,7 @@ namespace dfg_da
                     std::move(prior_probs),
                     std::move(tracks),
                     std::move(t2h_not),
-                    std::move(t2h)
-                ));
+                    std::move(t2h)));
             }
 
             Eigen::ArrayXd rho = w_0 + (w_nmd * nu).rowwise().sum();
@@ -198,26 +218,14 @@ namespace dfg_da
                 iter += 1;
             }
 
-            // Column-major, so each column is a marginal distribution
-            Eigen::ArrayXXd asso_probs(2 + m, n), meas_probs(1 + n, m);
-            asso_probs.topRows<1>() = w_0;
-            asso_probs.block(1, 0, m, n) = (w_nmd * nu).transpose();
-            asso_probs.bottomRows<1>() = sigma;
-
-            asso_probs.rowwise() /= asso_probs.colwise().sum();
-
-            // meas_probs.topRows<1>() = 1;
-            // meas_probs.block(1, 0, n, m) = mu;
-            // meas_probs.rowwise() /= meas_probs.colwise().sum();
-            // std::cout << meas_probs << "\n";
-
-            // rho_prods = (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
-            // Eigen::ArrayXd hypo_probs(num_hypotheses);
-            // hypo_probs = phi * rho_prods;
-            // hypo_probs /= hypo_probs.sum();
-            // std::cout << hypo_probs << "\n";
-
-            return asso_probs;
+            return MHLBPMultilusterOutput(
+                std::move(mu),
+                std::move(nu),
+                std::move(rho),
+                std::move(sigma),
+                std::move(w_nmd),
+                std::move(w_0),
+                std::move(cluster_data));
         }
 
     } // namespace lbp

@@ -24,3 +24,6 @@ if __name__ == "__main__":
         print(t_idx)
         np.set_printoptions(precision=6, suppress=True, linewidth=150)
         print(out[0][t_idx])
+        for m in out[2:]:
+            print(m.shape)
+            print(len(tracks_in_cluster))
