@@ -25,11 +25,22 @@ public:
         auto reward_matrix = reward_matrix_conversion(inputs);
         std::vector<dfg_da::hypothesis::Hypotheses> hypos_in_clusters = hypotheses_conversion(inputs);
 
+        // Eigen::ArrayXXd
         matlab::data::ArrayFactory f;
+
+        size_t num_tracks = reward_matrix.rows();
+        size_t num_measurements = reward_matrix.cols() - num_tracks;
+        matlab::data::buffer_ptr_t<double> data = f.createBuffer<double>(num_tracks * (2 + num_measurements));
+        Eigen::Map<Eigen::ArrayXXd> marginals(data.get(), 2 + num_measurements, num_tracks);
+
+        marginals = dfg_da::lbp::lbp(reward_matrix, hypos_in_clusters[6]);
+
         size_t num_outputs = outputs.size();
         if (num_outputs >= 1)
         {
-            outputs[0] = f.createArray<double>({2, 2}, {1.2, 2.2, 3.2, 4.2});
+            uint64_t r = marginals.rows();
+            uint64_t c = marginals.cols();
+            outputs[0] = f.createArrayFromBuffer<double>({r, c}, std::move(data));
         }
         if (num_outputs >= 2)
         {

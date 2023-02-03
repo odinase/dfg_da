@@ -13,7 +13,7 @@ namespace dfg_da {
 
 namespace lbp {
 
-Eigen::ArrayXXd lbp(const Eigen::MatrixXd& reward_matrix, const hypothesis::Hypotheses& prior_hypotheses, size_t max_num_iters) {
+Eigen::ArrayXXd lbp(const Eigen::Ref<const Eigen::MatrixXd>& reward_matrix, const hypothesis::Hypotheses& prior_hypotheses, size_t max_num_iters) {
     const size_t n = reward_matrix.rows();
     const size_t m = reward_matrix.cols() - n;
 
