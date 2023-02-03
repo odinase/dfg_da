@@ -95,7 +95,7 @@ namespace dfg_da
         struct ClusterData
         {
             std::vector<double> phi__;
-            std::vector<size_t> tracks;
+            std::vector<size_t> t_idx;
             Eigen::ArrayXXd t2h_not;
             Eigen::ArrayXXd t2h;
 
@@ -105,10 +105,14 @@ namespace dfg_da
                 Eigen::ArrayXXd &&t2hnot_idx_,
                 Eigen::ArrayXXd &&t2h_idx_)
                 : phi__(std::move(phi_)),
-                  tracks(std::move(tracks_)),
+                  t_idx(std::move(tracks_)),
                   t2h_not(std::move(t2hnot_idx_)),
                   t2h(std::move(t2h_idx_))
             {
+                size_t nt = t_idx.size();
+                for (size_t t = 0; t < nt; t++) {
+                    t_idx[t] -= 1;
+                }
             }
             inline Eigen::Map<const Eigen::ArrayXd> phi() const {
                 return Eigen::Map<const Eigen::ArrayXd>(phi__.data(), phi__.size());
@@ -118,15 +122,15 @@ namespace dfg_da
         void update_sigma(Eigen::Ref<Eigen::ArrayXd> sigma, const Eigen::Ref<const Eigen::ArrayXd> &rho, const std::vector<ClusterData> &cluster_data)
         {
             for (const auto& d : cluster_data) {
-                auto rho_c = rho(d.tracks);
+                auto rho_c = rho(d.t_idx);
                 auto rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
                 auto sigma_n = (d.t2h_not.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
                 auto sigma_d = (d.t2h.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
-                sigma(d.tracks) = rho_c * sigma_n / sigma_d;
+                sigma(d.t_idx) = rho_c * sigma_n / sigma_d;
             }
         }
 
-        Eigen::ArrayXXd lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300)
+        Eigen::ArrayXXd lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
             const size_t m = reward_matrix.cols() - n;
@@ -144,18 +148,6 @@ namespace dfg_da
 
             for (const auto &prior_hypotheses : prior_hypotheses_per_cluster)
             {
-                std::vector<double> prior_probs = prior_hypotheses.hypothesis_probabilites();
-                const size_t num_hypotheses = prior_hypotheses.num_hypotheses();
-                Eigen::ArrayXXd t2h(n, num_hypotheses), t2h_not(n, num_hypotheses);
-
-                for (size_t t = 1, i = 0; t <= n; t++, i++)
-                {
-                    for (size_t h = 0; h < num_hypotheses; h++)
-                    {
-                        t2h(i, h) = prior_hypotheses[h].contains(t);
-                        t2h_not(i, h) = !t2h(i, h);
-                    }
-                }
                 std::set<size_t> tracks_set;
                 for (auto h = prior_hypotheses.cbegin(); h != prior_hypotheses.cend(); h++) {
                     for (const size_t t : h->tracks()) {
@@ -163,6 +155,18 @@ namespace dfg_da
                     }
                 }
                 std::vector<size_t> tracks(tracks_set.begin(), tracks_set.end());
+                const size_t num_tracks_in_cluster= tracks.size();
+                std::vector<double> prior_probs = prior_hypotheses.hypothesis_probabilites();
+                const size_t num_hypotheses = prior_hypotheses.num_hypotheses();
+                Eigen::ArrayXXd t2h(num_tracks_in_cluster, num_hypotheses), t2h_not(num_tracks_in_cluster, num_hypotheses);
+                for (size_t i = 0; i < num_tracks_in_cluster; i++)
+                {
+                    for (size_t h = 0; h < num_hypotheses; h++)
+                    {
+                        t2h(i, h) = prior_hypotheses[h].contains(tracks[i]);
+                        t2h_not(i, h) = !t2h(i, h);
+                    }
+                }
                 cluster_data.emplace_back(ClusterData(
                     std::move(prior_probs),
                     std::move(tracks),
@@ -174,6 +178,7 @@ namespace dfg_da
             Eigen::ArrayXd rho = w_0 + (w_nmd * nu).rowwise().sum();
 
             Eigen::ArrayXd sigma(n);
+
             update_sigma(sigma, rho, cluster_data);
 
             size_t iter = 0;

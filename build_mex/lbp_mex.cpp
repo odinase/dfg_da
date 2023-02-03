@@ -33,7 +33,7 @@ public:
         matlab::data::buffer_ptr_t<double> data = f.createBuffer<double>(num_tracks * (2 + num_measurements));
         Eigen::Map<Eigen::ArrayXXd> marginals(data.get(), 2 + num_measurements, num_tracks);
 
-        marginals = dfg_da::lbp::lbp(reward_matrix, hypos_in_clusters[6]);
+        marginals = dfg_da::lbp::lbp_multicluster(reward_matrix, hypos_in_clusters);
 
         size_t num_outputs = outputs.size();
         if (num_outputs >= 1)
