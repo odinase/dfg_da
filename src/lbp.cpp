@@ -137,18 +137,6 @@ namespace dfg_da
             return meas_probs;
         }
 
-        void update_sigma(Eigen::Ref<Eigen::ArrayXd> sigma, const Eigen::Ref<const Eigen::ArrayXd> &rho, const std::vector<ClusterData> &cluster_data)
-        {
-            for (const auto &d : cluster_data)
-            {
-                auto rho_c = rho(d.t_idx);
-                auto rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
-                auto sigma_n = (d.t2h_not.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
-                auto sigma_d = (d.t2h.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
-                sigma(d.t_idx) = rho_c * sigma_n / sigma_d;
-            }
-        }
-
         MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
@@ -197,9 +185,16 @@ namespace dfg_da
 
             Eigen::ArrayXd rho = w_0 + (w_nmd * nu).rowwise().sum();
 
-            Eigen::ArrayXd sigma(n);
+            Eigen::ArrayXd sigma(n), rho_c, rho_prods, sigma_n, sigma_d;
 
-            update_sigma(sigma, rho, cluster_data);
+            for (const auto &d : cluster_data)
+            {
+                rho_c = rho(d.t_idx);
+                rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
+                sigma_n = (d.t2h_not.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
+                sigma_d = (d.t2h.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
+                sigma(d.t_idx) = rho_c * sigma_n / sigma_d;
+            }
 
             size_t iter = 0;
             Eigen::ArrayXXd w_times_msg(n, m);
@@ -213,7 +208,14 @@ namespace dfg_da
 
                 rho = w_0 + (w_nmd * nu).rowwise().sum();
 
-                update_sigma(sigma, rho, cluster_data);
+                for (const auto &d : cluster_data)
+                {
+                    rho_c = rho(d.t_idx);
+                    rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
+                    sigma_n = (d.t2h_not.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
+                    sigma_d = (d.t2h.rowwise() * (rho_prods * d.phi()).transpose()).rowwise().sum();
+                    sigma(d.t_idx) = rho_c * sigma_n / sigma_d;
+                }
 
                 iter += 1;
             }

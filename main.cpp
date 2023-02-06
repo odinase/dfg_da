@@ -123,7 +123,8 @@ int main(int argc, char **argv)
    std::vector<dfg_da::hypothesis::Hypothesis> hypos2({h3, h4});
    prior_hypotheses_per_cluster.emplace_back(dfg_da::hypothesis::Hypotheses(std::move(hypos2)));
 
-   Eigen::ArrayXXd marginals = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
+   auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
+    Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
 
    std::cout << marginals.transpose() << "\n";
 }

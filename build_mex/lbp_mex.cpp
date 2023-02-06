@@ -25,22 +25,26 @@ public:
         auto reward_matrix = reward_matrix_conversion(inputs);
         std::vector<dfg_da::hypothesis::Hypotheses> hypos_in_clusters = hypotheses_conversion(inputs);
 
-        // Eigen::ArrayXXd
         matlab::data::ArrayFactory f;
 
         size_t num_tracks = reward_matrix.rows();
         size_t num_measurements = reward_matrix.cols() - num_tracks;
         matlab::data::buffer_ptr_t<double> data = f.createBuffer<double>(num_tracks * (2 + num_measurements));
-        Eigen::Map<Eigen::ArrayXXd> marginals(data.get(), 2 + num_measurements, num_tracks);
+        Eigen::Map<Eigen::ArrayXXd> asso_probs(data.get(), 2 + num_measurements, num_tracks);
 
         auto mhlbp = dfg_da::lbp::lbp_multicluster(reward_matrix, hypos_in_clusters);
-        marginals = mhlbp.track_association_marginals();
+
+        asso_probs.topRows<1>() = mhlbp.w_0;
+        asso_probs.block(1, 0, num_measurements, num_tracks) = (mhlbp.w_nmd * mhlbp.nu).transpose();
+        asso_probs.bottomRows<1>() = mhlbp.sigma;
+
+        asso_probs.rowwise() /= asso_probs.colwise().sum();
 
         size_t num_outputs = outputs.size();
         if (num_outputs >= 1)
         {
-            uint64_t r = marginals.rows();
-            uint64_t c = marginals.cols();
+            uint64_t r = asso_probs.rows();
+            uint64_t c = asso_probs.cols();
             outputs[0] = f.createArrayFromBuffer<double>({r, c}, std::move(data));
         }
         if (num_outputs >= 2)
