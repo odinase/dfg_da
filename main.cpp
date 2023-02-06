@@ -97,10 +97,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::Ref<const 
                 {
                     bool exists = meas < (num_measurements + 1);
                     compatibility_table.push_back(xnor(contained_in_hypo, exists)); // If contained in hypothesis and less than non-existence id, use 1
-                    // If not contained and also non-existence => true
-                    // If contained and existence => true
-                    // Otherwise, false
-                    // The above constraints should be NXOR (XNOR?)
                 }
             }
 
@@ -127,7 +123,8 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::Ref<const 
             // Lastly, add non-existence
             prior_table.push_back(1.0);
 
-            gtsam::DiscreteDistribution prior_factor(ai, prior_table);
+            gtsam::DiscreteKeys aik = {ai};
+            gtsam::DecisionTreeFactor prior_factor(aik, prior_table);
             dfg.push_back(prior_factor);
         }
     }
@@ -268,4 +265,14 @@ int main(int argc, char **argv)
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
 
     std::cout << marginals.transpose() << "\n";
+
+    gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior(R, prior_hypotheses_per_cluster);
+    auto fac = dfg.product();
+    size_t num_thetas = prior_hypotheses_per_cluster.size();
+    // num_tracks = R.rows();
+    // num_measurements = R.cols() - num_tracks;
+    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
+
+    double val = (*ff)({});
+    std::cout << val << "\n";
 }
