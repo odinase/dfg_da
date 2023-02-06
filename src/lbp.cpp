@@ -27,6 +27,8 @@ namespace dfg_da
 
             return asso_probs;
         }
+        
+
         Eigen::ArrayXXd MHLBPSingleClusterOutput::measurement_association_marginals() const
         {
             Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);
@@ -119,14 +121,20 @@ namespace dfg_da
         Eigen::ArrayXXd MHLBPMultilusterOutput::track_association_marginals() const
         {
             Eigen::ArrayXXd asso_probs(2 + num_measurements, num_tracks);
+            track_association_marginals_inplace(asso_probs.data());
+
+            return asso_probs;
+        }
+        void MHLBPMultilusterOutput::track_association_marginals_inplace(double* data) const
+        {
+            Eigen::Map<Eigen::ArrayXXd> asso_probs(data, 2 + num_measurements, num_tracks);
             asso_probs.topRows<1>() = w_0;
             asso_probs.block(1, 0, num_measurements, num_tracks) = (w_nmd * nu).transpose();
             asso_probs.bottomRows<1>() = sigma;
 
             asso_probs.rowwise() /= asso_probs.colwise().sum();
-
-            return asso_probs;
         }
+
         Eigen::ArrayXXd MHLBPMultilusterOutput::measurement_association_marginals() const
         {
             Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);

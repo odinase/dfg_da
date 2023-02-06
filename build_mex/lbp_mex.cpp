@@ -13,8 +13,6 @@
 
 #include <numeric>
 
-// using namespace matlab::data;
-// using matlab::mex::ArgumentList;
 
 class MexFunction : public matlab::mex::Function
 {
@@ -30,21 +28,15 @@ public:
         size_t num_tracks = reward_matrix.rows();
         size_t num_measurements = reward_matrix.cols() - num_tracks;
         matlab::data::buffer_ptr_t<double> data = f.createBuffer<double>(num_tracks * (2 + num_measurements));
-        Eigen::Map<Eigen::ArrayXXd> asso_probs(data.get(), 2 + num_measurements, num_tracks);
 
         auto mhlbp = dfg_da::lbp::lbp_multicluster(reward_matrix, hypos_in_clusters);
-
-        asso_probs.topRows<1>() = mhlbp.w_0;
-        asso_probs.block(1, 0, num_measurements, num_tracks) = (mhlbp.w_nmd * mhlbp.nu).transpose();
-        asso_probs.bottomRows<1>() = mhlbp.sigma;
-
-        asso_probs.rowwise() /= asso_probs.colwise().sum();
+        mhlbp.track_association_marginals_inplace(data.get());
 
         size_t num_outputs = outputs.size();
         if (num_outputs >= 1)
         {
-            uint64_t r = asso_probs.rows();
-            uint64_t c = asso_probs.cols();
+            uint64_t r = num_measurements + 2;
+            uint64_t c = num_tracks;
             outputs[0] = f.createArrayFromBuffer<double>({r, c}, std::move(data));
         }
         if (num_outputs >= 2)

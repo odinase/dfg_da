@@ -133,6 +133,7 @@ namespace dfg_da
                     num_clusters(cluster_data.size()) {}
             
             Eigen::ArrayXXd track_association_marginals() const;
+            void track_association_marginals_inplace(double* data) const;
             Eigen::ArrayXXd measurement_association_marginals() const;
             Eigen::ArrayXXd hypotheses_marginals() const;
             double bethe_pseudodual() const;
