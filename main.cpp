@@ -54,38 +54,35 @@ constexpr bool xnor(const bool x, const bool y) { return !(x != y); }
     std::cout << val << "\n";
 */
 
-gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster)
+gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster)
 {
     gtsam::DiscreteFactorGraph dfg;
 
     // Build left side of graph: Connect tracks to hypothesis variable for each cluster
-    for (auto &prior_hypotheses : prior_hypotheses_per_cluster)
-    {
+    const size_t num_clusters = prior_hypotheses_per_cluster.size();
+    // Add all track variables.
+    // The reward matrix should nt x (m + nt), ie, one row for each track
+    // and one column for each measurement plus columns for misdetection
+    assert(R.cols() >= R.rows());
+    const size_t num_tracks = R.rows();
+    const size_t num_measurements = R.cols() - num_tracks;
+    gtsam::DiscreteKeys ais; // Track variables and measurement variables
+    ais.reserve(num_tracks);
 
+    for (size_t c = 0; c < num_clusters; c++)
+    {
+        const dfg_da::hypothesis::Hypotheses& prior_hypotheses = prior_hypotheses_per_cluster[c];
         // First construct hypothesis prior factor and variable
         const size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
-        gtsam::DiscreteKey th{T(0), num_prior_hypotheses};
+        std::set<size_t> tracks_in_cluster = prior_hypotheses.tracks();
+
+        gtsam::DiscreteKey th{T(c), num_prior_hypotheses};
         std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
-        // std::vector<double> normalizing_constants;
-        // for (size_t i = 0; i < prior_hypotheses.num_hypotheses(); i++) {
-        //     double c = approx_normalizing_constant(R, prior_hypotheses[i].tracks());
-        //     normalizing_constants.push_back(c);
-        // }
         gtsam::DiscreteDistribution th_factor(th, theta_table);
         dfg.push_back(th_factor);
 
-        // Add all track variables.
-        // The reward matrix should nt x (m + nt), ie, one row for each track
-        // and one column for each measurement plus columns for misdetection
-        assert(R.cols() >= R.rows());
-        const size_t num_tracks = R.rows();
-        const size_t num_measurements = R.cols() - num_tracks;
-
-        gtsam::DiscreteKeys ais; // Track variables and measurement variables
-        ais.reserve(num_tracks);
-
         // Hard compatability constraints are basically: 1 everywhere except nonexistence if it exists in the prior hypothesis
-        for (size_t track = 1; track <= num_tracks; track++)
+        for (const size_t track : tracks_in_cluster)
         {
             gtsam::DiscreteKey ai(A(track), 1 + num_measurements + 1); // misdetection + num measurements + non-existence
             ais.push_back(ai);

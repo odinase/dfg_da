@@ -75,6 +75,7 @@ public:
     }
     Hypotheses hypotheses_containing(const Track &track) const;
     std::vector<double> hypothesis_probabilites() const;
+    std::set<size_t> tracks() const;
 
     auto begin() { return hypos_.begin(); }
     auto end() { return hypos_.end(); }
