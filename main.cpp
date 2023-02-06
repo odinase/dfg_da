@@ -27,6 +27,33 @@ using gtsam::symbol_shorthand::T;
 
 constexpr bool xnor(const bool x, const bool y) { return !(x != y); }
 
+/**
+ *     gtsam::DiscreteKey x(X(0), 2), y(Y(0), 2);
+    gtsam::DiscreteKeys keys {y, x};
+    gtsam::KeyVector k{keys[0].first, keys[1].first};
+    gtsam::DiscreteFactorGraph dfg;
+
+    std::vector<double> x_table = {2.0, 1.0};
+    gtsam::DiscreteKeys xk = {x};
+    gtsam::DecisionTreeFactor x_prior(xk, x_table);
+    dfg.push_back(x_prior);
+
+    std::vector<double> xy_table = {
+        1.0, 2.0,
+        3.0, 4.0
+    };
+    gtsam::DecisionTreeFactor xy_factor(keys, xy_table);
+    dfg.push_back(xy_factor);
+
+    // auto [bayes_net, fg] = dfg.eliminatePartialSequential(k);
+    // fg->print();
+    auto fac = dfg.product();
+    auto ff = fac.sum(2);
+
+    double val = (*ff)({});
+    std::cout << val << "\n";
+*/
+
 gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster)
 {
     gtsam::DiscreteFactorGraph dfg;
