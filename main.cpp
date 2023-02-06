@@ -22,18 +22,137 @@
 #include "dfg_da/lbp.h"
 
 using gtsam::symbol_shorthand::A;
+using gtsam::symbol_shorthand::B;
+using gtsam::symbol_shorthand::T;
 
+constexpr bool xnor(const bool x, const bool y) { return !(x != y); }
 
+gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster)
+{
+    gtsam::DiscreteFactorGraph dfg;
+
+    // Build left side of graph: Connect tracks to hypothesis variable for each cluster
+    for (auto &prior_hypotheses : prior_hypotheses_per_cluster)
+    {
+
+        // First construct hypothesis prior factor and variable
+        const size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
+        gtsam::DiscreteKey th{T(0), num_prior_hypotheses};
+        std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
+        // std::vector<double> normalizing_constants;
+        // for (size_t i = 0; i < prior_hypotheses.num_hypotheses(); i++) {
+        //     double c = approx_normalizing_constant(R, prior_hypotheses[i].tracks());
+        //     normalizing_constants.push_back(c);
+        // }
+        gtsam::DiscreteDistribution th_factor(th, theta_table);
+        dfg.push_back(th_factor);
+
+        // Add all track variables.
+        // The reward matrix should nt x (m + nt), ie, one row for each track
+        // and one column for each measurement plus columns for misdetection
+        assert(R.cols() >= R.rows());
+        const size_t num_tracks = R.rows();
+        const size_t num_measurements = R.cols() - num_tracks;
+
+        gtsam::DiscreteKeys ais; // Track variables and measurement variables
+        ais.reserve(num_tracks);
+
+        // Hard compatability constraints are basically: 1 everywhere except nonexistence if it exists in the prior hypothesis
+        for (size_t track = 1; track <= num_tracks; track++)
+        {
+            gtsam::DiscreteKey ai(A(track), 1 + num_measurements + 1); // misdetection + num measurements + non-existence
+            ais.push_back(ai);
+            gtsam::DiscreteKeys keys{th, ai};
+
+            // Add factor between hypothesis variable and track variable
+            std::vector<double> compatibility_table;
+            for (size_t hypo = 0; hypo < num_prior_hypotheses; hypo++)
+            {
+                bool contained_in_hypo = prior_hypotheses[hypo].contains(track);
+                for (size_t meas = 0; meas <= num_measurements + 1; meas++)
+                {
+                    bool exists = meas < (num_measurements + 1);
+                    compatibility_table.push_back(xnor(contained_in_hypo, exists)); // If contained in hypothesis and less than non-existence id, use 1
+                    // If not contained and also non-existence => true
+                    // If contained and existence => true
+                    // Otherwise, false
+                    // The above constraints should be NXOR (XNOR?)
+                }
+            }
+
+            gtsam::DecisionTreeFactor hyp_to_track_factor(keys, compatibility_table);
+            dfg.push_back(hyp_to_track_factor);
+
+            // Add prior factors
+            // We assume that the reward matrix is the logarithm of probabilities, as this is common to use
+            std::vector<double> prior_table;
+
+            size_t t_idx = track - 1; // The rows are 0-indexed, so we need to offset the track index.
+            size_t misdetection_idx = num_measurements + t_idx;
+            // Add misdetection
+            double m = exp(R(t_idx, misdetection_idx));
+            prior_table.push_back(m);
+
+            // Add all likelihoods
+            for (size_t meas_idx = 0; meas_idx < num_measurements; meas_idx++)
+            {
+                double l = exp(R(t_idx, meas_idx));
+                prior_table.push_back(l);
+            }
+
+            // Lastly, add non-existence
+            prior_table.push_back(1.0);
+
+            gtsam::DiscreteDistribution prior_factor(ai, prior_table);
+            dfg.push_back(prior_factor);
+        }
+    }
+
+    // Final stretch, add measurement variables
+    // Lets 1-index measurements as well for consistency
+    for (size_t meas = 1; meas <= num_measurements; meas++)
+    {
+        gtsam::DiscreteKey bj_dk(B(meas), 1 + num_tracks); // clutter or associated to a track
+
+        uint64_t bj = gtsam::symbolIndex(bj_dk.first);
+
+        // Add factor from measurement to all track variables
+        for (const auto &ai_dk : ais)
+        {
+            std::vector<double> compatibility_table;
+
+            size_t track_cardinality = ai_dk.second;
+            uint64_t ai = gtsam::symbolIndex(ai_dk.first);
+
+            // We need to do this row-major, so fix the row. Along one row we vary what association is compatible for this measurement
+            for (size_t j = 0; j < track_cardinality; j++)
+            {
+                for (size_t i = 0; i <= num_tracks; i++)
+                {
+                    // The compatibility here is the fact that we must assign bt to at for at == bt and no other ats, or otherwise the opposite
+                    // Here we see the benefit of using 1-indexed measurements: Since the tracks assume that measurement 0 is misdetection, c will automatically point to correct measurement
+
+                    double compatibility = xnor(i == ai, j == bj);
+                    compatibility_table.push_back(compatibility);
+                }
+            }
+            gtsam::DiscreteKeys keys{ai_dk, bj_dk};
+            gtsam::DecisionTreeFactor meas_to_track_factor(keys, compatibility_table);
+            dfg.push_back(meas_to_track_factor);
+        }
+    }
+
+    return dfg;
+}
 
 int main(int argc, char **argv)
 {
-    #ifdef GLOG_AVAILABLE
+#ifdef GLOG_AVAILABLE
     google::InitGoogleLogging(argv[0]);
     google::InstallFailureSignalHandler();
-    #endif // GLOG_AVAILABLE
+#endif // GLOG_AVAILABLE
 
     // gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::build_test_factor_graph();
-
 
     // gtsam::DiscreteFactor::Values solution = dfg.optimize();
     // gtsam::DiscreteMarginals marginals(dfg);
@@ -53,7 +172,6 @@ int main(int argc, char **argv)
     //      5.37, -inf, -0.52, -inf,
     //      6.58, -inf, -inf, -0.60;
 
-
     // dfg_da::hypothesis::Hypothesis h1({1, 2}, log(0.5));
     // dfg_da::hypothesis::Hypothesis h2({1, 3}, log(0.5));
 
@@ -62,7 +180,7 @@ int main(int argc, char **argv)
     // Eigen::MatrixXd probs = dfg_da::hypothesis::association_marginal_posteriors(R, h);
 
     // std::cout << probs << "\n";
-    
+
     // dfg_da::factor_graph::FactorGraph fg(dfg);
     // dfg_da::factor_graph::Marginals lbp_marginals = fg.lbp();
     // for (const auto& [k, m] : lbp_marginals) {
@@ -89,16 +207,15 @@ int main(int argc, char **argv)
 
     constexpr size_t num_tracks = 5;
     constexpr size_t num_measurements = 2;
-    
+
     Eigen::MatrixXd R(num_tracks, num_measurements + num_tracks);
-    R << 3.0, -inf,   -0.60, -inf, -inf, -inf, -inf,
-            3.2, -inf, -inf,   -0.56, -inf, -inf, -inf,
-           -3.0,     1.2, -inf, -inf,   -0.46, -inf, -inf,
-        -inf,     3.0, -inf, -inf, -inf,   -0.62, -inf,
-        -inf,    -0.4, -inf, -inf, -inf, -inf,   -0.55;
+    R << 3.0, -inf, -0.60, -inf, -inf, -inf, -inf,
+        3.2, -inf, -inf, -0.56, -inf, -inf, -inf,
+        -3.0, 1.2, -inf, -inf, -0.46, -inf, -inf,
+        -inf, 3.0, -inf, -inf, -inf, -0.62, -inf,
+        -inf, -0.4, -inf, -inf, -inf, -inf, -0.55;
 
-
-    std::vector<dfg_da::hypothesis::Hypotheses> prior_hypotheses_per_cluster;    
+    std::vector<dfg_da::hypothesis::Hypotheses> prior_hypotheses_per_cluster;
     // Cluster 1
     std::vector<size_t> tracks1 = {1, 2};
     double logprob1 = log(0.5);
@@ -119,12 +236,12 @@ int main(int argc, char **argv)
     std::vector<size_t> tracks4 = {5};
     double logprob4 = log(0.5);
     dfg_da::hypothesis::Hypothesis h4(std::move(tracks4), logprob4);
- 
-   std::vector<dfg_da::hypothesis::Hypothesis> hypos2({h3, h4});
-   prior_hypotheses_per_cluster.emplace_back(dfg_da::hypothesis::Hypotheses(std::move(hypos2)));
 
-   auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
+    std::vector<dfg_da::hypothesis::Hypothesis> hypos2({h3, h4});
+    prior_hypotheses_per_cluster.emplace_back(dfg_da::hypothesis::Hypotheses(std::move(hypos2)));
+
+    auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
 
-   std::cout << marginals.transpose() << "\n";
+    std::cout << marginals.transpose() << "\n";
 }

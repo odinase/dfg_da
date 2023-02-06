@@ -171,7 +171,8 @@ def normalization_constant_thetas(rho: np.ndarray, prior_hypotheses_per_cluster:
     #     ]
     # ]
     Z_thl = np.empty(len(prior_hypotheses_per_cluster))
-    for prior_hypotheses in prior_hypotheses_per_cluster:
+    nl = np.empty(len(prior_hypotheses_per_cluster), dtype=int)
+    for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
         t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
         phi = np.array([hypo[1] for hypo in prior_hypotheses])
@@ -183,25 +184,71 @@ def normalization_constant_thetas(rho: np.ndarray, prior_hypotheses_per_cluster:
         rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
 
         Z_thl[k] = np.sum(phi * rho_prods)
+        nl[k] = len(tracks_in_cluster)
         
-    return Z_thl
+    return Z_thl, nl
 
-def normalization_constant_theta_tracks(w_nmd: np.ndarray, nu: np.ndarray, rho: np.ndarray, prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]]) -> float:
-    pass
+def normalization_constant_theta_tracks(w_0: np.ndarray, w_nmd: np.ndarray, nu: np.ndarray, rho: np.ndarray, prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]]) -> float:
+    Z_tth = []
+    w_sum_times_msg = w_0.ravel() + (w_nmd*nu).sum(axis=1)
+    # prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]] = [
+    #     [
+    #         (np.array([1, 2]), 0.5),
+    #         (np.array([1, 3]), 0.5)
+    #     ],
+    #     [
+    #         (np.array([4]), 0.5),
+    #         (np.array([5]), 0.5)
+    #     ]
+    # ]
+    for prior_hypotheses in prior_hypotheses_per_cluster:
+        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
+        t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
+        phi = np.array([hypo[1] for hypo in prior_hypotheses])
+
+        t2h_idx = np.array([[t in hypo[0] for hypo in prior_hypotheses] for t in tracks_in_cluster])
+        t2noth_idx = ~t2h_idx
+        h2t_idx = t2h_idx.T
+        rho_c = rho[t_idx]
+        rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
+        w_sum = w_sum_times_msg[t_idx]
+        phi_rho_prod = phi*rho_prods
+        Z = w_sum/rho_c * np.sum(phi_rho_prod*t2h_idx, axis=1) + np.sum(phi_rho_prod*t2noth_idx, axis=1)
+        Z_tth.append(Z)
+
+    return Z_tth
 
 
-def bethe_constant_multicluster(w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray, rho: np.ndarray, prior_hypotheses_per_cluster) -> float:
+def normalization_constant_tracks(w_0: np.ndarray, w_nmd: np.ndarray, nu: np.ndarray, sigma: np.ndarray) -> np.ndarray:
+    return w_0.ravel() + (w_nmd*nu).sum(axis=1) + sigma
+
+def normalization_constant_measurements(mu: np.ndarray) -> np.ndarray:
+    return mu.sum(axis=0) + 1
+
+def normalization_constant_tracks_measurements(w_0: np.ndarray, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray, sigma: np.ndarray) -> np.ndarray:
     w_times_msg = w_nmd * nu
+    Ztj = (1 + (mu.sum(axis=0, keepdims=True) - mu)) * (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg) + sigma[:,None]) + w_nmd
+    return Ztj
+
+
+def bethe_constant_multicluster(w_0: np.ndarray, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray, rho: np.ndarray, sigma: np.ndarray, prior_hypotheses_per_cluster) -> float:
+    Z_thetas, num_tracks_per_cluster = normalization_constant_thetas(rho, prior_hypotheses_per_cluster)
+    Z_tths = normalization_constant_theta_tracks(w_0, w_nmd, nu, rho, prior_hypotheses_per_cluster)
+    Z_ts = normalization_constant_tracks(w_0, w_nmd, nu, sigma)
+    Z_js = normalization_constant_measurements(mu)
+    Z_tjs = normalization_constant_tracks_measurements(w_0, w_nmd, mu, nu, sigma)
     
-    F_bethe = (
-        -np.sum(np.log(1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)))
-        -np.sum(np.log(1 + (mu.sum(axis=0, keepdims=True) - mu)))
-        +np.sum(np.log(1 + nu * mu))
+    n, m = w_nmd.shape
+
+    F_bethe_pseudo = (
+        ((num_tracks_per_cluster - 1)*np.log(Z_thetas)).sum()
+        +m*np.log(Z_ts).sum()
+        +(n - 1)*np.log(Z_js).sum()
+        -sum(np.log(Z).sum() for Z in Z_tths)
+        -np.log(Z_tjs).sum()
     )
 
-    return np.exp(-F_bethe)
-
-
+    return np.exp(-F_bethe_pseudo)
 
 
 
@@ -237,6 +284,11 @@ if __name__ == "__main__":
     print(meas_probs)
     for theta_p in theta_probs:
         print(theta_p)
+    
+    w_0 = np.exp(R_LC[:, [0]])
+    w_nmd = np.exp(R_LC[:, 1:])
+    Z_bethe = bethe_constant_multicluster(w_0, w_nmd, mu, nu, rho, sigma, prior_hypotheses_per_cluster)
+    print(f"Bethe constant multicluster: {Z_bethe}")
 
     lbp_bethe = LBPMarginalsByTotalProbBethe()
     lbp_phd = LBPMarginalsByTotalProb()
