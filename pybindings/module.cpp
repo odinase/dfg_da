@@ -98,19 +98,23 @@ PYBIND11_MODULE(py_dfg_da, m) {
         Subtract two numbers
         Some other explanation about the subtract function.
     )pbdoc");
-    
-    py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(m, "HypothesesList");
-    py::class_<hypothesis::Hypothesis>(m, "Hypothesis")
+
+    py::module_ hypothesis = m.def_submodule("hypothesis");
+
+    py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
+    py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
     .def(py::init<const std::vector<size_t>&, double>())
     .def("probability", &hypothesis::Hypothesis::probability);
 
-    py::class_<hypothesis::Hypotheses>(m, "Hypotheses")
+    py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
     .def(py::init<const std::vector<hypothesis::Hypothesis>&>());
 
-    py::class_<lbp::MHLBPMultilusterOutput>(m, "MHLBPMultilusterOutput")
+    py::module_ lbp = m.def_submodule("lbp");
+
+    py::class_<lbp::MHLBPMultilusterOutput>(lbp, "MHLBPMultilusterOutput")
     .def("track_association_marginals",  &lbp::MHLBPMultilusterOutput::track_association_marginals);
     // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
-    m.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 300);
+    lbp.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 300);
 }
 
 
