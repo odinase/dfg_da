@@ -13,7 +13,9 @@ namespace dfg_da {
 
 namespace factor_graph {
 
-gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd& R, const hypothesis::Hypotheses& prior_hypotheses);
+gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_single_cluster(const Eigen::MatrixXd& R, const hypothesis::Hypotheses& prior_hypotheses);
+gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
+std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
 
 
 struct Message
