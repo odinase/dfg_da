@@ -13,7 +13,12 @@ namespace dfg_da
     namespace hypothesis
     {
 
-        Hypotheses::Hypotheses(std::vector<Hypothesis> &&hypos) : hypos_(hypos)
+        Hypotheses::Hypotheses(const std::vector<Hypothesis> &hypos) : hypos_(hypos)
+        {
+            log_normalize();
+        }
+
+        Hypotheses::Hypotheses(std::vector<Hypothesis> &&hypos) : hypos_(std::move(hypos))
         {
             log_normalize();
         }

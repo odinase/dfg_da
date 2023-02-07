@@ -26,7 +26,15 @@ private:
     std::vector<Track> tracks_;
 
 public:
-    Hypothesis(std::vector<Track> &&tracks, double log_prob) : log_prob_(log_prob), tracks_(tracks)
+    Hypothesis(std::vector<Track> &&tracks, double log_prob) : log_prob_(log_prob), tracks_(std::move(tracks))
+    {
+        for (const auto t : tracks_)
+        {
+            assert(t > 0); // We don't accept tracks that use ID 0 as this is reserved for misdetection
+        }
+    }
+
+    Hypothesis(const std::vector<Track> &tracks, double log_prob) : log_prob_(log_prob), tracks_(tracks)
     {
         for (const auto t : tracks_)
         {
@@ -50,6 +58,7 @@ private:
 
 public:
     explicit Hypotheses(std::vector<Hypothesis> &&hypos);
+    explicit Hypotheses(const std::vector<Hypothesis> &hypos);
 
     const Hypothesis &operator[](size_t i) const { return hypos_[i]; }
     inline size_t num_hypotheses() const { return hypos_.size(); }

@@ -267,6 +267,17 @@ int main(int argc, char **argv)
     std::cout << marginals.transpose() << "\n";
 
     gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior(R, prior_hypotheses_per_cluster);
+
+    dfg_da::factor_graph::FactorGraph fg(dfg);
+    auto margs = fg.lbp();
+    for (const auto& [k, p] : margs) {
+        std::cout << gtsam::Symbol(k) << ": ";
+        for (const auto& pp : p) {
+            std::cout << pp << " ";
+        }
+        std::cout << "\n";
+    }
+
     auto fac = dfg.product();
     size_t num_thetas = prior_hypotheses_per_cluster.size();
     // num_tracks = R.rows();

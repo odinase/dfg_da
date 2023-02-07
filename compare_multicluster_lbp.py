@@ -296,20 +296,20 @@ if __name__ == "__main__":
 
     # prob, it, converged = lbp_marginal(R_LC)
 
-    for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
-        print(f"\n:::::::::: HYPOTHESIS {k+1} :::::::::::::::::")
-        marginal_total, (normalizing_constants,) = exact_marginal_comp(R_LC, prior_hypotheses)
-        print("\n\nEXACT\n\n")
-        # print(marginal_total)
-        print(normalizing_constants)
-        lbp_bethe_probs, bethe_const, lc_bethe_const = lbp_bethe(R_LC, prior_hypotheses)
-        print("\n\nBETHE\n\n")
-        # print(lbp_bethe_probs)
-        print(f"Odin: {bethe_const}")
-        print(f"LC: {lc_bethe_const}")
+    # for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
+    #     print(f"\n:::::::::: HYPOTHESIS {k+1} :::::::::::::::::")
+    #     marginal_total, (normalizing_constants,) = exact_marginal_comp(R_LC, prior_hypotheses)
+    #     print("\n\nEXACT\n\n")
+    #     # print(marginal_total)
+    #     print(normalizing_constants)
+    #     lbp_bethe_probs, bethe_const, lc_bethe_const = lbp_bethe(R_LC, prior_hypotheses)
+    #     print("\n\nBETHE\n\n")
+    #     # print(lbp_bethe_probs)
+    #     print(f"Odin: {bethe_const}")
+    #     print(f"LC: {lc_bethe_const}")
 
-        lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_phd(R_LC, prior_hypotheses)
-        print("\n\nPHD\n\n")
-        # print(lbp_williams_marginals)
-        print(approx_normalization_constants)
+    #     lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = lbp_phd(R_LC, prior_hypotheses)
+    #     print("\n\nPHD\n\n")
+    #     # print(lbp_williams_marginals)
+    #     print(approx_normalization_constants)
         

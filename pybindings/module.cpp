@@ -1,4 +1,12 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+#include <pybind11/eigen.h>
+
+#include <vector>
+#include "dfg_da/hypothesis.h"
+PYBIND11_MAKE_OPAQUE(std::vector<dfg_da::hypothesis::Hypotheses>);
+
 
 #include <iostream>
 #include <gtsam/discrete/DiscreteConditional.h>
@@ -21,7 +29,6 @@
 #endif // GLOG_AVAILABLE
 #include <cmath>
 
-#include "dfg_da/hypothesis.h"
 #include "dfg_da/factor_graph.h"
 #include "dfg_da/lbp.h"
 
@@ -61,10 +68,13 @@ void gtsam_test() {
 
 
 namespace py = pybind11;
+using namespace pybind11::literals;
+using namespace dfg_da;
 
 int add(int i, int j) {
     return i + j;
 }
+
 
 PYBIND11_MODULE(py_dfg_da, m) {
     m.doc() = R"pbdoc(
@@ -88,6 +98,19 @@ PYBIND11_MODULE(py_dfg_da, m) {
         Subtract two numbers
         Some other explanation about the subtract function.
     )pbdoc");
+    
+    py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(m, "HypothesesList");
+    py::class_<hypothesis::Hypothesis>(m, "Hypothesis")
+    .def(py::init<const std::vector<size_t>&, double>())
+    .def("probability", &hypothesis::Hypothesis::probability);
+
+    py::class_<hypothesis::Hypotheses>(m, "Hypotheses")
+    .def(py::init<const std::vector<hypothesis::Hypothesis>&>());
+
+    py::class_<lbp::MHLBPMultilusterOutput>(m, "MHLBPMultilusterOutput")
+    .def("track_association_marginals",  &lbp::MHLBPMultilusterOutput::track_association_marginals);
+    // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
+    m.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 300);
 }
 
 

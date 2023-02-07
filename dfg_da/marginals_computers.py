@@ -116,7 +116,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         Zj = self.meas_normalizing_constant(mu)
         Ztj = self.edge_normalizing_constant(w_nmd, mu, nu)
 
-        n, m = mu.shape
+        n, m = w_nmd.shape
         F_B_pseudo = (m - 1)*np.log(Zt).sum() + (n - 1)*np.log(Zj).sum() - np.log(Ztj).sum()
 
         return F_B_pseudo
