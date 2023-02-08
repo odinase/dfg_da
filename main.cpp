@@ -263,6 +263,7 @@ int main(int argc, char **argv)
 
     auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
+    std::cout << mhlbp.bethe_pseudodual() << "\n";
 
     std::cout << marginals << "\n";
 

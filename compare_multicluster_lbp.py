@@ -237,7 +237,6 @@ def bethe_constant_multicluster(w_0: np.ndarray, w_nmd: np.ndarray, mu: np.ndarr
     Z_ts = normalization_constant_tracks(w_0, w_nmd, nu, sigma)
     Z_js = normalization_constant_measurements(mu)
     Z_tjs = normalization_constant_tracks_measurements(w_0, w_nmd, mu, nu, sigma)
-    
     n, m = w_nmd.shape
 
     F_bethe_pseudo = (
@@ -290,9 +289,9 @@ if __name__ == "__main__":
     Z_bethe = bethe_constant_multicluster(w_0, w_nmd, mu, nu, rho, sigma, prior_hypotheses_per_cluster)
     print(f"Bethe constant multicluster: {Z_bethe}")
 
-    lbp_bethe = LBPMarginalsByTotalProbBethe()
-    lbp_phd = LBPMarginalsByTotalProb()
-    exact_marginal_comp = ExactMarginals()
+    # lbp_bethe = LBPMarginalsByTotalProbBethe()
+    # lbp_phd = LBPMarginalsByTotalProb()
+    # exact_marginal_comp = ExactMarginals()
 
     # prob, it, converged = lbp_marginal(R_LC)
 

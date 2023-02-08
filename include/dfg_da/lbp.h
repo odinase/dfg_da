@@ -142,7 +142,7 @@ namespace dfg_da
             Eigen::ArrayXd meas_normalization_constants() const;
             Eigen::ArrayXd hypotheses_normalization_constants() const;
             Eigen::ArrayXXd track_meas_normalization_constants() const;
-            std::vector<Eigen::ArrayXXd> track_hypos_normalization_constants() const;
+            std::vector<Eigen::ArrayXd> track_hypos_normalization_constants() const;
         };
         MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
 
