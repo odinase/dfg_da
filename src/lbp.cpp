@@ -140,7 +140,7 @@ namespace dfg_da
             return meas_probs;
         }
 
-        double MHLBPMultilusterOutput::bethe_pseudodual() const
+        double MHLBPMultilusterOutput::bethe_pseudodual_loglikelihood() const
         {
             Eigen::ArrayXd Z_thetas = hypotheses_normalization_constants();
             std::vector<Eigen::ArrayXd> Z_tths = track_hypos_normalization_constants();
@@ -160,7 +160,7 @@ namespace dfg_da
 
             double F_bethe_pseudo = F_thetas + F_ts + F_js - F_tjs - F_tths;
 
-            return exp(-F_bethe_pseudo);
+            return -F_bethe_pseudo;
         }
 
         Eigen::ArrayXd MHLBPMultilusterOutput::track_normalization_constants() const

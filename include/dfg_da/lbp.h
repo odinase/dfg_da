@@ -136,7 +136,8 @@ namespace dfg_da
             void track_association_marginals_inplace(double* data) const;
             Eigen::ArrayXXd measurement_association_marginals() const;
             Eigen::ArrayXXd hypotheses_marginals() const;
-            double bethe_pseudodual() const;
+            double bethe_pseudodual_loglikelihood() const;
+            inline double bethe_pseudodual_normalization_constant() const { return exp(bethe_pseudodual_loglikelihood()); }
             private:
             Eigen::ArrayXd track_normalization_constants() const;
             Eigen::ArrayXd meas_normalization_constants() const;
