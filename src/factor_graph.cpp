@@ -502,19 +502,37 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
 
 std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
     gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
-    gtsam::DiscreteMarginals marginals(dfg);
 
     const size_t num_tracks = R.rows();
+    const size_t num_measurements = R.cols() - num_tracks;
+
+    gtsam::DiscreteMarginals dfg_marginals(dfg);
 
     auto dks = dfg.discreteKeys();
-    std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
-    std::vector<gtsam::DiscreteKey> kkeys(all_keys.begin(), all_keys.end());
-    for (const auto& key : all_keys) {
-        gtsam::Vector marginal = marginals.marginalProbabilities(key);
-        if (gtsam::symbolChr(key.first) == 'a') {
-        std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginal.transpose() << "\n";
+    std::set<gtsam::DiscreteKey> all_keys;
+    for (const auto& dk : dks) {
+        if (gtsam::symbolChr(dk.first) == 'a') {
+            all_keys.insert(dk);
         }
     }
+
+    Eigen::ArrayXXd exact_marginals(2 + num_measurements, num_tracks);
+
+    size_t c = 0;
+    for (const auto& key : all_keys) {
+        exact_marginals.col(c) = dfg_marginals.marginalProbabilities(key);
+        c += 1;
+    }
+
+    auto fac = dfg.product();
+    size_t num_thetas = prior_hypotheses_per_cluster.size();
+    // num_tracks = R.rows();
+    // num_measurements = R.cols() - num_tracks;
+    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
+
+    double exact_normalization_constant = (*ff)({});
+
+    return {exact_marginals, exact_normalization_constant};
 }
 
 

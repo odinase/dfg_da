@@ -264,36 +264,8 @@ int main(int argc, char **argv)
     auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
 
-    std::cout << marginals.transpose() << "\n";
+    std::cout << marginals << "\n";
 
-    gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
-
-    auto fac = dfg.product();
-    size_t num_thetas = prior_hypotheses_per_cluster.size();
-    // num_tracks = R.rows();
-    // num_measurements = R.cols() - num_tracks;
-    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
-
-    double val = (*ff)({});
-    std::cout << val << "\n";
-
-    gtsam::DiscreteMarginals dfg_marginals(dfg);
-
-    auto dks = dfg.discreteKeys();
-    std::set<gtsam::DiscreteKey> all_keys;
-    for (const auto& dk : dks) {
-        if (gtsam::symbolChr(dk.first) == 'a') {
-            all_keys.insert(dk);
-        }
-    }
-
-    Eigen::ArrayXXd exact_marginals(2 + num_measurements, num_tracks);
-
-    size_t c = 0;
-    for (const auto& key : all_keys) {
-        exact_marginals.col(c) = dfg_marginals.marginalProbabilities(key);
-        c += 1;
-    }
-
-    std::cout << exact_marginals.transpose() << "\n";
+    auto [exact_marginals, exact_normalization_constant] = dfg_da::factor_graph::exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
+    std::cout << exact_marginals << "\n" << exact_normalization_constant << "\n";
 }

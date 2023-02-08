@@ -128,8 +128,8 @@ namespace dfg_da
                     w_nmd(std::move(w_nmd_)),
                     w_0(std::move(w_0_)),
                     cluster_data(std::move(cluster_data_)),
-                    num_tracks(mu.rows()),
-                    num_measurements(mu.cols()),
+                    num_tracks(w_nmd.rows()),
+                    num_measurements(w_nmd.cols()),
                     num_clusters(cluster_data.size()) {}
             
             Eigen::ArrayXXd track_association_marginals() const;
@@ -138,14 +138,11 @@ namespace dfg_da
             Eigen::ArrayXXd hypotheses_marginals() const;
             double bethe_pseudodual() const;
             private:
-                        // track_normalizing_constant(self, w_nmd: np.ndarray, nu: np.ndarray)
             Eigen::ArrayXd track_normalization_constants() const;
-            // meas_normalizing_constant(self, mu: np.ndarray)
             Eigen::ArrayXd meas_normalization_constants() const;
-            // edge_normalizing_constant(self, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray)
-            Eigen::ArrayXXd track_meas_normalization_constants() const;
             Eigen::ArrayXd hypotheses_normalization_constants() const;
-            Eigen::ArrayXXd track_hypos_normalization_constants() const;
+            Eigen::ArrayXXd track_meas_normalization_constants() const;
+            std::vector<Eigen::ArrayXXd> track_hypos_normalization_constants() const;
         };
         MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
 

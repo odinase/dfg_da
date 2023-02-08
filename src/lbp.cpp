@@ -7,6 +7,7 @@
 #include <numeric>
 #include <set>
 
+
 #include "dfg_da/hypothesis.h"
 #include "dfg_da/lbp.h"
 
@@ -46,10 +47,6 @@ namespace dfg_da
             hypo_probs /= hypo_probs.sum();
 
             return hypo_probs;
-        }
-
-        double MHLBPSingleClusterOutput::bethe_pseudodual() const
-        {
         }
 
         MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters)
@@ -143,6 +140,46 @@ namespace dfg_da
             meas_probs.rowwise() /= meas_probs.colwise().sum();
 
             return meas_probs;
+        }
+
+        double MHLBPMultilusterOutput::bethe_pseudodual() const
+        {
+            Eigen::ArrayXd Z_thetas = hypotheses_normalization_constants();
+            std::vector<Eigen::ArrayXXd> Z_tths = track_hypos_normalization_constants();
+            Eigen::ArrayXd Z_ts = track_normalization_constants();
+            Eigen::ArrayXd Z_js = meas_normalization_constants();
+            Eigen::ArrayXXd Z_tjs = track_meas_normalization_constants();
+
+            Eigen::ArrayXd num_tracks_per_cluster(num_clusters);
+            for (size_t c = 0; c < num_clusters; c++) {
+                num_tracks_per_cluster(c) = cluster_data[c].t_idx.size();
+            }
+
+            double F_thetas = ((num_tracks_per_cluster - 1)*Z_thetas.log()).sum();
+            double F_ts = num_measurements*Z_ts.log().sum();
+            double F_js = (num_tracks - 1)*Z_js.log().sum();
+            double F_tths = 0; //std::transform_reduce();
+            double F_tjs = 0;
+
+            double F_bethe_pseudo = F_thetas + F_ts + F_js - F_tjs - F_tths;
+
+            return exp(-F_bethe_pseudo);
+        }
+
+        Eigen::ArrayXd MHLBPMultilusterOutput::track_normalization_constants() const {
+
+        }
+        Eigen::ArrayXd MHLBPMultilusterOutput::meas_normalization_constants() const {
+
+        }
+        Eigen::ArrayXd MHLBPMultilusterOutput::hypotheses_normalization_constants() const {
+
+        }
+        Eigen::ArrayXXd MHLBPMultilusterOutput::track_meas_normalization_constants() const {
+
+        }
+        std::vector<Eigen::ArrayXXd> MHLBPMultilusterOutput::track_hypos_normalization_constants() const {
+
         }
 
         MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
