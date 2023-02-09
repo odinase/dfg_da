@@ -237,5 +237,11 @@ namespace dfg_da
             return log_prob;
         }
 
+    void Hypotheses::append(const Hypothesis& new_hypothesis) {
+        hypos_.push_back(new_hypothesis);
+        log_normalize();
+    }
+
+
     } // namespace hypothesis
 } // namespace dfg_da

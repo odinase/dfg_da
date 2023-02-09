@@ -26,7 +26,7 @@ class MatFileParser:
     def __init__(self, filename: str, compute_hypotheses: bool = True, use_cpp: bool = False):
         ws = loadmat(filename)
         self.ws = ws
-        R_wrapping = np.asfortranarray(ws["gainMatPostC"]) # This R has a strange shape... We convert it to order='F' for use with Eigen
+        R_wrapping = ws["gainMatPostC"] # This R has a strange shape... We convert it to order='F' for use with Eigen
         track_file = ws["trackFile"]
         measurements = ws["measurements"]
         
@@ -166,7 +166,7 @@ class MatFileParser:
         # Compute the clusters we consider
         clusters_to_use = np.arange(num_clusters)#np.argsort(clustersCard)[::-1][:num_clusters]
 
-        prior_hypotheses_per_cluster = dhh.Hypothe
+        prior_hypotheses_per_cluster = []
         for c in clusters_to_use:
             hypotheses_in_cluster = hypotheses_per_cluster[c]
             log_hypo_probs_in_cluster = log_hypo_probs_per_cluster[c]

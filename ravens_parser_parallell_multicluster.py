@@ -22,7 +22,7 @@ PMBM_DATA_PATH = "./data/pmbm_output_files"
 def loop_func(pmbm_file):
     mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file, use_cpp=True)
 
-    R = mat_data.reward_matrix_edmund
+    R = np.asfortranarray(mat_data.reward_matrix_edmund)
     prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
 
     pmbm_file_path = Path(pmbm_file)
@@ -37,10 +37,17 @@ def loop_func(pmbm_file):
     if num_clusters == 0:
         return
 
+    print(R)
+    print(prior_hypotheses_per_cluster)
+    print(len(prior_hypotheses_per_cluster))
     mcmhlbp = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+    print("LBP!")
     mcmhlbp_marginals = mcmhlbp.track_association_marginals()
+    print("Marginals!")
     bethe_normalization_constant = mcmhlbp.bethe_pseudodual_normalization_constant()
+    print("Bethe!")
     exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+    print("Exact")
 
     cluster_data = sl.MulticlusterData(
         exact_marginals=exact_marginals.T,
@@ -54,9 +61,41 @@ def loop_func(pmbm_file):
 
 
 if __name__ == "__main__":
-    # Make list over all files
+    # Super hacky way to hopefully avoid hypothesis enumeration explosion
+    illegal_files = [
+        'priorLikelihood_iMC5k312.mat',
+        'priorLikelihood_iMC6k527.mat',
+        'priorLikelihood_iMC5k299.mat',
+        'priorLikelihood_iMC6k280.mat',
+        'priorLikelihood_iMC6k130.mat',
+        'priorLikelihood_iMC2k970.mat',
+        'priorLikelihood_iMC3k867.mat',
+        'priorLikelihood_iMC10k302.mat',
+        'priorLikelihood_iMC3k621.mat',
+        'priorLikelihood_iMC2k1090.mat',
+        'priorLikelihood_iMC5k477.mat',
+        'priorLikelihood_iMC3k58.mat',
+        'priorLikelihood_iMC4k549.mat',
+        'priorLikelihood_iMC4k866.mat',
+        'priorLikelihood_iMC3k816.mat',
+        'priorLikelihood_iMC6k208.mat',
+        'priorLikelihood_iMC4k560.mat',
+        'priorLikelihood_iMC1k769.mat',
+        'priorLikelihood_iMC7k105.mat',
+        'priorLikelihood_iMC5k532.mat',
+        'priorLikelihood_iMC1k1113.mat',
+        'priorLikelihood_iMC2k3.mat',
+        'priorLikelihood_iMC6k138.mat',
+        'priorLikelihood_iMC6k316.mat',
+        'priorLikelihood_iMC5k294.mat',
+        'priorLikelihood_iMC6k307.mat',
+        'priorLikelihood_iMC4k770.mat',
+        'priorLikelihood_iMC2k234.mat',
+        'priorLikelihood_iMC6k151.mat'
+    ]
 
-    pmbm_files = glob(PMBM_DATA_PATH + "/*.mat")
+    pmbm_files = [pmbm_file for pmbm_file in glob(PMBM_DATA_PATH + "/*.mat") if not Path(pmbm_file).name in illegal_files]
+
     # pmbm_files = pmbm_files[:500]
     # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
@@ -69,10 +108,10 @@ if __name__ == "__main__":
 
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    for pmbm_file in tqdm(pmbm_files):
+        loop_func(pmbm_file)
+    # with Pool(processes=4) as p:
+    #     p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

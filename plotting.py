@@ -791,14 +791,18 @@ def load_cluster_stats(return_empty_clusters: bool = False):
 if __name__ == "__main__":
     cluster_stats = load_cluster_stats()
 
+    illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
+
+    print(illegal_files)
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
     # make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
-    normalization_constant_scatter_plot(cluster_stats)
+    # normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)
     # make_heatmap_correlation_lbpphd(cluster_stats)
+

@@ -113,14 +113,14 @@ namespace dfg_da
                 std::move(phi));
         }
 
-        Eigen::ArrayXXd MHLBPMultilusterOutput::track_association_marginals() const
+        Eigen::ArrayXXd MHLBPMulticlusterOutput::track_association_marginals() const
         {
             Eigen::ArrayXXd asso_probs(2 + num_measurements, num_tracks);
             track_association_marginals_inplace(asso_probs.data());
 
             return asso_probs;
         }
-        void MHLBPMultilusterOutput::track_association_marginals_inplace(double *data) const
+        void MHLBPMulticlusterOutput::track_association_marginals_inplace(double *data) const
         {
             Eigen::Map<Eigen::ArrayXXd> asso_probs(data, 2 + num_measurements, num_tracks);
             asso_probs.topRows<1>() = w_0;
@@ -130,7 +130,7 @@ namespace dfg_da
             asso_probs.rowwise() /= asso_probs.colwise().sum();
         }
 
-        Eigen::ArrayXXd MHLBPMultilusterOutput::measurement_association_marginals() const
+        Eigen::ArrayXXd MHLBPMulticlusterOutput::measurement_association_marginals() const
         {
             Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);
             meas_probs.topRows<1>() = 1;
@@ -140,7 +140,7 @@ namespace dfg_da
             return meas_probs;
         }
 
-        double MHLBPMultilusterOutput::bethe_pseudodual_loglikelihood() const
+        double MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood() const
         {
             Eigen::ArrayXd Z_thetas = hypotheses_normalization_constants();
             std::vector<Eigen::ArrayXd> Z_tths = track_hypos_normalization_constants();
@@ -163,15 +163,15 @@ namespace dfg_da
             return -F_bethe_pseudo;
         }
 
-        Eigen::ArrayXd MHLBPMultilusterOutput::track_normalization_constants() const
+        Eigen::ArrayXd MHLBPMulticlusterOutput::track_normalization_constants() const
         {
             return w_0 + (w_nmd * nu).rowwise().sum() + sigma;
         }
-        Eigen::ArrayXd MHLBPMultilusterOutput::meas_normalization_constants() const
+        Eigen::ArrayXd MHLBPMulticlusterOutput::meas_normalization_constants() const
         {
             return mu.colwise().sum().transpose() + 1.0;
         }
-        Eigen::ArrayXd MHLBPMultilusterOutput::hypotheses_normalization_constants() const
+        Eigen::ArrayXd MHLBPMulticlusterOutput::hypotheses_normalization_constants() const
         {
             Eigen::ArrayXd rho_c, rho_prods, Z_thetas(num_clusters);
             std::transform(
@@ -186,12 +186,12 @@ namespace dfg_da
 
             return Z_thetas;
         }
-        Eigen::ArrayXXd MHLBPMultilusterOutput::track_meas_normalization_constants() const
+        Eigen::ArrayXXd MHLBPMulticlusterOutput::track_meas_normalization_constants() const
         {
             Eigen::ArrayXXd w_times_msg = w_nmd * nu;
             return (1.0 + ((-mu).rowwise() + mu.colwise().sum())) * ((-w_times_msg).colwise() + (w_times_msg.rowwise().sum() + w_0 + sigma)) + w_nmd;
         }
-        std::vector<Eigen::ArrayXd> MHLBPMultilusterOutput::track_hypos_normalization_constants() const
+        std::vector<Eigen::ArrayXd> MHLBPMulticlusterOutput::track_hypos_normalization_constants() const
         {
             std::vector<Eigen::ArrayXd> Z_tth(num_clusters);
             Eigen::ArrayXd rho_c, phi_rho_prods, w_sum, w_sum_times_msg = (w_nmd * nu).rowwise().sum() + w_0;
@@ -209,7 +209,7 @@ namespace dfg_da
             return Z_tth;
         }
 
-        MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
+        MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
             const size_t m = reward_matrix.cols() - n;
@@ -292,7 +292,7 @@ namespace dfg_da
                 iter += 1;
             }
 
-            return MHLBPMultilusterOutput(
+            return MHLBPMulticlusterOutput(
                 std::move(mu),
                 std::move(nu),
                 std::move(rho),

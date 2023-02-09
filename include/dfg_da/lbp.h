@@ -98,7 +98,7 @@ namespace dfg_da
             }
         };
 
-        struct MHLBPMultilusterOutput
+        struct MHLBPMulticlusterOutput
         {
             public:
             const Eigen::ArrayXXd mu;
@@ -112,7 +112,7 @@ namespace dfg_da
             const size_t num_measurements;
             const size_t num_clusters;
 
-            MHLBPMultilusterOutput(
+            MHLBPMulticlusterOutput(
                 Eigen::ArrayXXd &&mu_,
                 Eigen::ArrayXXd &&nu_,
                 Eigen::ArrayXd &&rho_,
@@ -145,7 +145,7 @@ namespace dfg_da
             Eigen::ArrayXXd track_meas_normalization_constants() const;
             std::vector<Eigen::ArrayXd> track_hypos_normalization_constants() const;
         };
-        MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
+        MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
 
     } // namespace lbp
 } // namespace dfg_da

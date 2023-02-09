@@ -92,6 +92,8 @@ public:
 
     auto cbegin() const { return hypos_.cbegin(); }
     auto cend() const { return hypos_.cend(); }
+
+    void append(const Hypothesis& new_hypothesis);
 };
 
 

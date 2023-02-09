@@ -7,7 +7,7 @@
 #include <gtsam/discrete/DecisionTreeFactor.h>
 #include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
-
+#include <numeric>
 
 
 namespace dfg_da {
@@ -405,16 +405,21 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
 
     for (size_t c = 0; c < num_clusters; c++)
     {
-        const dfg_da::hypothesis::Hypotheses& prior_hypotheses = prior_hypotheses_per_cluster[c];
+        dfg_da::hypothesis::Hypotheses prior_hypotheses = prior_hypotheses_per_cluster[c];
         // First construct hypothesis prior factor and variable
-        const size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
+        size_t num_prior_hypotheses = prior_hypotheses.num_hypotheses();
+        if (num_prior_hypotheses == 1) {
+            // GTSAM doesn't like variables with cardinality 1, so append dummy hypothesis
+            hypothesis::Hypothesis dummy({}, -std::numeric_limits<double>::infinity());
+            prior_hypotheses.append(dummy);
+            num_prior_hypotheses += 1;
+        }
         std::set<size_t> tracks_in_cluster = prior_hypotheses.tracks();
 
         gtsam::DiscreteKey th{T(c), num_prior_hypotheses};
         std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
         gtsam::DiscreteDistribution th_factor(th, theta_table);
         dfg.push_back(th_factor);
-
         // Hard compatability constraints are basically: 1 everywhere except nonexistence if it exists in the prior hypothesis
         for (const size_t track : tracks_in_cluster)
         {
@@ -433,7 +438,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
                     compatibility_table.push_back(xnor(contained_in_hypo, exists)); // If contained in hypothesis and less than non-existence id, use 1
                 }
             }
-
             gtsam::DecisionTreeFactor hyp_to_track_factor(keys, compatibility_table);
             dfg.push_back(hyp_to_track_factor);
 
@@ -446,7 +450,6 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
             // Add misdetection
             double m = exp(R(t_idx, misdetection_idx));
             prior_table.push_back(m);
-
             // Add all likelihoods
             for (size_t meas_idx = 0; meas_idx < num_measurements; meas_idx++)
             {
@@ -501,12 +504,30 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
 }
 
 std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
+    std::cout << "Entered function!\n";
     gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
+    std::cout << "Made dfg!\n";
 
     const size_t num_tracks = R.rows();
     const size_t num_measurements = R.cols() - num_tracks;
 
+    std::cout << "tracks: " << num_tracks << " meas " << num_measurements << "\n";
+    size_t num_hypos_combined_cluster = std::accumulate(prior_hypotheses_per_cluster.begin(), prior_hypotheses_per_cluster.end(), 1, [](const auto& acc, const auto& h) { return acc*h.num_hypotheses(); });
+    std::cout << "num hypos: " << num_hypos_combined_cluster << "\n";
+
+    auto fac = dfg.product();
+    std::cout << "Made product!\n";
+    size_t num_thetas = prior_hypotheses_per_cluster.size();
+    // num_tracks = R.rows();
+    // num_measurements = R.cols() - num_tracks;
+    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
+    std::cout << "Made sum!\n";
+
+    double exact_normalization_constant = (*ff)({});
+    std::cout << "Computed normalization constant!\n";
+    
     gtsam::DiscreteMarginals dfg_marginals(dfg);
+    std::cout << "Made marginals!\n";
 
     auto dks = dfg.discreteKeys();
     std::set<gtsam::DiscreteKey> all_keys;
@@ -523,14 +544,7 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
         exact_marginals.col(c) = dfg_marginals.marginalProbabilities(key);
         c += 1;
     }
-
-    auto fac = dfg.product();
-    size_t num_thetas = prior_hypotheses_per_cluster.size();
-    // num_tracks = R.rows();
-    // num_measurements = R.cols() - num_tracks;
-    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
-
-    double exact_normalization_constant = (*ff)({});
+    std::cout << "Computed marginals!\n";
 
     return {exact_marginals, exact_normalization_constant};
 }

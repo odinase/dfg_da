@@ -408,7 +408,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: list[tuple[list
     if lbp_output_in_kwargs:
         out += (lbp_output,)
         
-    out += (a2b_msg, b2a_msg, rho, sigma)
+    # out += (a2b_msg, b2a_msg, rho, sigma)
 
     return out
 
