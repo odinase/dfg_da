@@ -33,3 +33,4 @@ if __name__ == "__main__":
     exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
     print(exact_marginals.T)
     print(exact_normalization_constant)
+    print(dir(prior_hypotheses_per_cluster))

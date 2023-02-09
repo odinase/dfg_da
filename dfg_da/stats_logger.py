@@ -7,6 +7,8 @@ from .prior_hypothesis import PriorHypothesis, PriorHypotheses
 from .marginals_computers import MarginalsComputer, ExactMarginals
 import pickle
 
+import py_dfg_da
+
 
 @dataclass
 class MatFileParser:
@@ -21,10 +23,10 @@ class MatFileParser:
     num_tracks: int
     num_measurements: int
 
-    def __init__(self, filename: str, compute_hypotheses: bool = True):
+    def __init__(self, filename: str, compute_hypotheses: bool = True, use_cpp: bool = False):
         ws = loadmat(filename)
         self.ws = ws
-        R_wrapping = ws["gainMatPostC"] # This R has a strange shape...
+        R_wrapping = np.asfortranarray(ws["gainMatPostC"]) # This R has a strange shape... We convert it to order='F' for use with Eigen
         track_file = ws["trackFile"]
         measurements = ws["measurements"]
         
@@ -38,8 +40,81 @@ class MatFileParser:
         self.reward_matrix_edmund = R_wrapping[:n, :npm]
         self.reward_matrix_lc = np.hstack((np.diag(self.reward_matrix_edmund[:,m:])[:,None], self.reward_matrix_edmund[:,:m]))
 
-        if compute_hypotheses:
+        if compute_hypotheses and not use_cpp:
             self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses(ws)
+
+        if compute_hypotheses and use_cpp:
+            self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses_cpp(ws)
+
+
+    def ws_to_prior_hypotheses_cpp(self, ws):
+        hypos = ws["hypos"].ravel().astype(int)
+        hyposCard = ws["hyposCard"].ravel().astype(int)
+        probLogHypos = ws["probLogHypos"].ravel()
+        clustersCard = ws["clustersCard"].ravel().astype(int)
+        clusters = ws["clusters"].ravel().astype(int) - 1 # We negate one here to make hypotheses 0-indexed, which is more convenient. Tracks we keep 1-indexed
+        assert (clusters >= 0).all()
+
+        num_clusters = len(clustersCard)
+
+        # Let's actually first figure out the clusters we are working with and find the probabilities
+        log_hypo_probs_per_cluster = []
+        hypotheses_per_cluster = []
+
+        i = 0
+        for clusterC in clustersCard:
+            # These hypotheses are in the cluster
+            stop = i + clusterC
+            hypotheses_in_cluster = clusters[i:stop]
+
+            # hyposCard is as long as probLogCard, so pick out the elements that correspond to the "indices" in hypothesis_in_clutter
+            probLogHyposInCluster = probLogHypos[hypotheses_in_cluster]
+
+            log_hypo_probs_per_cluster.append(probLogHyposInCluster)
+            hypotheses_per_cluster.append(hypotheses_in_cluster)
+
+            i += clusterC
+
+        # Before we start looping over clusters, let's do this the simple way of making a list of lists, containing tracks contained in each hypothesis, then we sort it afterwards
+        tracks_in_hypotheses = [None] * hyposCard.shape[0]
+        endInd = np.cumsum(hyposCard)
+        beginInd = endInd - hyposCard
+        for hypos_in_cluster in hypotheses_per_cluster:
+            for h in hypos_in_cluster:
+                start_idx = beginInd[h]
+                stop_idx = endInd[h]
+                tracks_in_hypothesis = hypos[start_idx:stop_idx]
+                tracks_in_hypotheses[h] = tracks_in_hypothesis
+
+        track_set = [set(h) for h in tracks_in_hypotheses]
+        assert (np.array([sum([kk == hh for hh in track_set if len(hh) > 0]) for kk in track_set if len(kk) > 0]) == 1).all(), f"{track_set}"
+
+        assert all(h is not None for h in tracks_in_hypotheses)
+
+        # We now have all we need to return proper prior hypotheses
+
+        # Compute the clusters we consider
+        clusters_to_use = np.arange(num_clusters)#np.argsort(clustersCard)[::-1][:num_clusters]
+
+        # prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+        #     py_dfg_da.hypothesis.Hypotheses([
+        #         py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+        #         py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
+        #     ]),
+        #     py_dfg_da.hypothesis.Hypotheses([
+        #         py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+        #         py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5))
+        #     ])
+        # ])
+
+        prior_hypotheses_per_cluster = py_dfg_da.hypothesis.HypothesesList()
+        for c in clusters_to_use:
+            hypotheses_in_cluster = hypotheses_per_cluster[c]
+            log_hypo_probs_in_cluster = log_hypo_probs_per_cluster[c]
+            prior_hypotheses_in_cluster = py_dfg_da.hypothesis.Hypotheses([py_dfg_da.hypothesis.Hypothesis(tracks_in_hypotheses[h], p) for h, p in zip(hypotheses_in_cluster, log_hypo_probs_in_cluster)])
+            prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
+
+        return prior_hypotheses_per_cluster, clusters_to_use
 
 
     def ws_to_prior_hypotheses(self, ws):
@@ -91,7 +166,7 @@ class MatFileParser:
         # Compute the clusters we consider
         clusters_to_use = np.arange(num_clusters)#np.argsort(clustersCard)[::-1][:num_clusters]
 
-        prior_hypotheses_per_cluster = []
+        prior_hypotheses_per_cluster = dhh.Hypothe
         for c in clusters_to_use:
             hypotheses_in_cluster = hypotheses_per_cluster[c]
             log_hypo_probs_in_cluster = log_hypo_probs_per_cluster[c]
@@ -99,6 +174,7 @@ class MatFileParser:
             prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
 
         return prior_hypotheses_per_cluster, clusters_to_use
+
 
 
 SelfMarginals = TypeVar("SelfMarginals", bound="StatsLogger.Marginals")
@@ -267,6 +343,23 @@ class BetheStats:
 class ExactStats:
     marginals: Marginals
     normalization_constants: List[float]
+
+@dataclass
+class MulticlusterData:
+    exact_marginals: np.ndarray
+    exact_normalization_constant: float
+
+    mhlbp_marginals: np.ndarray
+    bethe_normalization_constant: float
+
+    def save_data(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def from_data(cls, path):
+        with open(path, "rb") as f:
+            return pickle.load(f)
 
 
 @dataclass
