@@ -270,4 +270,54 @@ int main(int argc, char **argv)
 
     auto [exact_marginals, exact_normalization_constant] = dfg_da::factor_graph::exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
     std::cout << exact_marginals << "\n" << exact_normalization_constant << "\n";
+
+
+    // Test merging of clusters
+
+    std::vector<size_t> hh1 = {1, 2, 4};
+    double log_p_hh1 = 2.0*log(0.5);
+
+    dfg_da::hypothesis::Hypothesis hv1(std::move(hh1), log_p_hh1);
+
+    std::vector<size_t> hh2 = {1, 2, 5};
+    double log_p_hh2 = 2.0*log(0.5);
+
+    dfg_da::hypothesis::Hypothesis hv2(std::move(hh2), log_p_hh2);
+
+    std::vector<size_t> hh3 = {1, 3, 4};
+    double log_p_hh3 = 2.0*log(0.5);
+
+    dfg_da::hypothesis::Hypothesis hv3(std::move(hh3), log_p_hh3);
+
+    std::vector<size_t> hh4 = {1, 3, 5};
+    double log_p_hh4 = 2.0*log(0.5);
+
+    dfg_da::hypothesis::Hypothesis hv4(std::move(hh4), log_p_hh4);
+
+    std::vector<dfg_da::hypothesis::Hypothesis> hhv = {hv1, hv2, hv3, hv4};
+    // dfg_da::hypothesis::Hypotheses hh(std::move(hhv));
+
+    size_t i = 0;
+    double Z = 0.0;
+    for (auto& h : hhv) {
+        double log_Z = 0.0;
+        std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
+        for (auto& asso : hypo_enumerations) {
+            std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
+            double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
+            log_Z += log_p;
+            log_Z += h.log_prob();
+            // for (size_t t : asso) {
+            //     std::cout << t << " ";
+            // }
+            // std::cout << "\n";
+        }
+        Z += exp(log_Z);
+        // std::cout << "Hypothesis " << i++ << " with tracks ";
+        // for (size_t tt : h.tracks()) {
+        //     std::cout << tt << " ";
+        // }
+        // std::cout << "\n";
+    }
+    std::cout << Z << "\n";
 }

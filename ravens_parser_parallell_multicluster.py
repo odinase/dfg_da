@@ -15,43 +15,8 @@ from pathlib import Path
 
 import py_dfg_da
 
-OUTPUT_PATH_BASE = "./ravens_output"
+OUTPUT_PATH_BASE = "./ravens_output_multicluster"
 PMBM_DATA_PATH = "./data/pmbm_output_files"
-
-def plot_survival_function(axes, max_errors, abs_errors, misdetection_errors, detection_errors, nonexistence_errors, label="_"):
-    assert len(axes) == 5
-
-    max_errors = np.sort(np.hstack(max_errors))
-    abs_errors = np.sort(np.hstack(abs_errors))
-    misdetection_errors = np.sort(np.hstack(misdetection_errors))
-    detection_errors = np.sort(np.hstack(detection_errors))
-    nonexistence_errors = np.sort(np.hstack(nonexistence_errors))
-
-    errors = [max_errors,
-        abs_errors,
-        misdetection_errors,
-        detection_errors,
-        nonexistence_errors]
-
-    titles = [
-        "max_errors",
-        "abs_errors",
-        "misdetection_errors",
-        "detection_errors",
-        "nonexistence_errors"
-    ]
-
-    for ax, error, title in zip(axes, errors, titles):
-        ax.set_title(title)
-        steps = np.linspace(1.0, 0.0, len(error))
-        ax.step(error, steps, label=label)
-        # ax.set_yscale('symlog')
-        ax.set_xscale('symlog', linthresh=1e-15)
-        # ax.semilogx()
-        ax.semilogy()
-        # ax.loglog()
-        if label != "_":
-            ax.legend()
 
 
 def loop_func(pmbm_file):
@@ -68,14 +33,6 @@ def loop_func(pmbm_file):
     
     num_clusters = len(prior_hypotheses_per_cluster)
     if num_clusters == 0:
-        # There are no clusters in this timestep for some reason, but that is still valuable information
-        cluster_stats = sl.ClusterData()
-        save_path = f"{path}/empty_cluster"
-        cluster_stats.cardinality = 0
-        cluster_stats.tracks = frozenset()
-        cluster_stats.num_hypotheses = 0
-
-        cluster_stats.save_data(save_path)
         return
 
     digits = int(np.ceil(np.log10(num_clusters)))
