@@ -99,6 +99,11 @@ PYBIND11_MODULE(py_dfg_da, m) {
         Some other explanation about the subtract function.
     )pbdoc");
 
+
+// std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
+    py::module_ factor_graph = m.def_submodule("factor_graph");
+    factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant);
+
     py::module_ hypothesis = m.def_submodule("hypothesis");
 
     py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
@@ -112,7 +117,9 @@ PYBIND11_MODULE(py_dfg_da, m) {
     py::module_ lbp = m.def_submodule("lbp");
 
     py::class_<lbp::MHLBPMultilusterOutput>(lbp, "MHLBPMultilusterOutput")
-    .def("track_association_marginals",  &lbp::MHLBPMultilusterOutput::track_association_marginals);
+    .def("track_association_marginals",  &lbp::MHLBPMultilusterOutput::track_association_marginals)
+    .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMultilusterOutput::bethe_pseudodual_loglikelihood)
+    .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMultilusterOutput::bethe_pseudodual_normalization_constant);
     // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
     lbp.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 300);
 }
