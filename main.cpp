@@ -300,24 +300,15 @@ int main(int argc, char **argv)
     size_t i = 0;
     double Z = 0.0;
     for (auto& h : hhv) {
-        double log_Z = 0.0;
         std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
         for (auto& asso : hypo_enumerations) {
+            double log_Z = 0.0;
             std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
             double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
             log_Z += log_p;
             log_Z += h.log_prob();
-            // for (size_t t : asso) {
-            //     std::cout << t << " ";
-            // }
-            // std::cout << "\n";
+            Z += exp(log_Z);
         }
-        Z += exp(log_Z);
-        // std::cout << "Hypothesis " << i++ << " with tracks ";
-        // for (size_t tt : h.tracks()) {
-        //     std::cout << tt << " ";
-        // }
-        // std::cout << "\n";
     }
     std::cout << Z << "\n";
 }
