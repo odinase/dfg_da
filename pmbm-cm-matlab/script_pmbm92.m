@@ -104,7 +104,7 @@ moviename = '9ravens9';
 doFilter = false; % If false, the script does only data generation
 doShowPHD = true;
 doSuccessRates = true; % Whether I should do success rate evaluation
-doPostDMRecycle = false;
+doPostDMRecycle = true;
 doWarmstart = false;
 warmstartString = '../pmbm_large_files/warmstart600.mat';
 
