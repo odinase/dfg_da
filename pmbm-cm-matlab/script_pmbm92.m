@@ -82,9 +82,9 @@ set(groot, 'defaultLegendInterpreter','latex');
 rand(1,19000);
 randn(1,19000);
 
-addpath('PMBM filter');
-addpath('GOSPA code');
-addpath('Assignment');
+addpath('./pmbm-cm-matlab/PMBM filter');
+addpath('./pmbm-cm-matlab/GOSPA code');
+addpath('./pmbm-cm-matlab/Assignment');
 
 cList = struct('cMat',{});
 
@@ -96,7 +96,7 @@ doTAES = false;
 doPlot =false;
 doMovie = false;
 doMechi = true;
-doSave = false;
+doSave = true;
 %moviename = 'mechiTrackingMovie08MechiFocusFirst60TimeSteps';
 moviename = '9ravens9';
 %moviename = 'initscenario01';
@@ -115,7 +115,7 @@ ise = isfile('../pmbm_large_files/tempFileCM12.mat');
 if(~ise)
     
     if(doMechi)
-        load('../pmbm_large_files/scenarioMechi2PD.mat');
+        load('./pmbm_large_files/scenarioMechi2PD.mat');
         
         
         params.lambdaFa = params.lambdaFa/10;
@@ -143,7 +143,7 @@ if(~ise)
     
     plotMC = 1;
     adoleThres = 1;
-    nMC = size(scenario,1);
+    %nMC = size(scenario,1);
     finalMC = 20;
     nHypoMax = 30;
     nHypoTotalMax = 150; % Maximal number of hypotheses allowed per cluster.
@@ -1536,7 +1536,6 @@ for dd=ddBeg:ddEnd
             if(any(boolsH))
                 error('Did I get repeated measurements in a single hypothesis after CS?');
             end
-            
             t2 = clock;
             deltaT = etime(t2,t1);
             timesArr(9,iMC,dd) = timesArr(9,iMC,dd) + deltaT;
@@ -1959,7 +1958,7 @@ for dd=ddBeg:ddEnd
             % Save stuff in case simulation gets interrupted.
             
             savedID = [iMC,dd];
-            save('../pmbm_large_files/tempFileCM11.mat');
+            save('./pmbm_large_files/tempFileCM11.mat');
             disp(['Saved stuff at iMC ',num2str(iMC),' dd ',num2str(dd)]);
             
         end 

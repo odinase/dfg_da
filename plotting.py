@@ -620,8 +620,8 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
 
     titles = [title.capitalize().replace("_", " ") for title in titles]
 
-    for ax, error, title in zip(axes, errors, titles):
-        ax.set_title(title, fontsize=18)
+    for k, (ax, error, title) in enumerate(zip(axes, errors, titles)):
+        ax.set_title(title, fontsize=20)
         steps = np.linspace(1.0, 0.0, len(error))
         first_nonzero = np.where(error > 0)[0][0]
         first_val = error[first_nonzero]
@@ -638,13 +638,13 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         ax.set_xticks(xticks)
         xticks_labels = [0] + [rf'$10^{{{l}}}$' for l in log_err]
         ax.set_xticklabels(xticks_labels)
-        ax.tick_params(axis='both', which='major', labelsize=14)
-        ax.tick_params(axis='both', which='minor', labelsize=14)
+        ax.tick_params(axis='both', which='major', labelsize=18)
+        ax.tick_params(axis='both', which='minor', labelsize=18)
         # ax.set_yscale('symlog', linthresh=steps[1])
         ax.semilogy()
         ax.grid(True, alpha=0.2)
-        if label != "_":
-            ax.legend(fontsize=10)
+        if label != "_" and k == 0:
+            ax.legend(fontsize=13)
 
 
 def condense_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -715,15 +715,18 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, P
     exact_normalization_constants = np.hstack(exact_normalization_constants)
 
     fig, ax = plt.subplots()
-    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
-    ax.plot(bethe_normalization_constants_odin, exact_normalization_constants, 'o', alpha=0.2, label="Bethe Odin")
-    ax.plot(bethe_normalization_constants_lc, exact_normalization_constants, 'o', alpha=0.2, label="Bethe LC")
+    # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
+    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="PHD")
+    # ax.plot(bethe_normalization_constants_odin, exact_normalization_constants, 'o', alpha=0.2, label="Bethe Odin")
+    # ax.plot(bethe_normalization_constants_lc, exact_normalization_constants, 'o', alpha=0.2, label="Bethe LC")
     ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
-    ax.set_xlabel("Approximate normalization constant")
-    ax.set_ylabel("Exact normalization constant")
+    ax.set_xlabel("Approximate normalization constant", fontsize=18)
+    ax.set_ylabel("Exact normalization constant", fontsize=18)
     ax.grid(True, alpha=0.3)
-    ax.legend()
+    ax.legend(fontsize=18)
     ax.loglog()
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    ax.tick_params(axis='both', which='minor', labelsize=18)
 
     # fig2, ax2 = plt.subplots()
     # ax2.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
@@ -791,18 +794,17 @@ def load_cluster_stats(return_empty_clusters: bool = False):
 if __name__ == "__main__":
     cluster_stats = load_cluster_stats()
 
-    illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
+    # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
 
-    print(illegal_files)
+    # print(illegal_files)
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
     # make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
-    # normalization_constant_scatter_plot(cluster_stats)
+    normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
-    # make_survival_function_plots(cluster_stats)
+    make_survival_function_plots(cluster_stats)
     # make_heatmap_correlation_lbpphd(cluster_stats)
-
