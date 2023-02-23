@@ -134,6 +134,9 @@ namespace dfg_da
             size_t j,
             const size_t M)
         {
+            if (hypotheses.size() > 1e9) {
+                throw std::invalid_argument("Too many hypotheses, exceeds 1e9");
+            }
             // We are currently considering measurement j \in {1, ..., M}.
             // If we have considered all measurements, return
             if (j > M)
@@ -195,6 +198,46 @@ namespace dfg_da
             association_marginals.rowwise() /= association_marginals.colwise().sum();
 
             return association_marginals;
+        }
+
+        std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses)
+        {
+
+            const size_t N = reward_matrix.rows();
+            const size_t M = reward_matrix.cols() - N;
+
+            Eigen::ArrayXXd association_marginals = Eigen::ArrayXXd::Zero(M + 2, N); // misdetection + num measurements + nonexistence
+            const size_t nonexistence_idx = M + 1;
+
+            double Z = 0.0;
+            // For each prior hypothesis, find all valid posterior hypotheses
+            for (auto prior_hypothesis_iter = prior_hypotheses.cbegin(); prior_hypothesis_iter != prior_hypotheses.cend(); ++prior_hypothesis_iter)
+            {
+                // Compute new posterior hypotheses conditioned on the prior hypothesis
+                std::vector<std::vector<size_t>> conditional_posterior_hypotheses = hypothesis_enumeration(reward_matrix, *prior_hypothesis_iter);
+                double log_prior_prob = prior_hypothesis_iter->log_prob();
+
+                for (const std::vector<size_t> &cond_posterior_hypothesis : conditional_posterior_hypotheses)
+                {
+                    double log_Z = 0.0;
+                    // Convert hypothesis to be over all tracks we know of
+                    std::vector<size_t> to_cond_posterior_hypothesis = mo_to_to_hypothesis(cond_posterior_hypothesis, N);
+
+                    // Compute unnormalized probability for prior hypothesis conditional
+                    double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, *prior_hypothesis_iter, reward_matrix);
+                    for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++)
+                    {
+                        size_t idx = prior_hypothesis_iter->contains(t) ? to_cond_posterior_hypothesis[i] : nonexistence_idx;
+                        association_marginals(idx, i) += exp(log_p + log_prior_prob);
+                    }
+                    log_Z += log_p + log_prior_prob;
+                    Z += exp(log_Z);
+                }
+            }
+
+            association_marginals.rowwise() /= association_marginals.colwise().sum();
+
+            return {association_marginals, Z};
         }
 
         std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t> &mo_hypothesis, const size_t num_tracks)

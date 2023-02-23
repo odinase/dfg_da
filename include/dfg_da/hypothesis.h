@@ -103,6 +103,7 @@ namespace dfg_da
             const size_t M);
 
         Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);
+        std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);
 
         std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t> &mo_hypothesis, const size_t num_tracks);
 

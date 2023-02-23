@@ -268,8 +268,8 @@ int main(int argc, char **argv)
 
     std::cout << marginals << "\n";
 
-    auto [exact_marginals, exact_normalization_constant] = dfg_da::factor_graph::exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
-    std::cout << exact_marginals << "\n" << exact_normalization_constant << "\n";
+    // auto [exact_marginals, exact_normalization_constant] = dfg_da::factor_graph::exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
+    // std::cout << exact_marginals << "\n" << exact_normalization_constant << "\n";
 
 
     // Test merging of clusters
@@ -335,6 +335,10 @@ int main(int argc, char **argv)
         //     Z += exp(log_Z);
         // }
     }
+    auto [exact_marginals, exact_Z] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, h_combined);
+    std::cout << exact_marginals << "\n";
+    std::cout << exact_Z << "\n";
+    
     // std::sort(all_hypos.begin(), all_hypos.end(), [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
     // for (const auto& [h, r] : all_hypos) {
     //     std::cout << r << ", " << exp(r - log(Z)) << ": ";
