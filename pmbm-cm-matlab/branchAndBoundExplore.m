@@ -1,4 +1,4 @@
-function [hyposLocal,hyposCardLocal,probLogLocal,kInvestigate,pqLen,priorCardAve] = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k)
+function [hyposLocal,hyposCardLocal,probLogLocal,kInvestigate,pqLen,priorCardAve,pq] = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k)
 
 
 kInvestigate = zeros(1,0);

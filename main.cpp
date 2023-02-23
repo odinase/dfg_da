@@ -299,16 +299,49 @@ int main(int argc, char **argv)
 
     size_t i = 0;
     double Z = 0.0;
+    std::vector<std::pair<std::vector<size_t>, double>> all_hypos;
+    std::cout << "hhv\n";
     for (auto& h : hhv) {
-        std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
-        for (auto& asso : hypo_enumerations) {
-            double log_Z = 0.0;
-            std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
-            double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
-            log_Z += log_p;
-            log_Z += h.log_prob();
-            Z += exp(log_Z);
+        for (const auto& t : h.tracks()) {
+            std::cout << t << " ";
         }
+        std::cout << std::endl;
+        // std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
+        // for (auto& asso : hypo_enumerations) {
+        //     double log_Z = 0.0;
+        //     std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
+        //     double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
+        //     log_Z += log_p;
+        //     log_Z += h.log_prob();
+        //     all_hypos.push_back({to_cond_posterior_hypothesis, log_Z});
+        //     Z += exp(log_Z);
+        // }
     }
-    std::cout << Z << "\n";
+    std::cout << "h_combined\n";
+    dfg_da::hypothesis::Hypotheses h_combined = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]);
+    for (auto& h : h_combined) {
+        for (const auto& t : h.tracks()) {
+            std::cout << t << " ";
+        }
+        std::cout << std::endl;
+        // std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
+        // for (auto& asso : hypo_enumerations) {
+        //     double log_Z = 0.0;
+        //     std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
+        //     double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
+        //     log_Z += log_p;
+        //     log_Z += h.log_prob();
+        //     all_hypos.push_back({to_cond_posterior_hypothesis, log_Z});
+        //     Z += exp(log_Z);
+        // }
+    }
+    // std::sort(all_hypos.begin(), all_hypos.end(), [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
+    // for (const auto& [h, r] : all_hypos) {
+    //     std::cout << r << ", " << exp(r - log(Z)) << ": ";
+    //     for (const auto& t : h) {
+    //         std::cout << t << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
+    // std::cout << Z << "\n";
 }

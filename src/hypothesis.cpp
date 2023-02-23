@@ -3,6 +3,7 @@
 
 #include <numeric>
 #include <functional>
+#include <algorithm>
 #include <set>
 #include <iostream>
 #include <unordered_map>
@@ -12,6 +13,16 @@ namespace dfg_da
 
     namespace hypothesis
     {
+
+        // Combining two hypotheses means to concatenate the tracks existing and adding the log probabilities together
+        Hypothesis Hypothesis::combine(const Hypothesis &h_rhs) const
+        {
+            Hypothesis new_h(h_rhs);
+            new_h.tracks_.insert(new_h.tracks_.end(), this->tracks_.begin(), this->tracks_.end());
+            std::sort(new_h.tracks_.begin(), new_h.tracks_.end());
+            new_h.log_prob_ += this->log_prob_;
+            return new_h;
+        }
 
         Hypotheses::Hypotheses(const std::vector<Hypothesis> &hypos) : hypos_(hypos)
         {
@@ -237,11 +248,23 @@ namespace dfg_da
             return log_prob;
         }
 
-    void Hypotheses::append(const Hypothesis& new_hypothesis) {
-        hypos_.push_back(new_hypothesis);
-        log_normalize();
-    }
+        void Hypotheses::append(const Hypothesis &new_hypothesis)
+        {
+            hypos_.push_back(new_hypothesis);
+            log_normalize();
+        }
 
-
+        Hypotheses Hypotheses::combine(const Hypotheses &h_rhs) const
+        {
+            std::vector<Hypothesis> hh;
+            for (const Hypothesis &h1 : h_rhs.hypos_)
+            {
+                for (const Hypothesis &h2 : hypos_)
+                {
+                    hh.push_back(h1.combine(h2));
+                }
+            }
+            return Hypotheses(std::move(hh));
+        }
     } // namespace hypothesis
 } // namespace dfg_da

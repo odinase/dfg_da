@@ -504,49 +504,68 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
 }
 
 std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
-    std::cout << "Entered function!\n";
-    gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
-    std::cout << "Made dfg!\n";
+    // std::cout << "Entered function!\n";
+    // gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
+    // std::cout << "Made dfg!\n";
+
+    // const size_t num_tracks = R.rows();
+    // const size_t num_measurements = R.cols() - num_tracks;
+
+    // std::cout << "tracks: " << num_tracks << " meas " << num_measurements << "\n";
+    // size_t num_hypos_combined_cluster = std::accumulate(prior_hypotheses_per_cluster.begin(), prior_hypotheses_per_cluster.end(), 1, [](const auto& acc, const auto& h) { return acc*h.num_hypotheses(); });
+    // std::cout << "num hypos: " << num_hypos_combined_cluster << "\n";
+
+    // auto fac = dfg.product();
+    // std::cout << "Made product!\n";
+    // size_t num_thetas = prior_hypotheses_per_cluster.size();
+    // // num_tracks = R.rows();
+    // // num_measurements = R.cols() - num_tracks;
+    // auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
+    // std::cout << "Made sum!\n";
+
+    // double exact_normalization_constant = (*ff)({});
+    // std::cout << "Computed normalization constant!\n";
+    
+    // gtsam::DiscreteMarginals dfg_marginals(dfg);
+    // std::cout << "Made marginals!\n";
+
+    // auto dks = dfg.discreteKeys();
+    // std::set<gtsam::DiscreteKey> all_keys;
+    // for (const auto& dk : dks) {
+    //     if (gtsam::symbolChr(dk.first) == 'a') {
+    //         all_keys.insert(dk);
+    //     }
+    // }
+
+
+    // size_t c = 0;
+    // for (const auto& key : all_keys) {
+    //     exact_marginals.col(c) = dfg_marginals.marginalProbabilities(key);
+    //     c += 1;
+    // }
+    // std::cout << "Computed marginals!\n";
 
     const size_t num_tracks = R.rows();
     const size_t num_measurements = R.cols() - num_tracks;
 
-    std::cout << "tracks: " << num_tracks << " meas " << num_measurements << "\n";
-    size_t num_hypos_combined_cluster = std::accumulate(prior_hypotheses_per_cluster.begin(), prior_hypotheses_per_cluster.end(), 1, [](const auto& acc, const auto& h) { return acc*h.num_hypotheses(); });
-    std::cout << "num hypos: " << num_hypos_combined_cluster << "\n";
-
-    auto fac = dfg.product();
-    std::cout << "Made product!\n";
-    size_t num_thetas = prior_hypotheses_per_cluster.size();
-    // num_tracks = R.rows();
-    // num_measurements = R.cols() - num_tracks;
-    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
-    std::cout << "Made sum!\n";
-
-    double exact_normalization_constant = (*ff)({});
-    std::cout << "Computed normalization constant!\n";
-    
-    gtsam::DiscreteMarginals dfg_marginals(dfg);
-    std::cout << "Made marginals!\n";
-
-    auto dks = dfg.discreteKeys();
-    std::set<gtsam::DiscreteKey> all_keys;
-    for (const auto& dk : dks) {
-        if (gtsam::symbolChr(dk.first) == 'a') {
-            all_keys.insert(dk);
-        }
-    }
-
     Eigen::ArrayXXd exact_marginals(2 + num_measurements, num_tracks);
 
-    size_t c = 0;
-    for (const auto& key : all_keys) {
-        exact_marginals.col(c) = dfg_marginals.marginalProbabilities(key);
-        c += 1;
-    }
-    std::cout << "Computed marginals!\n";
+    // double Z = 0.0;
+    // std::vector<std::pair<std::vector<size_t>, double>> all_hypos;
+    // for (auto& h : hhv) {
+    //     std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
+    //     for (auto& asso : hypo_enumerations) {
+    //         double log_Z = 0.0;
+    //         std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
+    //         double log_p = dfg_da::hypothesis::prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
+    //         log_Z += log_p;
+    //         log_Z += h.log_prob();
+    //         all_hypos.push_back({to_cond_posterior_hypothesis, log_Z});
+    //         Z += exp(log_Z);
+    //     }
+    // }
 
-    return {exact_marginals, exact_normalization_constant};
+    return {exact_marginals, 0.0};
 }
 
 

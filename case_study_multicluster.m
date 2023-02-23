@@ -40,5 +40,3 @@ for iC=1:size(masters,2)
     = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,...
     iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k)
 end
-
-                
