@@ -127,12 +127,11 @@ namespace dfg_da
             traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
             // traverse_hypothesis_tree(hypotheses, prior_hypothesis, gated_tracks_, m);
 
-
-    //     void traverse_hypothesis_tree(
-    // std::vector<std::vector<size_t>> &hypotheses,
-    // const Hypothesis &prior_hypothesis,
-    // const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
-    // size_t M)
+            //     void traverse_hypothesis_tree(
+            // std::vector<std::vector<size_t>> &hypotheses,
+            // const Hypothesis &prior_hypothesis,
+            // const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
+            // size_t M)
 
             return hypotheses;
         }
@@ -177,48 +176,49 @@ namespace dfg_da
         }
 
         void traverse_hypothesis_tree(
-    std::vector<std::vector<size_t>> &hypotheses,
-    const Hypothesis &prior_hypothesis,
-    const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
-    size_t M)
-{
-    std::stack<std::tuple<std::vector<size_t>, size_t>> stack;
-    stack.push(std::make_tuple(std::vector<size_t>(), 1));
-
-    while (!stack.empty()) {
-        auto [parent_hypothesis, j] = stack.top();
-        stack.pop();
-
-        if (hypotheses.size() > 1e9)
+            std::vector<std::vector<size_t>> &hypotheses,
+            const Hypothesis &prior_hypothesis,
+            const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
+            size_t M)
         {
-            throw std::invalid_argument("Too many hypotheses, exceeds 1e9");
-        }
+            std::stack<std::tuple<std::vector<size_t>, size_t>> stack;
+            stack.push(std::make_tuple(std::vector<size_t>(), 1));
 
-        if (j > M)
-        {
-            assert(parent_hypothesis.size() == M);
-            hypotheses.push_back(parent_hypothesis);
-            continue;
-        }
-
-        // First consider misdetection
-        auto md_parent_hypothesis = parent_hypothesis;
-        md_parent_hypothesis.push_back(0);
-        stack.push(std::make_tuple(md_parent_hypothesis, j + 1));
-
-        // Loop over all tracks that can claim measurements
-        for (const auto &track : gated_tracks_.at(j))
-        {
-            // Track is not claimed yet if it is not contained in parent hypothesis
-            if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end() && prior_hypothesis.contains(track))
+            while (!stack.empty())
             {
-                auto claimed_parent_hypothesis = parent_hypothesis;
-                claimed_parent_hypothesis.push_back(track);
-                stack.push(std::make_tuple(claimed_parent_hypothesis, j + 1));
+                auto [parent_hypothesis, j] = stack.top();
+                stack.pop();
+
+                if (hypotheses.size() > 1e9)
+                {
+                    throw std::invalid_argument("Too many hypotheses, exceeds 1e9");
+                }
+
+                if (j > M)
+                {
+                    assert(parent_hypothesis.size() == M);
+                    hypotheses.push_back(parent_hypothesis);
+                    continue;
+                }
+
+                // First consider misdetection
+                auto md_parent_hypothesis = parent_hypothesis;
+                md_parent_hypothesis.push_back(0);
+                stack.push(std::make_tuple(md_parent_hypothesis, j + 1));
+
+                // Loop over all tracks that can claim measurements
+                for (const auto &track : gated_tracks_.at(j))
+                {
+                    // Track is not claimed yet if it is not contained in parent hypothesis
+                    if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end() && prior_hypothesis.contains(track))
+                    {
+                        auto claimed_parent_hypothesis = parent_hypothesis;
+                        claimed_parent_hypothesis.push_back(track);
+                        stack.push(std::make_tuple(claimed_parent_hypothesis, j + 1));
+                    }
+                }
             }
         }
-    }
-}
 
         Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses)
         {

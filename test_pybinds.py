@@ -4,13 +4,13 @@ import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
 
 if __name__ == "__main__":
-    R = np.array([
-        [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-        [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-        [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-        [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-        [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-    ], order='F')
+    # R = np.array([
+    #     [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+    #     [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+    #     [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+    #     [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+    #     [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    # ], order='F')
 
     R = np.array([
         [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
@@ -55,7 +55,6 @@ if __name__ == "__main__":
     exact_computer = mc.ExactMarginals()
 
 
-    conditioned_marginals = np.empty((n, m + 2))
 
     lc_margs = np.empty((n, m + 2))
     _0 = np.zeros((n, 1))
@@ -63,6 +62,8 @@ if __name__ == "__main__":
     Z = np.empty(len(prior_hypotheses_per_cluster))
     for c, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         t_idx = np.fromiter(prior_hypotheses.tracks(), dtype=int) - 1
+        nc = len(t_idx)
+        conditioned_marginals = np.zeros((n, m + 2))
         marginal_total = np.zeros((n, m + 1 + 1))
         for k in range(len(prior_hypotheses)):
             hh = prior_hypotheses[k]
@@ -82,6 +83,8 @@ if __name__ == "__main__":
             conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
             normalizing_constant = np.exp(loglikelihood)
+
+            
 
             marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
