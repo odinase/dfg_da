@@ -8,6 +8,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <stack>
+#include <bitset>
 
 namespace dfg_da
 {
@@ -124,8 +125,8 @@ namespace dfg_da
 
             std::vector<std::vector<size_t>> hypotheses;
             std::vector<size_t> parent_hypothesis;
-            traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
-            // traverse_hypothesis_tree(hypotheses, prior_hypothesis, gated_tracks_, m);
+            // traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
+            traverse_hypothesis_tree(hypotheses, prior_hypothesis, gated_tracks_, m);
 
             //     void traverse_hypothesis_tree(
             // std::vector<std::vector<size_t>> &hypotheses,
@@ -181,8 +182,8 @@ namespace dfg_da
             const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
             size_t M)
         {
-            std::stack<std::tuple<std::vector<size_t>, size_t>> stack;
-            stack.push(std::make_tuple(std::vector<size_t>(), 1));
+            std::stack<std::tuple<std::bitset<100>, size_t>> stack;
+            stack.push(std::make_tuple(std::bitset<100>(), 1));
 
             while (!stack.empty())
             {
@@ -196,24 +197,31 @@ namespace dfg_da
 
                 if (j > M)
                 {
-                    assert(parent_hypothesis.size() == M);
-                    hypotheses.push_back(parent_hypothesis);
+                    std::vector<size_t> hypothesis;
+                    for (size_t i = 0; i < M; ++i)
+                    {
+                        if (parent_hypothesis.test(i))
+                        {
+                            hypothesis.push_back(i + 1);
+                        }
+                    }
+                    hypotheses.push_back(hypothesis);
                     continue;
                 }
 
                 // First consider misdetection
                 auto md_parent_hypothesis = parent_hypothesis;
-                md_parent_hypothesis.push_back(0);
+                md_parent_hypothesis.reset(j - 1);
                 stack.push(std::make_tuple(md_parent_hypothesis, j + 1));
 
                 // Loop over all tracks that can claim measurements
                 for (const auto &track : gated_tracks_.at(j))
                 {
                     // Track is not claimed yet if it is not contained in parent hypothesis
-                    if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end() && prior_hypothesis.contains(track))
+                    if (!parent_hypothesis.test(track - 1) && prior_hypothesis.contains(track))
                     {
                         auto claimed_parent_hypothesis = parent_hypothesis;
-                        claimed_parent_hypothesis.push_back(track);
+                        claimed_parent_hypothesis.set(track - 1);
                         stack.push(std::make_tuple(claimed_parent_hypothesis, j + 1));
                     }
                 }
@@ -300,46 +308,70 @@ namespace dfg_da
         std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant_multicluster(const Eigen::MatrixXd &reward_matrix, const std::vector<Hypotheses> &prior_hypotheses_per_cluster_posterior)
         {
 
+            return {Eigen::ArrayXd(), 0.0};
+
             const size_t N = reward_matrix.rows();
             const size_t M = reward_matrix.cols() - N;
 
             Eigen::ArrayXXd association_marginals = Eigen::ArrayXXd::Zero(M + 2, N); // misdetection + num measurements + nonexistence
             const size_t nonexistence_idx = M + 1;
 
+            // Make convenience variable for later
+            std::unordered_map<size_t, std::vector<size_t>> gated_tracks_ = gated_tracks(reward_matrix);
+            std::vector<size_t> hypothesis_branch;
+            hypothesis_branch.reserve(N);
+
             // We need the total multicluster normalization constant, which should be just the product of normalization constants for each cluster.
             double Z_tot = 1.0;
             // Loop over each cluster
             for (const auto &prior_hypotheses : prior_hypotheses_per_cluster_posterior)
             {
-                std::set<size_t> tracks = prior_hypotheses.tracks();
+                // Set over all tracks existing in the cluster. We should only compute marginals for these
+                std::set<size_t> tracks_set = prior_hypotheses.tracks();
+                std::vector<size_t> tracks(tracks_set.begin(), tracks_set.end());
+                size_t i = 0;
+
                 double Z_cluster = 0.0;
+
                 // For each prior hypothesis, find all valid posterior hypotheses
                 for (auto prior_hypothesis_iter = prior_hypotheses.cbegin(); prior_hypothesis_iter != prior_hypotheses.cend(); ++prior_hypothesis_iter)
                 {
-                    // Compute new posterior hypotheses conditioned on the prior hypothesis
-                    std::vector<std::vector<size_t>> conditional_posterior_hypotheses = hypothesis_enumeration(reward_matrix, *prior_hypothesis_iter);
+                    std::stack<size_t> tracks_stack;
+                    // We use index 0 here, but will map these track indices with the vector above
+                    tracks_stack.push(0);
+
+                    while (!tracks_stack.empty())
+                    {
+                        size_t track = tracks_stack.top();
+                        tracks_stack.pop();
+
+                        // Associate track with misdetection
+                        hypothesis_branch.push_back(0);
+                        tracks_stack.push(track + 1);
+                    }
+
                     double log_prior_prob = prior_hypothesis_iter->log_prob();
 
-                    for (const std::vector<size_t> &cond_posterior_hypothesis : conditional_posterior_hypotheses)
-                    {
-                        double log_Z = 0.0;
-                        // Convert hypothesis to be over all tracks we know of
-                        std::vector<size_t> to_cond_posterior_hypothesis = mo_to_to_hypothesis(cond_posterior_hypothesis, N);
+                    // for (const std::vector<size_t> &cond_posterior_hypothesis : conditional_posterior_hypotheses)
+                    // {
+                    //     double log_Z = 0.0;
+                    //     // Convert hypothesis to be over all tracks we know of
+                    //     std::vector<size_t> to_cond_posterior_hypothesis = mo_to_to_hypothesis(cond_posterior_hypothesis, N);
 
-                        // Compute unnormalized probability for prior hypothesis conditional
-                        double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, *prior_hypothesis_iter, reward_matrix);
-                        for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++)
-                        {
-                            // The track must exist in the cluster.
-                            if (std::find(tracks.begin(), tracks.end(), t) != tracks.end())
-                            {
-                                size_t idx = prior_hypothesis_iter->contains(t) ? to_cond_posterior_hypothesis[i] : nonexistence_idx;
-                                association_marginals(idx, i) += exp(log_p + log_prior_prob);
-                            }
-                        }
-                        log_Z += log_p + log_prior_prob;
-                        Z_cluster += exp(log_Z);
-                    }
+                    //     // Compute unnormalized probability for prior hypothesis conditional
+                    //     double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, *prior_hypothesis_iter, reward_matrix);
+                    //     for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++)
+                    //     {
+                    //         // The track must exist in the cluster.
+                    //         if (std::find(tracks.begin(), tracks.end(), t) != tracks.end())
+                    //         {
+                    //             size_t idx = prior_hypothesis_iter->contains(t) ? to_cond_posterior_hypothesis[i] : nonexistence_idx;
+                    //             association_marginals(idx, i) += exp(log_p + log_prior_prob);
+                    //         }
+                    //     }
+                    //     log_Z += log_p + log_prior_prob;
+                    //     Z_cluster += exp(log_Z);
+                    // }
                 }
                 Z_tot *= Z_cluster;
             }
