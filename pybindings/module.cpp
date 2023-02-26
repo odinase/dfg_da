@@ -107,6 +107,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
     py::module_ hypothesis = m.def_submodule("hypothesis");
 
     hypothesis.def("association_marginal_posteriors_normalization_constant", hypothesis::association_marginal_posteriors_normalization_constant, "reward_matrix"_a.noconvert(), "prior_hypotheses"_a.noconvert());
+    hypothesis.def("association_marginal_posteriors_normalization_constant_multicluster", hypothesis::association_marginal_posteriors_normalization_constant_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster_posterior"_a.noconvert());
+
 
     py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
     py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")

@@ -48,12 +48,13 @@ if __name__ == "__main__":
     merged_hypos = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1])
     exact_margs, exact_norm = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, merged_hypos)
 
-
     print(exact_margs.T)
     print(exact_norm)
 
-    exact_computer = mc.ExactMarginals()
-
+    print("Multicluster!!!")
+    exact_margs_mc, exact_norm_mc = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster)
+    print(exact_margs_mc.T)
+    print(exact_norm_mc)
 
 
     lc_margs = np.empty((n, m + 2))
