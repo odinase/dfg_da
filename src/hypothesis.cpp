@@ -7,6 +7,7 @@
 #include <set>
 #include <iostream>
 #include <unordered_map>
+#include <stack>
 
 namespace dfg_da
 {
@@ -96,9 +97,11 @@ namespace dfg_da
 
             if (m > 0)
             {
-                for (size_t t = 0, i = 1; t < n; t++, i++)
+                for (size_t s = 0, j = 1; s < m; s++, j++)
                 {
-                    for (size_t s = 0, j = 1; s < m; s++, j++)
+                    // We need to initialize with empty vector in case we have a measurement gated by no tracks
+                    gated_tracks_[j] = {};
+                    for (size_t t = 0, i = 1; t < n; t++, i++)
                     {
                         if (std::isfinite(reward_matrix(t, s)))
                         {
@@ -121,12 +124,20 @@ namespace dfg_da
 
             std::vector<std::vector<size_t>> hypotheses;
             std::vector<size_t> parent_hypothesis;
-            traverse_hypothesis_tree(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
+            traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
+            // traverse_hypothesis_tree(hypotheses, prior_hypothesis, gated_tracks_, m);
+
+
+    //     void traverse_hypothesis_tree(
+    // std::vector<std::vector<size_t>> &hypotheses,
+    // const Hypothesis &prior_hypothesis,
+    // const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
+    // size_t M)
 
             return hypotheses;
         }
 
-        void traverse_hypothesis_tree(
+        void traverse_hypothesis_tree_recursive(
             std::vector<std::vector<size_t>> &hypotheses,
             std::vector<size_t> &parent_hypothesis,
             const Hypothesis &prior_hypothesis,
@@ -134,7 +145,8 @@ namespace dfg_da
             size_t j,
             const size_t M)
         {
-            if (hypotheses.size() > 1e9) {
+            if (hypotheses.size() > 1e9)
+            {
                 throw std::invalid_argument("Too many hypotheses, exceeds 1e9");
             }
             // We are currently considering measurement j \in {1, ..., M}.
@@ -148,7 +160,7 @@ namespace dfg_da
 
             // First consider misdetection
             parent_hypothesis.push_back(0);
-            traverse_hypothesis_tree(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, j + 1, M);
+            traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, j + 1, M);
             parent_hypothesis.pop_back();
 
             // Loop over all tracks that can claim measurements
@@ -158,11 +170,55 @@ namespace dfg_da
                 if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end() && prior_hypothesis.contains(track))
                 {
                     parent_hypothesis.push_back(track);
-                    traverse_hypothesis_tree(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, j + 1, M);
+                    traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, j + 1, M);
                     parent_hypothesis.pop_back();
                 }
             }
         }
+
+        void traverse_hypothesis_tree(
+    std::vector<std::vector<size_t>> &hypotheses,
+    const Hypothesis &prior_hypothesis,
+    const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
+    size_t M)
+{
+    std::stack<std::tuple<std::vector<size_t>, size_t>> stack;
+    stack.push(std::make_tuple(std::vector<size_t>(), 1));
+
+    while (!stack.empty()) {
+        auto [parent_hypothesis, j] = stack.top();
+        stack.pop();
+
+        if (hypotheses.size() > 1e9)
+        {
+            throw std::invalid_argument("Too many hypotheses, exceeds 1e9");
+        }
+
+        if (j > M)
+        {
+            assert(parent_hypothesis.size() == M);
+            hypotheses.push_back(parent_hypothesis);
+            continue;
+        }
+
+        // First consider misdetection
+        auto md_parent_hypothesis = parent_hypothesis;
+        md_parent_hypothesis.push_back(0);
+        stack.push(std::make_tuple(md_parent_hypothesis, j + 1));
+
+        // Loop over all tracks that can claim measurements
+        for (const auto &track : gated_tracks_.at(j))
+        {
+            // Track is not claimed yet if it is not contained in parent hypothesis
+            if (std::find(parent_hypothesis.begin(), parent_hypothesis.end(), track) == parent_hypothesis.end() && prior_hypothesis.contains(track))
+            {
+                auto claimed_parent_hypothesis = parent_hypothesis;
+                claimed_parent_hypothesis.push_back(track);
+                stack.push(std::make_tuple(claimed_parent_hypothesis, j + 1));
+            }
+        }
+    }
+}
 
         Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses)
         {

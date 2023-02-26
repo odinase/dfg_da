@@ -22,6 +22,7 @@ py_dfg_da.cpython-39-x86_64-linux-gnu.so
 *.png
 *.pdf
 /ravens_output
+/ravens_output_multicluster
 /ravens_output_backup
 /ravens_output2
 **/*.mp4

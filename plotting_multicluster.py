@@ -21,7 +21,7 @@ import seaborn as sns
 sns.set_theme(style="ticks")
 
 
-from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData
+from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData, MulticlusterData
 import dfg_da.stats_logger as sl
 from dfg_da.marginals_computers import LBPMarginalsFullAssociation
 from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
@@ -423,24 +423,16 @@ def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
     save_fig(fig, "mhlbp_lbpphd_compare")
 
 
-def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
+def make_heatmap_correlation(cluster_stats: List[Tuple[MulticlusterData, Path]]):
     exact_marginals = []
     lbp_marginals = []
-    williams_marginals = []
-    williams_marginals_exact = []
 
     for cluster_stat, _ in cluster_stats:
-        if not cluster_stat.explicit_hypothesis_enumeration_error:
-            exact_marginals.append(cluster_stat.exact_stats.marginals)
-            lbp_marginals.append(cluster_stat.lbp_stats.marginals)
-            williams_marginals.append(cluster_stat.williams_stats.marginals)
-            williams_marginals_exact.append(cluster_stat.williams_stats.marginals_exact_normalization_constant)
+        exact_marginals.append(cluster_stat.exact_marginals)
+        lbp_marginals.append(cluster_stat.mhlbp_marginals)
 
     exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
     lbp_marginals: Marginals = Marginals.concatenate(lbp_marginals)
-    williams_marginals: Marginals = Marginals.concatenate(williams_marginals)
-    williams_marginals_exact: Marginals = Marginals.concatenate(williams_marginals_exact)
-
 
     num_bins = 200
     xedges = np.linspace(0, 1, num_bins)
@@ -450,20 +442,6 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     heatmap_lbp, xedges, yedges = np.histogram2d(lbp_marginals.marginals, exact_marginals.marginals, bins=bins)
     X_lbp, Y_lbp = np.meshgrid(xedges[:-1], yedges[:-1])
 
-    num_bins = 200
-    xedges = np.linspace(0, 1, num_bins)
-    yedges = xedges
-    bins = (xedges, yedges)
-    heatmap_w, xedges, yedges = np.histogram2d(williams_marginals.marginals, exact_marginals.marginals, bins=bins)
-    X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
-
-    num_bins = 200
-    xedges = np.linspace(0, 1, num_bins)
-    yedges = xedges
-    bins = (xedges, yedges)
-    heatmap_we, xedges, yedges = np.histogram2d(williams_marginals_exact.marginals, exact_marginals.marginals, bins=bins)
-    X_we, Y_we = np.meshgrid(xedges[:-1], yedges[:-1])
-
     df_lbp = pd.DataFrame({
         "MH-LBP marginals": np.around(X_lbp.ravel(), decimals=3),
         "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
@@ -471,25 +449,13 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     })
     df_lbp = df_lbp.pivot(index="Exact marginals", columns="MH-LBP marginals", values="hist")
 
-    df_w = pd.DataFrame({
-        "LBP with PHD approximation normalization constants": np.around(X_w.ravel(), decimals=3),
-        "Exact marginals": np.around(Y_w.ravel(), decimals=3),
-        "hist": heatmap_w.ravel()
-    })
-    df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
-
-    df_we = pd.DataFrame({
-        "LBP with exact normalization constants": np.around(X_we.ravel(), decimals=3),
-        "Exact marginals": np.around(Y_we.ravel(), decimals=3),
-        "hist": heatmap_we.ravel()
-    })
-    df_we = df_we.pivot(index="Exact marginals", columns="LBP with exact normalization constants", values="hist")
-
-    dfs = [df_lbp, df_w, df_we]
-    figsize = (8, 16)
+    dfs = [df_lbp]
+    figsize = (8, 8)
 
     nrows = len(dfs)
     fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    if not isinstance(ax, np.ndarray):
+        ax = [ax]
     num_ticks = 5
     depth_list = np.linspace(0, 1, num_ticks)
     # the index of the position of yticks
@@ -696,29 +662,20 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
     # print(np.mean(diverged_stats["IoU"]))
 
 
-def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
-    phd_normalization_constants = []
-    bethe_normalization_constants_odin = []
-    bethe_normalization_constants_lc = []
+def normalization_constant_scatter_plot(cluster_stats: List[Tuple[MulticlusterData, Path]]):
+    bethe_normalization_constants = []
     exact_normalization_constants = []
 
-    for cluster_stat, cluster_file in cluster_stats:
-        if not cluster_stat.explicit_hypothesis_enumeration_error:
-            phd_normalization_constants.append(cluster_stat.williams_stats.normalization_constants)
-            exact_normalization_constants.append(cluster_stat.exact_stats.normalization_constants)
-            bethe_normalization_constants_odin.append(cluster_stat.bethe_stats.normalization_constants_odin)
-            bethe_normalization_constants_lc.append(cluster_stat.bethe_stats.normalization_constants_lc)
+    for cluster_stat, _ in cluster_stats:
+        exact_normalization_constants.append(cluster_stat.exact_normalization_constant)
+        bethe_normalization_constants.append(cluster_stat.bethe_normalization_constant)
 
-    phd_normalization_constants = np.hstack(phd_normalization_constants)
-    bethe_normalization_constants_lc = np.hstack(bethe_normalization_constants_lc)
-    bethe_normalization_constants_odin = np.hstack(bethe_normalization_constants_odin)
+    bethe_normalization_constants = np.hstack(bethe_normalization_constants)
     exact_normalization_constants = np.hstack(exact_normalization_constants)
 
     fig, ax = plt.subplots()
     # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
-    ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="PHD")
-    # ax.plot(bethe_normalization_constants_odin, exact_normalization_constants, 'o', alpha=0.2, label="Bethe Odin")
-    # ax.plot(bethe_normalization_constants_lc, exact_normalization_constants, 'o', alpha=0.2, label="Bethe LC")
+    ax.plot(bethe_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="Bethe")
     ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
     ax.set_xlabel("Approximate normalization constant", fontsize=18)
     ax.set_ylabel("Exact normalization constant", fontsize=18)
@@ -774,17 +731,17 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
     load_dirs = list(load_dirs)
     num_files = len(load_dirs)
 
-    cluster_stats: List[Tuple[ClusterData, Path]] = []
+    cluster_stats: List[Tuple[MulticlusterData, Path]] = []
     if return_empty_clusters:
-        empty_clusters: List[Tuple[ClusterData, Path]] = []
+        empty_clusters: List[Tuple[MulticlusterData, Path]] = []
     for cluster_file in tqdm(load_dirs, total=num_files):
         if cluster_file.name != "empty_cluster":
             cluster_stats.append(
-                (ClusterData.from_data(cluster_file), cluster_file)
+                (MulticlusterData.from_data(cluster_file), cluster_file)
             )
         if return_empty_clusters and cluster_file.name == "empty_cluster":
             empty_clusters.append(
-                (ClusterData.from_data(cluster_file), cluster_file)
+                (MulticlusterData.from_data(cluster_file), cluster_file)
             )
 
 
@@ -792,7 +749,8 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
 
 
 if __name__ == "__main__":
-    cluster_stats = load_cluster_stats()
+    from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
+    cluster_stats = load_cluster_stats(path=path)
 
     # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
 
@@ -806,5 +764,5 @@ if __name__ == "__main__":
     normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
-    make_survival_function_plots(cluster_stats)
+    # make_survival_function_plots(cluster_stats)
     # make_heatmap_correlation_lbpphd(cluster_stats)

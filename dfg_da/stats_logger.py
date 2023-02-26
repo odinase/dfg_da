@@ -346,10 +346,10 @@ class ExactStats:
 
 @dataclass
 class MulticlusterData:
-    exact_marginals: np.ndarray
+    exact_marginals: Marginals
     exact_normalization_constant: float
 
-    mhlbp_marginals: np.ndarray
+    mhlbp_marginals: Marginals
     bethe_normalization_constant: float
 
     def save_data(self, path):

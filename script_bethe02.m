@@ -116,7 +116,6 @@ list = [];
 for i = 1:length(pq)
     list(end+1) = pq(i).labelHypo;
 end
-sort(list)
 nM = m;
 assos = convert_hypos_to_assos(trackNumberLookup, hyposLocal, hyposCardLocal, clustersCard, pq, nT, nM);
 assos'

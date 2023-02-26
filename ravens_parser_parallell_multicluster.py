@@ -19,10 +19,34 @@ OUTPUT_PATH_BASE = "./ravens_output_multicluster"
 PMBM_DATA_PATH = "./data/pmbm_output_files"
 
 
+
+
+def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
+    num_posterior_clusters = np.sum(assocLocal[1])
+    # First build master array
+    prior_hypotheses_per_cluster_posterior: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+        h for k, h in enumerate(prior_hypotheses_per_cluster) if assocLocal[1, k]
+    ])
+    master_idxs = np.cumsum(assocLocal[1]) - 1
+
+    assert len(prior_hypotheses_per_cluster_posterior) == num_posterior_clusters
+    
+    for c, (master, is_master) in enumerate(assocLocal.T):
+        if is_master:
+            continue
+            
+        # We already have the masters, merge clusters
+        hs = prior_hypotheses_per_cluster[c]
+        prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
+
+    return prior_hypotheses_per_cluster_posterior
+
+
 def loop_func(pmbm_file):
     mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file, use_cpp=True)
 
     R = np.asfortranarray(mat_data.reward_matrix_edmund)
+    R_LC = np.asfortranarray(mat_data.reward_matrix_lc)
     prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
 
     pmbm_file_path = Path(pmbm_file)
@@ -37,22 +61,30 @@ def loop_func(pmbm_file):
     if num_clusters == 0:
         return
 
-    print(R)
-    print(prior_hypotheses_per_cluster)
-    print(len(prior_hypotheses_per_cluster))
     mcmhlbp = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-    print("LBP!")
     mcmhlbp_marginals = mcmhlbp.track_association_marginals()
-    print("Marginals!")
     bethe_normalization_constant = mcmhlbp.bethe_pseudodual_normalization_constant()
-    print("Bethe!")
-    exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    print("Exact")
+    assocLocal = mat_data.ws["assocLocal"]
+    print("Merging clusters")
+    prior_hypotheses_per_cluster_posterior = merge_clusters(assocLocal, prior_hypotheses_per_cluster)
+    exact_normalization_constant = 1.0
+
+    num_tracks, mp1 = mat_data.reward_matrix_lc.shape
+    num_measurements = mp1 - 1
+    exact_marginals = np.empty((num_tracks, 1 + num_measurements + 1))
+    print("Computing exact marginals and normalization constant")
+    for hh in prior_hypotheses_per_cluster_posterior:
+        ts = np.fromiter(hh.tracks(), dtype=int) - 1
+
+        exact_marginals_Z, exact_normalization_constant_Z = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, hh)
+        exact_normalization_constant *= exact_normalization_constant_Z
+        exact_marginals[ts] = exact_marginals_Z.T[ts]
+    # exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster_posterior)
 
     cluster_data = sl.MulticlusterData(
-        exact_marginals=exact_marginals.T,
+        exact_marginals=sl.Marginals(exact_marginals.T),
         exact_normalization_constant=exact_normalization_constant,
-        mhlbp_marginals=mcmhlbp_marginals.T,
+        mhlbp_marginals=sl.Marginals(mcmhlbp_marginals.T),
         bethe_normalization_constant=bethe_normalization_constant
     )
 
@@ -95,8 +127,10 @@ if __name__ == "__main__":
     ]
 
     pmbm_files = [pmbm_file for pmbm_file in glob(PMBM_DATA_PATH + "/*.mat") if not Path(pmbm_file).name in illegal_files]
+    # pmbm_files = glob(PMBM_DATA_PATH + "/*.mat")
 
-    # pmbm_files = pmbm_files[:500]
+
+    pmbm_files = pmbm_files[:50]
     # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
     exact_marginal_computer = mc.ExactMarginals()

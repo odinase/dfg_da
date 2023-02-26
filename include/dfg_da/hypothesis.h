@@ -94,13 +94,20 @@ namespace dfg_da
         };
 
         std::vector<std::vector<size_t>> hypothesis_enumeration(const Eigen::MatrixXd &reward_matrix, const Hypothesis &prior_hypothesis);
-        void traverse_hypothesis_tree(
+        void traverse_hypothesis_tree_recursive(
             std::vector<std::vector<size_t>> &hypotheses,
             std::vector<size_t> &parent_hypothesis,
             const Hypothesis &prior_hypothesis,
             const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
             size_t j,
             const size_t M);
+
+
+        void traverse_hypothesis_tree(
+            std::vector<std::vector<size_t>> &hypotheses,
+            const Hypothesis &prior_hypothesis,
+            const std::unordered_map<size_t, std::vector<size_t>> &gated_tracks_,
+            size_t M);
 
         Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);
         std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);

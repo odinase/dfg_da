@@ -106,13 +106,21 @@ PYBIND11_MODULE(py_dfg_da, m) {
 
     py::module_ hypothesis = m.def_submodule("hypothesis");
 
+    hypothesis.def("association_marginal_posteriors_normalization_constant", hypothesis::association_marginal_posteriors_normalization_constant, "reward_matrix"_a.noconvert(), "prior_hypotheses"_a.noconvert());
+
     py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
     py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
     .def(py::init<const std::vector<size_t>&, double>())
-    .def("probability", &hypothesis::Hypothesis::probability);
+    .def("probability", &hypothesis::Hypothesis::probability)
+    .def("tracks", &hypothesis::Hypothesis::tracks);
 
     py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
-    .def(py::init<const std::vector<hypothesis::Hypothesis>&>());
+    .def(py::init<const std::vector<hypothesis::Hypothesis>&>())
+    .def("combine", &hypothesis::Hypotheses::combine)
+    .def("__getitem__", &hypothesis::Hypotheses::operator[])
+    .def("__len__", &hypothesis::Hypotheses::num_hypotheses)
+    .def("tracks", &hypothesis::Hypotheses::tracks);
+
 
     py::module_ lbp = m.def_submodule("lbp");
 
