@@ -1,7 +1,7 @@
 clear all;
 rewMat = -Inf*ones(5,7);
 rewMat(:,1) = [3.0 ; 3.2; -3; -Inf; -Inf];
-rewMat(:,2) = [-Inf; -Inf; 1.2; 3.0; -0.4];
+rewMat(:,2) = [-Inf; -Inf; -Inf; 3.0; -0.4];
 rewMat(1,3) = -0.6;
 rewMat(2,4) = -0.56;
 rewMat(3,5) = -0.46;
@@ -61,6 +61,7 @@ tnOfInterest = zeros(1,0);
 tList = zeros(1,0);
 mList = zeros(1,0);
 normConstPost = sum(exp(vertcat(pq.score)));
+
 probsHypos = exp(vertcat(pq.score))/normConstPost;
 probsRaw = zeros(1,0);
 ttpList = zeros(1,0);
@@ -171,7 +172,7 @@ assos'
 %     
 % for cc=1:length(clustersCard)
 %     c = clusters(begsC(cc):endsC(cc));    
-%     nbh1 = cc;
+%     nbh1 = cc;data/scenario210/k210ic5Many.mat
 %     tra = hypos(begsH(c(1)):endsH(c(1)));
 %     for hh=2:clustersCard(cc)
 %         tra = union(tra,hypos(begsH(c(hh)):endsH(c(hh))));

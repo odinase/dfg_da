@@ -271,7 +271,23 @@ namespace dfg_da
             size_t iter = 0;
             Eigen::ArrayXXd w_times_msg(n, m);
 
-            while (iter < max_num_iters)
+            MHLBPMulticlusterOutput out(
+                mu,
+                nu,
+                rho,
+                sigma,
+                w_nmd,
+                w_0,
+                cluster_data
+            );
+
+            double prev_b = out.bethe_pseudodual_normalization_constant();
+            double b;
+
+            double tol = 1e-7;
+            double err = std::numeric_limits<double>::infinity();
+
+            while (iter < max_num_iters && err > tol)
             {
                 w_times_msg = w_nmd * nu;
 
@@ -290,7 +306,14 @@ namespace dfg_da
                 }
 
                 iter += 1;
+
+                MHLBPMulticlusterOutput out(mu, nu, rho, sigma, w_nmd, w_0, cluster_data);
+                b = out.bethe_pseudodual_normalization_constant();
+                err = fabs(b - prev_b);
+                prev_b = b;
             }
+
+            std::cout << iter << "\n";
 
             return MHLBPMulticlusterOutput(
                 std::move(mu),

@@ -15,6 +15,11 @@ namespace dfg_da
 
     namespace hypothesis
     {
+        void Hypothesis::reindex_tracks(const std::map<size_t, size_t>& old2new_idx) {
+            for (auto& track : tracks_) {
+                track = old2new_idx.at(track);
+            }
+        }
 
         // Combining two hypotheses means to concatenate the tracks existing and adding the log probabilities together
         Hypothesis Hypothesis::combine(const Hypothesis &h_rhs) const
@@ -88,6 +93,12 @@ namespace dfg_da
             return all_tracks;
         }
 
+        void Hypotheses::reindex_tracks(const std::map<size_t, size_t>& old2new_idx) {
+            for (auto& ph : hypos_) {
+                ph.reindex_tracks(old2new_idx);
+            }
+        }
+
         // Return map over each measurement together with list of tracks gated by measurement
         std::unordered_map<size_t, std::vector<size_t>> gated_tracks(const Eigen::MatrixXd &reward_matrix)
         {
@@ -125,8 +136,8 @@ namespace dfg_da
 
             std::vector<std::vector<size_t>> hypotheses;
             std::vector<size_t> parent_hypothesis;
-            // traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
-            traverse_hypothesis_tree(hypotheses, prior_hypothesis, gated_tracks_, m);
+            traverse_hypothesis_tree_recursive(hypotheses, parent_hypothesis, prior_hypothesis, gated_tracks_, 1, m);
+            // traverse_hypothesis_tree(hypotheses, prior_hypothesis, gated_tracks_, m);
 
             //     void traverse_hypothesis_tree(
             // std::vector<std::vector<size_t>> &hypotheses,
@@ -304,8 +315,75 @@ namespace dfg_da
             return {association_marginals, Z};
         }
 
+
         // We assume multicluster since
         std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant_multicluster(const Eigen::MatrixXd &reward_matrix, const std::vector<Hypotheses> &prior_hypotheses_per_cluster_posterior)
+        {
+
+            const size_t N = reward_matrix.rows();
+            const size_t M = reward_matrix.cols() - N;
+
+            Eigen::ArrayXXd association_marginals = Eigen::ArrayXXd::Zero(M + 2, N); // misdetection + num measurements + nonexistence
+            const size_t nonexistence_idx = M + 1;
+
+            // We need the total multicluster normalization constant, which should be just the product of normalization constants for each cluster.
+            double Z_tot = 1.0;
+            std::vector<std::pair<std::vector<size_t>, double>> scores;
+            // Loop over each cluster
+            for (const auto &prior_hypotheses : prior_hypotheses_per_cluster_posterior)
+            {
+                std::set<size_t> tracks = prior_hypotheses.tracks();
+                double Z_cluster = 0.0;
+                // For each prior hypothesis, find all valid posterior hypotheses
+                for (auto prior_hypothesis_iter = prior_hypotheses.cbegin(); prior_hypothesis_iter != prior_hypotheses.cend(); ++prior_hypothesis_iter)
+                {
+                    // Compute new posterior hypotheses conditioned on the prior hypothesis
+                    std::vector<std::vector<size_t>> conditional_posterior_hypotheses = hypothesis_enumeration(reward_matrix, *prior_hypothesis_iter);
+                    double log_prior_prob = prior_hypothesis_iter->log_prob();
+
+                    for (const std::vector<size_t> &cond_posterior_hypothesis : conditional_posterior_hypotheses)
+                    {
+                        double log_Z = 0.0;
+                        // Convert hypothesis to be over all tracks we know of
+                        std::vector<size_t> to_cond_posterior_hypothesis = mo_to_to_hypothesis(cond_posterior_hypothesis, N);
+
+                        // Compute unnormalized probability for prior hypothesis conditional
+                        double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, *prior_hypothesis_iter, reward_matrix);
+                        for (size_t i = 0, t = 1; i < to_cond_posterior_hypothesis.size(); i++, t++)
+                        {
+                            // The track must exist in the cluster.
+                            if (std::find(tracks.begin(), tracks.end(), t) != tracks.end())
+                            {
+                                size_t idx = prior_hypothesis_iter->contains(t) ? to_cond_posterior_hypothesis[i] : nonexistence_idx;
+                                association_marginals(idx, i) += exp(log_p + log_prior_prob);
+                            }
+                        }
+                        log_Z += log_p + log_prior_prob;
+                        scores.push_back({to_cond_posterior_hypothesis, log_p + log_prior_prob});
+                        Z_cluster += exp(log_Z);
+                    }
+                }
+                Z_tot *= Z_cluster;
+            }
+
+            association_marginals.rowwise() /= association_marginals.colwise().sum();
+            std::sort(scores.begin(), scores.end(), [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
+            for (size_t i = 0; i < 47; i++) {
+                auto& [h, s] = scores[i];
+                std::cout << s << ": ";
+                for (const auto& t : h) {
+                    std::cout << t << " ";
+                }
+                std::cout << "\n";
+            }
+            std::cout << scores.size() << "\n";
+
+            return {association_marginals, Z_tot};
+        }
+
+
+        // We assume multicluster since
+        std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant_multicluster_efficient(const Eigen::MatrixXd &reward_matrix, const std::vector<Hypotheses> &prior_hypotheses_per_cluster_posterior)
         {
 
             return {Eigen::ArrayXd(), 0.0};

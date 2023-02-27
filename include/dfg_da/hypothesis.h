@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <cmath>
 #include <iterator>
 #include <unordered_map>
@@ -39,6 +40,7 @@ namespace dfg_da
             inline double probability() const { return exp(log_prob()); }
             inline size_t size() const { return tracks_.size(); }
             const std::vector<Track> &tracks() const { return tracks_; }
+            void reindex_tracks(const std::map<size_t, size_t>& old2new_idx);
 
             // Combining two hypotheses means to concatenate the tracks existing and adding the log probabilities together
             Hypothesis combine(const Hypothesis &h_rhs) const;
@@ -57,6 +59,7 @@ namespace dfg_da
 
             const Hypothesis &operator[](size_t i) const { return hypos_[i]; }
             inline size_t num_hypotheses() const { return hypos_.size(); }
+            void reindex_tracks(const std::map<size_t, size_t>& old2new_idx);
 
             template <class TrackIterator>
             Hypotheses hypotheses_containing(TrackIterator tracks_iter_begin, TrackIterator tracks_iter_end) const
@@ -112,6 +115,8 @@ namespace dfg_da
         Eigen::ArrayXXd association_marginal_posteriors(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);
         std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant(const Eigen::MatrixXd &reward_matrix, const Hypotheses &prior_hypotheses);
         std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant_multicluster(const Eigen::MatrixXd &reward_matrix, const std::vector<Hypotheses> &prior_hypotheses_per_cluster_posterior);
+        std::tuple<Eigen::ArrayXXd, double> association_marginal_posteriors_normalization_constant_multicluster_efficient(const Eigen::MatrixXd &reward_matrix, const std::vector<Hypotheses> &prior_hypotheses_per_cluster_posterior);
+
 
         std::vector<size_t> mo_to_to_hypothesis(const std::vector<size_t> &mo_hypothesis, const size_t num_tracks);
 

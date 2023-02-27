@@ -9,7 +9,7 @@ from typing import List
 import numpy as np
 from tqdm import tqdm
 
-from multiprocessing import Pool
+from multiprocessing import Pool, Lock
 import time
 from pathlib import Path
 
@@ -18,7 +18,7 @@ import py_dfg_da
 OUTPUT_PATH_BASE = "./ravens_output_multicluster"
 PMBM_DATA_PATH = "./data/pmbm_output_files"
 
-
+NUM_DONE = 0
 
 
 def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
@@ -65,20 +65,20 @@ def loop_func(pmbm_file):
     mcmhlbp_marginals = mcmhlbp.track_association_marginals()
     bethe_normalization_constant = mcmhlbp.bethe_pseudodual_normalization_constant()
     assocLocal = mat_data.ws["assocLocal"]
-    print("Merging clusters")
     prior_hypotheses_per_cluster_posterior = merge_clusters(assocLocal, prior_hypotheses_per_cluster)
     exact_normalization_constant = 1.0
 
-    num_tracks, mp1 = mat_data.reward_matrix_lc.shape
-    num_measurements = mp1 - 1
-    exact_marginals = np.empty((num_tracks, 1 + num_measurements + 1))
-    print("Computing exact marginals and normalization constant")
-    for hh in prior_hypotheses_per_cluster_posterior:
-        ts = np.fromiter(hh.tracks(), dtype=int) - 1
+    # num_tracks, mp1 = mat_data.reward_matrix_lc.shape
+    # num_measurements = mp1 - 1
+    # exact_marginals = np.empty((num_tracks, 1 + num_measurements + 1))
+    # for hh in prior_hypotheses_per_cluster_posterior:
+    #     ts = np.fromiter(hh.tracks(), dtype=int) - 1
 
-        exact_marginals_Z, exact_normalization_constant_Z = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, hh)
-        exact_normalization_constant *= exact_normalization_constant_Z
-        exact_marginals[ts] = exact_marginals_Z.T[ts]
+    #     exact_marginals_Z, exact_normalization_constant_Z = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, hh)
+    #     exact_normalization_constant *= exact_normalization_constant_Z
+    #     exact_marginals[ts] = exact_marginals_Z.T[ts]
+    exact_marginals, exact_normalization_constant = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster_posterior)
+
     # exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster_posterior)
 
     cluster_data = sl.MulticlusterData(
@@ -89,7 +89,6 @@ def loop_func(pmbm_file):
     )
 
     cluster_data.save_data(save_path)
-
 
 
 if __name__ == "__main__":
@@ -130,7 +129,8 @@ if __name__ == "__main__":
     # pmbm_files = glob(PMBM_DATA_PATH + "/*.mat")
 
 
-    pmbm_files = pmbm_files[:50]
+    pmbm_files = sorted(pmbm_files)[:150]
+    num_files = len(pmbm_files)
     # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
     exact_marginal_computer = mc.ExactMarginals()
@@ -140,12 +140,14 @@ if __name__ == "__main__":
         "lbp_bethe": mc.LBPMarginalsByTotalProbBethe()
     }
 
+    lock = Lock()
+
     print("Starting pool")
     start = time.time()
-    for pmbm_file in tqdm(pmbm_files):
-        loop_func(pmbm_file)
-    # with Pool(processes=4) as p:
-    #     p.map(loop_func, pmbm_files)
+    # for pmbm_file in tqdm(pmbm_files):
+    #     loop_func(pmbm_file)
+    with Pool() as p:
+        p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

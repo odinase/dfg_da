@@ -465,7 +465,9 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[MulticlusterData, Path]])
     # yticklabes = np.linspace()
     # xticklabes = yticklabes
     for k, (axx, df) in enumerate(zip(ax, dfs)):
+        # sns.heatmap(df, square=True, cmap="Reds", ax=axx)
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
+
         # axx.set_xticks(xticks)
         # axx.set_yticks(yticks)
         axx.tick_params(axis='both', which='major', labelsize=16)
@@ -490,7 +492,7 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[MulticlusterData, Path]])
     # plt.rcParams.update(params)
 
 
-    save_fig(fig, "heatmap_correlation_with_williams_exact")
+    save_fig(fig, "heatmap_correlation")
 
 
 def make_heatmap_correlation_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -758,7 +760,7 @@ if __name__ == "__main__":
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    # make_heatmap_correlation(cluster_stats)
+    make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
     normalization_constant_scatter_plot(cluster_stats)

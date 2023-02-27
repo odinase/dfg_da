@@ -114,14 +114,16 @@ PYBIND11_MODULE(py_dfg_da, m) {
     py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
     .def(py::init<const std::vector<size_t>&, double>())
     .def("probability", &hypothesis::Hypothesis::probability)
-    .def("tracks", &hypothesis::Hypothesis::tracks);
+    .def("tracks", &hypothesis::Hypothesis::tracks)
+    .def("reindex_tracks", &hypothesis::Hypothesis::reindex_tracks);
 
     py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
     .def(py::init<const std::vector<hypothesis::Hypothesis>&>())
     .def("combine", &hypothesis::Hypotheses::combine)
     .def("__getitem__", &hypothesis::Hypotheses::operator[])
     .def("__len__", &hypothesis::Hypotheses::num_hypotheses)
-    .def("tracks", &hypothesis::Hypotheses::tracks);
+    .def("tracks", &hypothesis::Hypotheses::tracks)
+    .def("reindex_tracks", &hypothesis::Hypotheses::reindex_tracks);
 
 
     py::module_ lbp = m.def_submodule("lbp");

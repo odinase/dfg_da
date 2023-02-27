@@ -132,6 +132,27 @@ namespace dfg_da
                     num_measurements(w_nmd.cols()),
                     num_clusters(cluster_data.size()) {}
             
+
+            MHLBPMulticlusterOutput(
+                const Eigen::ArrayXXd &mu_,
+                const Eigen::ArrayXXd &nu_,
+                const Eigen::ArrayXd &rho_,
+                const Eigen::ArrayXd &sigma_,
+                const Eigen::ArrayXXd &w_nmd_,
+                const Eigen::ArrayXd &w_0_,
+                const std::vector<ClusterData> &cluster_data_
+            )
+            :       mu(mu_),
+                    nu(nu_),
+                    rho(rho_),
+                    sigma(sigma_),
+                    w_nmd(w_nmd_),
+                    w_0(w_0_),
+                    cluster_data(cluster_data_),
+                    num_tracks(w_nmd.rows()),
+                    num_measurements(w_nmd.cols()),
+                    num_clusters(cluster_data.size()) {}
+            
             Eigen::ArrayXXd track_association_marginals() const;
             void track_association_marginals_inplace(double* data) const;
             Eigen::ArrayXXd measurement_association_marginals() const;
