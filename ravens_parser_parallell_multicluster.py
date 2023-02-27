@@ -133,12 +133,6 @@ if __name__ == "__main__":
     pmbm_files = pmbm_files[:50]
     # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 
-    exact_marginal_computer = mc.ExactMarginals()
-    approx_marginal_computers = {
-        "lbp_williams": mc.LBPMarginalsByTotalProb(),
-        "lbp_mh": mc.LBPMarginalsFullAssociation(),
-        "lbp_bethe": mc.LBPMarginalsByTotalProbBethe()
-    }
 
     print("Starting pool")
     start = time.time()
