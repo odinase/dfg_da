@@ -6,6 +6,11 @@
 #include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
 
+#include <gtsam/base/treeTraversal-inst.h>
+#include <gtsam/inference/BayesTree-inst.h>
+#include <gtsam/discrete/DiscreteEliminationTree.h>
+#include <gtsam/discrete/DiscreteJunctionTree.h>
+
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
@@ -264,88 +269,77 @@ int main(int argc, char **argv)
     auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
     double Z_bethe = mhlbp.bethe_pseudodual_normalization_constant();
-    std::cout << Z_bethe << "\n";
-
     std::cout << marginals << "\n";
-
-    // auto [exact_marginals, exact_normalization_constant] = dfg_da::factor_graph::exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
-    // std::cout << exact_marginals << "\n" << exact_normalization_constant << "\n";
+    std::cout << Z_bethe << "\n\n";
 
 
-    // Test merging of clusters
+    gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
-    std::vector<size_t> hh1 = {1, 2, 4};
-    double log_p_hh1 = 2.0*log(0.5);
+    auto [exact_margs, exact_const] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]));
+    std::cout << exact_margs << "\n";
+    std::cout << exact_const << "\n";
 
-    dfg_da::hypothesis::Hypothesis hv1(std::move(hh1), log_p_hh1);
-
-    std::vector<size_t> hh2 = {1, 2, 5};
-    double log_p_hh2 = 2.0*log(0.5);
-
-    dfg_da::hypothesis::Hypothesis hv2(std::move(hh2), log_p_hh2);
-
-    std::vector<size_t> hh3 = {1, 3, 4};
-    double log_p_hh3 = 2.0*log(0.5);
-
-    dfg_da::hypothesis::Hypothesis hv3(std::move(hh3), log_p_hh3);
-
-    std::vector<size_t> hh4 = {1, 3, 5};
-    double log_p_hh4 = 2.0*log(0.5);
-
-    dfg_da::hypothesis::Hypothesis hv4(std::move(hh4), log_p_hh4);
-
-    std::vector<dfg_da::hypothesis::Hypothesis> hhv = {hv1, hv2, hv3, hv4};
-    // dfg_da::hypothesis::Hypotheses hh(std::move(hhv));
-
-    size_t i = 0;
-    double Z = 0.0;
-    std::vector<std::pair<std::vector<size_t>, double>> all_hypos;
-    std::cout << "hhv\n";
-    for (auto& h : hhv) {
-        for (const auto& t : h.tracks()) {
-            std::cout << t << " ";
+    // dfg.saveGraph("dfg_original.txt");
+    // Marginalize out measurement variables
+    gtsam::KeyVector ordering_meas = {B(1), B(2)};
+    auto dfg_reduced = dfg.eliminatePartialMultifrontal(ordering_meas).second;
+    // dfg_reduced->saveGraph("dfg_reduced.txt");
+    gtsam::KeyVector vars = {T(1), T(2), A(1), A(2), A(4), A(5)};
+    auto [bayesTree, fg] = dfg_reduced->eliminatePartialMultifrontal(vars); // gtsam::Ordering{ordering});
+    // bayesTree->print();
+    // bayesTree->saveGraph("bayesTree.txt");
+    auto a3_factor = fg->product();
+    auto a3_conditional = boost::make_shared<gtsam::DiscreteConditional>(1, a3_factor);
+    auto a3_clique = boost::make_shared<gtsam::DiscreteBayesTreeClique>(a3_conditional);
+    gtsam::DiscreteBayesTree dbt;
+    dbt.addClique(a3_clique);
+    for (const auto &c : bayesTree->nodes())
+    {
+        if (!c.second->parent())
+        {
+            dbt.addClique(c.second, a3_clique);
         }
-        std::cout << std::endl;
-        // std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
-        // for (auto& asso : hypo_enumerations) {
-        //     double log_Z = 0.0;
-        //     std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
-        //     double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
-        //     log_Z += log_p;
-        //     log_Z += h.log_prob();
-        //     all_hypos.push_back({to_cond_posterior_hypothesis, log_Z});
-        //     Z += exp(log_Z);
-        // }
-    }
-    std::cout << "h_combined\n";
-    dfg_da::hypothesis::Hypotheses h_combined = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]);
-    for (auto& h : h_combined) {
-        for (const auto& t : h.tracks()) {
-            std::cout << t << " ";
+        else
+        {
+            dbt.addClique(c.second);
         }
-        std::cout << std::endl;
-        // std::vector<std::vector<size_t>> hypo_enumerations = dfg_da::hypothesis::hypothesis_enumeration(R, h);
-        // for (auto& asso : hypo_enumerations) {
-        //     double log_Z = 0.0;
-        //     std::vector<size_t> to_cond_posterior_hypothesis = dfg_da::hypothesis::mo_to_to_hypothesis(asso, num_tracks);
-        //     double log_p = prior_hypothesis_conditional_association_probability(to_cond_posterior_hypothesis, h, R);
-        //     log_Z += log_p;
-        //     log_Z += h.log_prob();
-        //     all_hypos.push_back({to_cond_posterior_hypothesis, log_Z});
-        //     Z += exp(log_Z);
-        // }
     }
-    auto [exact_marginals, exact_Z] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, h_combined);
-    std::cout << exact_marginals << "\n";
-    std::cout << exact_Z << "\n";
-    
-    // std::sort(all_hypos.begin(), all_hypos.end(), [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
-    // for (const auto& [h, r] : all_hypos) {
-    //     std::cout << r << ", " << exp(r - log(Z)) << ": ";
-    //     for (const auto& t : h) {
-    //         std::cout << t << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-    // std::cout << Z << "\n";
+    // dbt.print();
+    dbt.saveGraph("dbt_manual.txt");
+    gtsam::DiscreteKey key{A(3), 4};
+    auto m = dbt.marginalFactor(key.first, &gtsam::EliminateDiscrete);
+
+    // DiscreteFactor::shared_ptr marginalFactor;
+    // marginalFactor = bayesTree_->marginalFactor(key.first, &EliminateDiscrete);
+
+    // Create result
+    Eigen::VectorXd vResult(key.second);
+    for (size_t state = 0; state < 4; ++state)
+    {
+        gtsam::DiscreteFactor::Values values;
+        values[key.first] = state;
+        vResult(state) = (*m)(values);
+    }
+
+    std::cout << vResult << "\n";
+
+    m = bayesTree->marginalFactor(key.first, &gtsam::EliminateDiscrete);
+
+    // DiscreteFactor::shared_ptr marginalFactor;
+    // marginalFactor = bayesTree_->marginalFactor(key.first, &EliminateDiscrete);
+
+    // Create result
+    for (size_t state = 0; state < 4; ++state)
+    {
+        gtsam::DiscreteFactor::Values values;
+        values[key.first] = state;
+        vResult(state) = (*m)(values);
+    }
+
+    std::cout << vResult << "\n";
+
+    bayesTree->print();
+
+    // std::cout << marginalFactor->sum(1) << "\n";
+    // fg->saveGraph("fg.txt");
 }

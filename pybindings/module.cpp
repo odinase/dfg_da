@@ -112,15 +112,16 @@ PYBIND11_MODULE(py_dfg_da, m) {
     hypothesis.def("association_marginal_posteriors_normalization_constant", hypothesis::association_marginal_posteriors_normalization_constant, "reward_matrix"_a.noconvert(), "prior_hypotheses"_a.noconvert());
     hypothesis.def("association_marginal_posteriors_normalization_constant_multicluster", hypothesis::association_marginal_posteriors_normalization_constant_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster_posterior"_a.noconvert());
     hypothesis.def("hypothesis_enumeration", hypothesis::hypothesis_enumeration, "reward_matrix"_a.noconvert(), "prior_hypothesis"_a.noconvert());
-    hypothesis.def("mo_to_to_hypothesis", hypothesis::mo_to_to_hypothesis, "mo_hypothesis", "num_tracks");
-    hypothesis.def("prior_hypothesis_conditional_association_probability", hypothesis::prior_hypothesis_conditional_association_probability, "to_hypothesis", "prior_hypothesis"_a.noconvert(), "reward_matrix"_a.noconvert());
+    hypothesis.def("mo_to_to_hypothesis", hypothesis::mo_to_to_hypothesis, "mo_hypothesis"_a, "num_tracks"_a);
+    hypothesis.def("prior_hypothesis_conditional_association_probability", hypothesis::prior_hypothesis_conditional_association_probability, "to_hypothesis"_a, "prior_hypothesis"_a.noconvert(), "reward_matrix"_a.noconvert());
 
     py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
     py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
     .def(py::init<const std::vector<size_t>&, double>())
     .def("probability", &hypothesis::Hypothesis::probability)
     .def("tracks", &hypothesis::Hypothesis::tracks)
-    .def("reindex_tracks", &hypothesis::Hypothesis::reindex_tracks);
+    .def("reindex_tracks", &hypothesis::Hypothesis::reindex_tracks)
+    .def("contains", &hypothesis::Hypothesis::contains);
 
     py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
     .def(py::init<const std::vector<hypothesis::Hypothesis>&>())

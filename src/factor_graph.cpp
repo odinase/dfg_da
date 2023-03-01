@@ -416,7 +416,7 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
         }
         std::set<size_t> tracks_in_cluster = prior_hypotheses.tracks();
 
-        gtsam::DiscreteKey th{T(c), num_prior_hypotheses};
+        gtsam::DiscreteKey th{T(c + 1), num_prior_hypotheses};
         std::vector<double> theta_table = prior_hypotheses.hypothesis_probabilites();
         gtsam::DiscreteDistribution th_factor(th, theta_table);
         dfg.push_back(th_factor);
@@ -477,10 +477,14 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
         // Add factor from measurement to all track variables
         for (const auto &ai_dk : ais)
         {
-            std::vector<double> compatibility_table;
-
             size_t track_cardinality = ai_dk.second;
             uint64_t ai = gtsam::symbolIndex(ai_dk.first);
+            
+            if (!std::isfinite(R(ai - 1, bj - 1))) {
+                continue;
+            }
+            std::vector<double> compatibility_table;
+
 
             // We need to do this row-major, so fix the row. Along one row we vary what association is compatible for this measurement
             for (size_t j = 0; j < track_cardinality; j++)

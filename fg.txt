@@ -1,0 +1,12 @@
+graph {
+  size="5,5";
+
+  vara3[label="a3"];
+
+  factor0[label="", shape=point];
+  vara3--factor0;
+  factor1[label="", shape=point];
+  vara3--factor1;
+  factor2[label="", shape=point];
+  vara3--factor2;
+}
