@@ -4,21 +4,21 @@ import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
 
 if __name__ == "__main__":
-    # R = np.array([
-    #     [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-    #     [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-    #     [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-    #     [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-    # ], order='F')
-
     R = np.array([
         [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
         [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-        [   -3.0, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
         [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
         [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
     ], order='F')
+
+    # R = np.array([
+    #     [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+    #     [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+    #     [   -3.0, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+    #     [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+    #     [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    # ], order='F')
 
     n, mpn = R.shape
     m = mpn - n
@@ -51,10 +51,10 @@ if __name__ == "__main__":
     print(exact_margs.T)
     print(exact_norm)
 
-    print("Multicluster!!!")
-    exact_margs_mc, exact_norm_mc = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster)
-    print(exact_margs_mc.T)
-    print(exact_norm_mc)
+    # print("Multicluster!!!")
+    # exact_margs_mc, exact_norm_mc = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster)
+    # print(exact_margs_mc.T)
+    # print(exact_norm_mc)
 
 
     lc_margs = np.empty((n, m + 2))
@@ -84,8 +84,6 @@ if __name__ == "__main__":
             conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
             normalizing_constant = np.exp(loglikelihood)
-
-            
 
             marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
