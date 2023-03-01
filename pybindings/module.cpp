@@ -100,6 +100,9 @@ PYBIND11_MODULE(py_dfg_da, m) {
     )pbdoc");
 
 
+    m.def("throw_test", []() { throw std::invalid_argument("Test"); });
+
+
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
     py::module_ factor_graph = m.def_submodule("factor_graph");
     factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert());
@@ -108,7 +111,9 @@ PYBIND11_MODULE(py_dfg_da, m) {
 
     hypothesis.def("association_marginal_posteriors_normalization_constant", hypothesis::association_marginal_posteriors_normalization_constant, "reward_matrix"_a.noconvert(), "prior_hypotheses"_a.noconvert());
     hypothesis.def("association_marginal_posteriors_normalization_constant_multicluster", hypothesis::association_marginal_posteriors_normalization_constant_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster_posterior"_a.noconvert());
-
+    hypothesis.def("hypothesis_enumeration", hypothesis::hypothesis_enumeration, "reward_matrix"_a.noconvert(), "prior_hypothesis"_a.noconvert());
+    hypothesis.def("mo_to_to_hypothesis", hypothesis::mo_to_to_hypothesis, "mo_hypothesis", "num_tracks");
+    hypothesis.def("prior_hypothesis_conditional_association_probability", hypothesis::prior_hypothesis_conditional_association_probability, "to_hypothesis", "prior_hypothesis"_a.noconvert(), "reward_matrix"_a.noconvert());
 
     py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
     py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
@@ -123,7 +128,9 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def("__getitem__", &hypothesis::Hypotheses::operator[])
     .def("__len__", &hypothesis::Hypotheses::num_hypotheses)
     .def("tracks", &hypothesis::Hypotheses::tracks)
-    .def("reindex_tracks", &hypothesis::Hypotheses::reindex_tracks);
+    .def("reindex_tracks", &hypothesis::Hypotheses::reindex_tracks)
+    .def("__iter__", [](hypothesis::Hypotheses &h) { return py::make_iterator(h.begin(), h.end()); },
+                         py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */);
 
 
     py::module_ lbp = m.def_submodule("lbp");
