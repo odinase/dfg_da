@@ -328,7 +328,6 @@ namespace dfg_da
 
             // We need the total multicluster normalization constant, which should be just the product of normalization constants for each cluster.
             double Z_tot = 1.0;
-            std::vector<std::pair<std::vector<size_t>, double>> scores;
             // Loop over each cluster
             for (const auto &prior_hypotheses : prior_hypotheses_per_cluster_posterior)
             {
@@ -359,7 +358,6 @@ namespace dfg_da
                             }
                         }
                         log_Z += log_p + log_prior_prob;
-                        scores.push_back({to_cond_posterior_hypothesis, log_p + log_prior_prob});
                         Z_cluster += exp(log_Z);
                     }
                 }
@@ -367,16 +365,6 @@ namespace dfg_da
             }
 
             association_marginals.rowwise() /= association_marginals.colwise().sum();
-            std::sort(scores.begin(), scores.end(), [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
-            for (size_t i = 0; i < 47; i++) {
-                auto& [h, s] = scores[i];
-                std::cout << s << ": ";
-                for (const auto& t : h) {
-                    std::cout << t << " ";
-                }
-                std::cout << "\n";
-            }
-            std::cout << scores.size() << "\n";
 
             return {association_marginals, Z_tot};
         }

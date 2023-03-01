@@ -149,13 +149,14 @@ namespace dfg_da
             Eigen::ArrayXXd Z_tjs = track_meas_normalization_constants();
 
             Eigen::ArrayXd num_tracks_per_cluster(num_clusters);
-            std::transform(cluster_data.begin(), cluster_data.end(), num_tracks_per_cluster.begin(), [](const ClusterData& d) { return d.t_idx.size(); });
+            std::transform(cluster_data.begin(), cluster_data.end(), num_tracks_per_cluster.begin(), [](const ClusterData &d)
+                           { return d.t_idx.size(); });
 
             double F_thetas = ((num_tracks_per_cluster - 1) * Z_thetas.log()).sum();
             double F_ts = num_measurements * Z_ts.log().sum();
             double F_js = (num_tracks - 1) * Z_js.log().sum();
             double F_tths = std::accumulate(Z_tths.begin(), Z_tths.end(), 0.0, [](const double prev, const Eigen::ArrayXXd &Z)
-                                                  { return prev + Z.log().sum(); });
+                                            { return prev + Z.log().sum(); });
             double F_tjs = Z_tjs.log().sum();
 
             double F_bethe_pseudo = F_thetas + F_ts + F_js - F_tjs - F_tths;
@@ -198,15 +199,117 @@ namespace dfg_da
             std::transform(
                 cluster_data.begin(), cluster_data.end(),
                 Z_tth.begin(),
-                [&](const ClusterData& d)
+                [&](const ClusterData &d)
                 {
                     rho_c = rho(d.t_idx);
                     phi_rho_prods = d.phi() * (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
                     w_sum = w_sum_times_msg(d.t_idx);
                     return w_sum / rho_c * (d.t2h.rowwise() * phi_rho_prods.transpose()).rowwise().sum() + (d.t2h_not.rowwise() * phi_rho_prods.transpose()).rowwise().sum();
                 });
-            
+
             return Z_tth;
+        }
+
+        Eigen::ArrayXd track_normalization_constants(
+            const Eigen::ArrayXXd &nu,
+            const Eigen::ArrayXd &sigma,
+            const Eigen::ArrayXXd &w_nmd,
+            const Eigen::ArrayXd &w_0
+        )
+        {
+            return w_0 + (w_nmd * nu).rowwise().sum() + sigma;
+        }
+        Eigen::ArrayXd meas_normalization_constants(
+            const Eigen::ArrayXXd &mu
+        )
+        {
+            return mu.colwise().sum().transpose() + 1.0;
+        }
+        Eigen::ArrayXd hypotheses_normalization_constants(
+            const Eigen::ArrayXd &rho,
+            const std::vector<ClusterData> &cluster_data)
+        {
+            const size_t num_clusters = cluster_data.size();
+            Eigen::ArrayXd rho_c, rho_prods, Z_thetas(num_clusters);
+            std::transform(
+                cluster_data.begin(), cluster_data.end(),
+                std::begin(Z_thetas),
+                [&](const auto &d)
+                {
+                    rho_c = rho(d.t_idx);
+                    rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
+                    return (rho_prods * d.phi()).sum();
+                });
+
+            return Z_thetas;
+        }
+        Eigen::ArrayXXd track_meas_normalization_constants(
+            const Eigen::ArrayXXd &mu,
+            const Eigen::ArrayXXd &nu,
+            const Eigen::ArrayXd &sigma,
+            const Eigen::ArrayXXd &w_nmd,
+            const Eigen::ArrayXd &w_0
+        )
+        {
+            Eigen::ArrayXXd w_times_msg = w_nmd * nu;
+            return (1.0 + ((-mu).rowwise() + mu.colwise().sum())) * ((-w_times_msg).colwise() + (w_times_msg.rowwise().sum() + w_0 + sigma)) + w_nmd;
+        }
+        std::vector<Eigen::ArrayXd> track_hypos_normalization_constants(
+            const Eigen::ArrayXXd &nu,
+            const Eigen::ArrayXd &rho,
+            const Eigen::ArrayXXd &w_nmd,
+            const Eigen::ArrayXd &w_0,
+            const std::vector<ClusterData> &cluster_data)
+        {
+            const size_t num_clusters = cluster_data.size();
+            std::vector<Eigen::ArrayXd> Z_tth(num_clusters);
+            Eigen::ArrayXd rho_c, phi_rho_prods, w_sum, w_sum_times_msg = (w_nmd * nu).rowwise().sum() + w_0;
+            std::transform(
+                cluster_data.begin(), cluster_data.end(),
+                Z_tth.begin(),
+                [&](const ClusterData &d)
+                {
+                    rho_c = rho(d.t_idx);
+                    phi_rho_prods = d.phi() * (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
+                    w_sum = w_sum_times_msg(d.t_idx);
+                    return w_sum / rho_c * (d.t2h.rowwise() * phi_rho_prods.transpose()).rowwise().sum() + (d.t2h_not.rowwise() * phi_rho_prods.transpose()).rowwise().sum();
+                });
+
+            return Z_tth;
+        }
+
+        double bethe_pseudodual_loglikelihood(const Eigen::ArrayXXd &mu,
+                                              const Eigen::ArrayXXd &nu,
+                                              const Eigen::ArrayXd &rho,
+                                              const Eigen::ArrayXd &sigma,
+                                              const Eigen::ArrayXXd &w_nmd,
+                                              const Eigen::ArrayXd &w_0,
+                                              const std::vector<ClusterData> &cluster_data)
+        {
+            const size_t num_tracks(w_nmd.rows());
+            const size_t num_measurements(w_nmd.cols());
+            const size_t num_clusters(cluster_data.size());
+
+            Eigen::ArrayXd Z_thetas = hypotheses_normalization_constants(rho, cluster_data);
+            std::vector<Eigen::ArrayXd> Z_tths = track_hypos_normalization_constants(nu, rho, w_nmd, w_0, cluster_data);
+            Eigen::ArrayXd Z_ts = track_normalization_constants(nu, sigma, w_nmd, w_0);
+            Eigen::ArrayXd Z_js = meas_normalization_constants(mu);
+            Eigen::ArrayXXd Z_tjs = track_meas_normalization_constants(mu, nu, sigma, w_nmd, w_0);
+
+            Eigen::ArrayXd num_tracks_per_cluster(num_clusters);
+            std::transform(cluster_data.begin(), cluster_data.end(), num_tracks_per_cluster.begin(), [](const ClusterData &d)
+                           { return d.t_idx.size(); });
+
+            double F_thetas = ((num_tracks_per_cluster - 1) * Z_thetas.log()).sum();
+            double F_ts = num_measurements * Z_ts.log().sum();
+            double F_js = (num_tracks - 1) * Z_js.log().sum();
+            double F_tths = std::accumulate(Z_tths.begin(), Z_tths.end(), 0.0, [](const double prev, const Eigen::ArrayXXd &Z)
+                                            { return prev + Z.log().sum(); });
+            double F_tjs = Z_tjs.log().sum();
+
+            double F_bethe_pseudo = F_thetas + F_ts + F_js - F_tjs - F_tths;
+
+            return -F_bethe_pseudo;
         }
 
         MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
@@ -271,17 +374,15 @@ namespace dfg_da
             size_t iter = 0;
             Eigen::ArrayXXd w_times_msg(n, m);
 
-            MHLBPMulticlusterOutput out(
+            double prev_b = bethe_pseudodual_normalization_constant(
                 mu,
                 nu,
                 rho,
                 sigma,
                 w_nmd,
                 w_0,
-                cluster_data
-            );
+                cluster_data);
 
-            double prev_b = out.bethe_pseudodual_normalization_constant();
             double b;
 
             double tol = 1e-7;
@@ -307,13 +408,17 @@ namespace dfg_da
 
                 iter += 1;
 
-                MHLBPMulticlusterOutput out(mu, nu, rho, sigma, w_nmd, w_0, cluster_data);
-                b = out.bethe_pseudodual_normalization_constant();
+                b = bethe_pseudodual_normalization_constant(
+                    mu,
+                    nu,
+                    rho,
+                    sigma,
+                    w_nmd,
+                    w_0,
+                    cluster_data);
                 err = fabs(b - prev_b);
                 prev_b = b;
             }
-
-            std::cout << iter << "\n";
 
             return MHLBPMulticlusterOutput(
                 std::move(mu),

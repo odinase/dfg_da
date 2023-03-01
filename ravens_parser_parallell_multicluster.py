@@ -47,6 +47,8 @@ def loop_func(pmbm_file):
 
     R = np.asfortranarray(mat_data.reward_matrix_edmund)
     R_LC = np.asfortranarray(mat_data.reward_matrix_lc)
+    n, mp1 = R_LC.shape
+    m = mp1 - 1
     prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
 
     pmbm_file_path = Path(pmbm_file)
@@ -66,22 +68,20 @@ def loop_func(pmbm_file):
     bethe_normalization_constant = mcmhlbp.bethe_pseudodual_normalization_constant()
     assocLocal = mat_data.ws["assocLocal"]
     prior_hypotheses_per_cluster_posterior = merge_clusters(assocLocal, prior_hypotheses_per_cluster)
+    
+    exact_marginals = np.empty((0, 2 + m))
     exact_normalization_constant = 1.0
+    exact_computation_error = False
 
-    # num_tracks, mp1 = mat_data.reward_matrix_lc.shape
-    # num_measurements = mp1 - 1
-    # exact_marginals = np.empty((num_tracks, 1 + num_measurements + 1))
-    # for hh in prior_hypotheses_per_cluster_posterior:
-    #     ts = np.fromiter(hh.tracks(), dtype=int) - 1
+    try:
+        exact_marginals, exact_normalization_constant = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster_posterior)
+    except ValueError:
+        exact_computation_error = True
 
-    #     exact_marginals_Z, exact_normalization_constant_Z = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, hh)
-    #     exact_normalization_constant *= exact_normalization_constant_Z
-    #     exact_marginals[ts] = exact_marginals_Z.T[ts]
-    exact_marginals, exact_normalization_constant = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster_posterior)
 
-    # exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster_posterior)
 
     cluster_data = sl.MulticlusterData(
+        exact_computation_error=exact_computation_error,
         exact_marginals=sl.Marginals(exact_marginals.T),
         exact_normalization_constant=exact_normalization_constant,
         mhlbp_marginals=sl.Marginals(mcmhlbp_marginals.T),
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # pmbm_files = glob(PMBM_DATA_PATH + "/*.mat")
 
 
-    pmbm_files = sorted(pmbm_files)[:150]
+    pmbm_files = sorted(pmbm_files)
     num_files = len(pmbm_files)
     # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
 

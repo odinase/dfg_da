@@ -346,6 +346,8 @@ class ExactStats:
 
 @dataclass
 class MulticlusterData:
+    exact_computation_error: bool
+
     exact_marginals: Marginals
     exact_normalization_constant: float
 
