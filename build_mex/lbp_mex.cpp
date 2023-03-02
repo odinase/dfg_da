@@ -19,6 +19,11 @@ class MexFunction : public matlab::mex::Function
 public:
     void operator()(matlab::mex::ArgumentList outputs, matlab::mex::ArgumentList inputs)
     {
+        size_t num_outputs = outputs.size();
+        if (num_outputs == 0) {
+            return;
+        }
+
         checkArguments(outputs, inputs);
         auto reward_matrix = reward_matrix_conversion(inputs);
         std::vector<dfg_da::hypothesis::Hypotheses> hypos_in_clusters = hypotheses_conversion(inputs);
@@ -32,7 +37,7 @@ public:
         auto mhlbp = dfg_da::lbp::lbp_multicluster(reward_matrix, hypos_in_clusters);
         mhlbp.track_association_marginals_inplace(data.get());
 
-        size_t num_outputs = outputs.size();
+        
         if (num_outputs >= 1)
         {
             uint64_t r = num_measurements + 2;
@@ -41,7 +46,8 @@ public:
         }
         if (num_outputs >= 2)
         {
-            outputs[1] = f.createArray<double>({2, 2}, {1.2, 2.2, 3.2, 4.2});
+            double bethe_loglikelihood = mhlbp.bethe_pseudodual_loglikelihood();
+            outputs[1] = f.createScalar(bethe_loglikelihood);
         }
     }
 

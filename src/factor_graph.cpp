@@ -480,9 +480,9 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior_multicluster(const Eige
             size_t track_cardinality = ai_dk.second;
             uint64_t ai = gtsam::symbolIndex(ai_dk.first);
             
-            if (!std::isfinite(R(ai - 1, bj - 1))) {
-                continue;
-            }
+            // if (!std::isfinite(R(ai - 1, bj - 1))) {
+            //     continue;
+            // }
             std::vector<double> compatibility_table;
 
 

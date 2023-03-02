@@ -272,7 +272,6 @@ int main(int argc, char **argv)
     std::cout << marginals << "\n";
     std::cout << Z_bethe << "\n\n";
 
-
     gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
     auto [exact_margs, exact_const] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]));
@@ -288,23 +287,39 @@ int main(int argc, char **argv)
     auto [bayesTree, fg] = dfg_reduced->eliminatePartialMultifrontal(vars); // gtsam::Ordering{ordering});
     // bayesTree->print();
     // bayesTree->saveGraph("bayesTree.txt");
+    // bayesTree->print();
     auto a3_factor = fg->product();
     auto a3_conditional = boost::make_shared<gtsam::DiscreteConditional>(1, a3_factor);
     auto a3_clique = boost::make_shared<gtsam::DiscreteBayesTreeClique>(a3_conditional);
     gtsam::DiscreteBayesTree dbt;
-    dbt.addClique(a3_clique);
-    for (const auto &c : bayesTree->nodes())
+    dbt.insertRoot(a3_clique);
+    std::set<gtsam::DiscreteBayesTreeClique::shared_ptr> cliques;
+    for (const auto &n : bayesTree->nodes())
     {
-        if (!c.second->parent())
+        cliques.insert(n.second);
+    }
+
+    for (const auto &c : cliques)
+    {
+        if (!c->parent())
         {
-            dbt.addClique(c.second, a3_clique);
+            // std::cout << "Clique\n";
+            // c->print();
+            // std::cout << "does not have a parent\n";
+            dbt.addClique(c, a3_clique);
         }
         else
         {
-            dbt.addClique(c.second);
+            // std::cout << "Clique\n";
+            // c->print();
+            // std::cout << "does have a parent!\n";
+            // c->parent()->print();
+            dbt.addClique(c);
         }
+
+        std::cout << "\n";
     }
-    // dbt.print();
+    dbt.print();
     dbt.saveGraph("dbt_manual.txt");
     gtsam::DiscreteKey key{A(3), 4};
     auto m = dbt.marginalFactor(key.first, &gtsam::EliminateDiscrete);
@@ -322,23 +337,6 @@ int main(int argc, char **argv)
     }
 
     std::cout << vResult << "\n";
-
-    m = bayesTree->marginalFactor(key.first, &gtsam::EliminateDiscrete);
-
-    // DiscreteFactor::shared_ptr marginalFactor;
-    // marginalFactor = bayesTree_->marginalFactor(key.first, &EliminateDiscrete);
-
-    // Create result
-    for (size_t state = 0; state < 4; ++state)
-    {
-        gtsam::DiscreteFactor::Values values;
-        values[key.first] = state;
-        vResult(state) = (*m)(values);
-    }
-
-    std::cout << vResult << "\n";
-
-    bayesTree->print();
 
     // std::cout << marginalFactor->sum(1) << "\n";
     // fg->saveGraph("fg.txt");

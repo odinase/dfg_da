@@ -57,47 +57,47 @@ if __name__ == "__main__":
     # print(exact_norm_mc)
 
 
-    lc_margs = np.empty((n, m + 2))
-    _0 = np.zeros((n, 1))
-    all_tracks_idx = np.arange(n)
-    Z = np.empty(len(prior_hypotheses_per_cluster))
-    for c, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
-        t_idx = np.fromiter(prior_hypotheses.tracks(), dtype=int) - 1
-        nc = len(t_idx)
-        conditioned_marginals = np.zeros((n, m + 2))
-        marginal_total = np.zeros((n, m + 1 + 1))
-        for k in range(len(prior_hypotheses)):
-            hh = prior_hypotheses[k]
-            tracks = np.array(hh.tracks())
-            hypo_prob = hh.probability()
-            R_sub = R_LC[tracks-1, :]
-            JPDAprobs, _, loglikelihood = ma.exact_marginal(R_sub, False)
+    # lc_margs = np.empty((n, m + 2))
+    # _0 = np.zeros((n, 1))
+    # all_tracks_idx = np.arange(n)
+    # Z = np.empty(len(prior_hypotheses_per_cluster))
+    # for c, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
+    #     t_idx = np.fromiter(prior_hypotheses.tracks(), dtype=int) - 1
+    #     nc = len(t_idx)
+    #     conditioned_marginals = np.zeros((n, m + 2))
+    #     marginal_total = np.zeros((n, m + 1 + 1))
+    #     for k in range(len(prior_hypotheses)):
+    #         hh = prior_hypotheses[k]
+    #         tracks = np.array(hh.tracks())
+    #         hypo_prob = hh.probability()
+    #         R_sub = R_LC[tracks-1, :]
+    #         JPDAprobs, _, loglikelihood = ma.exact_marginal(R_sub, False)
 
-            # We need to concatenate the JPDAprobs with all tracks and existence probs
-            existing_tracks_idx = tracks - 1
-            non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+    #         # We need to concatenate the JPDAprobs with all tracks and existence probs
+    #         existing_tracks_idx = tracks - 1
+    #         non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
 
-            existing_probs = np.hstack((JPDAprobs, _0[:len(tracks)]))
-            nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
+    #         existing_probs = np.hstack((JPDAprobs, _0[:len(tracks)]))
+    #         nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
 
-            conditioned_marginals[existing_tracks_idx] = existing_probs
-            conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
+    #         conditioned_marginals[existing_tracks_idx] = existing_probs
+    #         conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
-            normalizing_constant = np.exp(loglikelihood)
+    #         normalizing_constant = np.exp(loglikelihood)
 
-            marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
+    #         marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
-        Z_cluster = marginal_total.sum(axis=1, keepdims=True)
-        Z[c] = Z_cluster.ravel()[0]
-        marginal_total = marginal_total / Z_cluster
-        lc_margs[t_idx] = marginal_total[t_idx]
+    #     Z_cluster = marginal_total.sum(axis=1, keepdims=True)
+    #     Z[c] = Z_cluster.ravel()[0]
+    #     marginal_total = marginal_total / Z_cluster
+    #     lc_margs[t_idx] = marginal_total[t_idx]
 
-    print(f"\nLC margs")
-    print(lc_margs)
-    print(Z)
-    print(np.prod(Z))
-    print(np.prod(Z) / exact_norm)
-    print(exact_norm / Z)
+    # print(f"\nLC margs")
+    # print(lc_margs)
+    # print(Z)
+    # print(np.prod(Z))
+    # print(np.prod(Z) / exact_norm)
+    # print(exact_norm / Z)
 
         # exact_marginals(Rcluster, hh)
 

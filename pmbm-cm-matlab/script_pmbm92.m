@@ -108,6 +108,9 @@ doPostDMRecycle = true;
 doWarmstart = false;
 warmstartString = '../pmbm_large_files/warmstart600.mat';
 
+            
+hyposLabels = {};
+
 kInvestigateList = zeros(1,0);
 %ise = evalin( 'base', 'exist(''savedID'',''var'') == 1' );
 
@@ -1141,14 +1144,16 @@ for dd=ddBeg:ddEnd
             
             stringSav = ['initPriorLikelihood_iMC',num2str(iMC),'k',num2str(k),'.mat']; 
             %save(stringSav,'hypos','hyposCard','clusters','clustersCard','probLogHypos','assocLocal','gainMatPostC','indicesOfNewbornTracks','nHypoMax','nHypoTotalMax','trackNumberLookup','k','trackFile','inCol','hTrue','trackFileShadow','measurements','predX','predZ','predP','predS','pD','meaHistCol','meaHistColNew');
-            
+
             for iC=1:size(masters,2)
                 
                 t1BB = clock;
                 
-                [hyposLocal,hyposCardLocal,probLogLocal,kInvesti,pqLen] = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k);
+                [hyposLocal,hyposCardLocal,probLogLocal,kInvesti,pqLen,priorCardAve,pq] = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k);
                 kInvestigateList = [kInvestigateList,kInvesti];
                 
+                hyposLabels{end+1} = horzcat(pq.labelHypo);
+
                 t2BB = clock;
                 
                 begsH = tCloud2BegInd(hyposCardLocal);
@@ -1236,54 +1241,66 @@ for dd=ddBeg:ddEnd
                 
                 if(doPostDMRecycle)
                     
-                    ttpMissing = NaN*zeros(size(missingTracksIx));
-                    phdTracksMissing = NaN*zeros(size(trackFile,1),length(missingTracksIx));
-                    
-                    
-                    for ii=1:length(parentsMissing)
-                        parent = parentsMissing(ii);
-                        mea = meaMissing(ii);
-                        if(parent <= size(trackFile,2) && mea <=m) %PHD update with parent contribution from MBM
-                            
-                            % Kinematic pdf has already been found in KF upate
-                            
-                            phdTracksMissing(inCol.tarX,ii) = trackFileNew(inCol.tarX,tracksMissing(ii));
-                            phdTracksMissing(inCol.tarP,ii) = trackFileNew(inCol.tarP,tracksMissing(ii));
-                            
-                            % It remains to calculate the weight of this PHD component
-                            
-                            ttp = trackTotalProbs(parent);
-                            ttpMissing(ii) = ttp;
-                            if(ttp > 0.094)
-                                %error('Check why I got such a large ttp value');
-                            end
-                            exi = trackFile(inCol.exi,parent);
-                            numer = exp(gainMatFull(parent,mea))*ttp;
-                            phdTracksMissing(inCol.exi,ii) = numer/(lambdaFa*exi + numer);
-                            
-                        elseif(parent <= size(trackFile,2))    % Recyling a misdetected association
-                            
-                            % Again, kinematic pdf has already been found in KF upate
-                            
-                            phdTracksMissing(inCol.tarX,ii) = trackFileNew(inCol.tarX,tracksMissing(ii));
-                            phdTracksMissing(inCol.tarP,ii) = trackFileNew(inCol.tarP,tracksMissing(ii));
-                            
-                            % It remains to calculate the weight of this PHD component
-                            
-                            ttp = trackTotalProbs(parent);
-                            ttpMissing(ii) = ttp;
-                            phdTracksMissing(inCol.exi,ii) = ttp*(1-pD);
+                    % We start by computing normalization constant and
+                    % marginals by LBP
+                    num_tracks = size(trackFile, 2);
+                    num_measurements = size(measurements, 2);
+                    [LBP_marginals, bethe_loglikelihood] = lbp_mex(gainMatPostC, num_tracks, num_measurements, hypos, hyposCard, probLogHypos, clusters, clustersCard);
 
-                        else   % PHD update with parent contribution from predicted PHD
-                            
-                            
-                            
-                            error('stop ere instead');
-                            
-                        end
-                        
-                    end
-                    phdTracks = [phdTracks,phdTracksMissing];
+
+                    hyposLabels = {};
+                    % Form list over posterior hypothesis likelihoods based
+                    % on Murty's
+
+
+%                     ttpMissing = NaN*zeros(size(missingTracksIx));
+%                     phdTracksMissing = NaN*zeros(size(trackFile,1),length(missingTracksIx));
+%                     
+%                     
+%                     for ii=1:length(parentsMissing)
+%                         parent = parentsMissing(ii);
+%                         mea = meaMissing(ii);
+%                         if(parent <= size(trackFile,2) && mea <=m) %PHD update with parent contribution from MBM
+%                             
+%                             % Kinematic pdf has already been found in KF upate
+%                             
+%                             phdTracksMissing(inCol.tarX,ii) = trackFileNew(inCol.tarX,tracksMissing(ii));
+%                             phdTracksMissing(inCol.tarP,ii) = trackFileNew(inCol.tarP,tracksMissing(ii));
+%                             
+%                             % It remains to calculate the weight of this PHD component
+%                             
+%                             ttp = trackTotalProbs(parent);
+%                             ttpMissing(ii) = ttp;
+%                             if(ttp > 0.094)
+%                                 %error('Check why I got such a large ttp value');
+%                             end
+%                             exi = trackFile(inCol.exi,parent);
+%                             numer = exp(gainMatFull(parent,mea))*ttp;
+%                             phdTracksMissing(inCol.exi,ii) = numer/(lambdaFa*exi + numer);
+%                             
+%                         elseif(parent <= size(trackFile,2))    % Recyling a misdetected association
+%                             
+%                             % Again, kinematic pdf has already been found in KF upate
+%                             
+%                             phdTracksMissing(inCol.tarX,ii) = trackFileNew(inCol.tarX,tracksMissing(ii));
+%                             phdTracksMissing(inCol.tarP,ii) = trackFileNew(inCol.tarP,tracksMissing(ii));
+%                             
+%                             % It remains to calculate the weight of this PHD component
+%                             
+%                             ttp = trackTotalProbs(parent);
+%                             ttpMissing(ii) = ttp;
+%                             phdTracksMissing(inCol.exi,ii) = ttp*(1-pD);
+% 
+%                         else   % PHD update with parent contribution from predicted PHD
+%                             
+%                             
+%                             
+%                             error('stop ere instead');
+%                             
+%                         end
+%                         
+%                     end
+%                     phdTracks = [phdTracks,phdTracksMissing];
                 end
                 %ttpMissing = trackTotalProbs(tracksMissing);
                 %stateMissing = trackFile(inCol.tarX,tracksMissing);

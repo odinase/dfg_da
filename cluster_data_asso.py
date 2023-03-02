@@ -37,6 +37,12 @@ def lc_to_edmund(R_LC):
     return np.hstack((Rd, Rmd_temp))
 
 
+def interacting_tracks(R):
+    """
+    Interacting tracks are tracks from one cluster that gates 
+    """
+
+
 if __name__ == "__main__":
     R = np.array([
         [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
