@@ -164,7 +164,7 @@ if __name__ == "__main__":
             hypos = hypos[:, existing_tracks]
 
             Rlc_c2 = edmund_to_lc(Rc2_temp)
-            scores = [Rlc_c2[existing_tracks, a] for a in hypos]
+            scores = [np.sum(Rlc_c2[existing_tracks, a]) for a in hypos]
 
             Zc2 += (np.exp(scores)*prior_prob).sum()
 
