@@ -272,71 +272,71 @@ int main(int argc, char **argv)
     std::cout << marginals << "\n";
     std::cout << Z_bethe << "\n\n";
 
-    gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
+    // gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
     auto [exact_margs, exact_const] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]));
     std::cout << exact_margs << "\n";
     std::cout << exact_const << "\n";
 
-    // dfg.saveGraph("dfg_original.txt");
-    // Marginalize out measurement variables
-    gtsam::KeyVector ordering_meas = {B(1), B(2)};
-    auto dfg_reduced = dfg.eliminatePartialMultifrontal(ordering_meas).second;
-    // dfg_reduced->saveGraph("dfg_reduced.txt");
-    gtsam::KeyVector vars = {T(1), T(2), A(1), A(2), A(4), A(5)};
-    auto [bayesTree, fg] = dfg_reduced->eliminatePartialMultifrontal(vars); // gtsam::Ordering{ordering});
-    // bayesTree->print();
-    // bayesTree->saveGraph("bayesTree.txt");
-    // bayesTree->print();
-    auto a3_factor = fg->product();
-    auto a3_conditional = boost::make_shared<gtsam::DiscreteConditional>(1, a3_factor);
-    auto a3_clique = boost::make_shared<gtsam::DiscreteBayesTreeClique>(a3_conditional);
-    gtsam::DiscreteBayesTree dbt;
-    dbt.insertRoot(a3_clique);
-    std::set<gtsam::DiscreteBayesTreeClique::shared_ptr> cliques;
-    for (const auto &n : bayesTree->nodes())
-    {
-        cliques.insert(n.second);
-    }
+    // // dfg.saveGraph("dfg_original.txt");
+    // // Marginalize out measurement variables
+    // gtsam::KeyVector ordering_meas = {B(1), B(2)};
+    // auto dfg_reduced = dfg.eliminatePartialMultifrontal(ordering_meas).second;
+    // // dfg_reduced->saveGraph("dfg_reduced.txt");
+    // gtsam::KeyVector vars = {T(1), T(2), A(1), A(2), A(4), A(5)};
+    // auto [bayesTree, fg] = dfg_reduced->eliminatePartialMultifrontal(vars); // gtsam::Ordering{ordering});
+    // // bayesTree->print();
+    // // bayesTree->saveGraph("bayesTree.txt");
+    // // bayesTree->print();
+    // auto a3_factor = fg->product();
+    // auto a3_conditional = boost::make_shared<gtsam::DiscreteConditional>(1, a3_factor);
+    // auto a3_clique = boost::make_shared<gtsam::DiscreteBayesTreeClique>(a3_conditional);
+    // gtsam::DiscreteBayesTree dbt;
+    // dbt.insertRoot(a3_clique);
+    // std::set<gtsam::DiscreteBayesTreeClique::shared_ptr> cliques;
+    // for (const auto &n : bayesTree->nodes())
+    // {
+    //     cliques.insert(n.second);
+    // }
 
-    for (const auto &c : cliques)
-    {
-        if (!c->parent())
-        {
-            // std::cout << "Clique\n";
-            // c->print();
-            // std::cout << "does not have a parent\n";
-            dbt.addClique(c, a3_clique);
-        }
-        else
-        {
-            // std::cout << "Clique\n";
-            // c->print();
-            // std::cout << "does have a parent!\n";
-            // c->parent()->print();
-            dbt.addClique(c);
-        }
+    // for (const auto &c : cliques)
+    // {
+    //     if (!c->parent())
+    //     {
+    //         // std::cout << "Clique\n";
+    //         // c->print();
+    //         // std::cout << "does not have a parent\n";
+    //         dbt.addClique(c, a3_clique);
+    //     }
+    //     else
+    //     {
+    //         // std::cout << "Clique\n";
+    //         // c->print();
+    //         // std::cout << "does have a parent!\n";
+    //         // c->parent()->print();
+    //         dbt.addClique(c);
+    //     }
 
-        std::cout << "\n";
-    }
-    dbt.print();
-    dbt.saveGraph("dbt_manual.txt");
-    gtsam::DiscreteKey key{A(3), 4};
-    auto m = dbt.marginalFactor(key.first, &gtsam::EliminateDiscrete);
+    //     std::cout << "\n";
+    // }
+    // dbt.print();
+    // dbt.saveGraph("dbt_manual.txt");
+    // gtsam::DiscreteKey key{A(3), 4};
+    // auto m = dbt.marginalFactor(key.first, &gtsam::EliminateDiscrete);
 
-    // DiscreteFactor::shared_ptr marginalFactor;
-    // marginalFactor = bayesTree_->marginalFactor(key.first, &EliminateDiscrete);
+    // // DiscreteFactor::shared_ptr marginalFactor;
+    // // marginalFactor = bayesTree_->marginalFactor(key.first, &EliminateDiscrete);
 
-    // Create result
-    Eigen::VectorXd vResult(key.second);
-    for (size_t state = 0; state < 4; ++state)
-    {
-        gtsam::DiscreteFactor::Values values;
-        values[key.first] = state;
-        vResult(state) = (*m)(values);
-    }
+    // // Create result
+    // Eigen::VectorXd vResult(key.second);
+    // for (size_t state = 0; state < 4; ++state)
+    // {
+    //     gtsam::DiscreteFactor::Values values;
+    //     values[key.first] = state;
+    //     vResult(state) = (*m)(values);
+    // }
 
-    std::cout << vResult << "\n";
+    // std::cout << vResult << "\n";
 
     // std::cout << marginalFactor->sum(1) << "\n";
     // fg->saveGraph("fg.txt");

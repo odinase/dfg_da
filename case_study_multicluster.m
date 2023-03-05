@@ -40,3 +40,5 @@ for iC=1:size(masters,2)
     = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,...
     iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k);
 end
+
+[LBP_marginals, bethe_loglikelihood] = lbp_mex(gainMatPostC, num_tracks, num_measurements, hypos, hyposCard, probLogHypos, clusters, clustersCard);
