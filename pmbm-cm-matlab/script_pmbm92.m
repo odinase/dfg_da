@@ -1247,7 +1247,7 @@ for dd=ddBeg:ddEnd
                     num_measurements = size(measurements, 2);
                     [LBP_marginals, bethe_loglikelihood] = lbp_mex(gainMatPostC, num_tracks, num_measurements, hypos, hyposCard, probLogHypos, clusters, clustersCard);
 
-
+%phdTracks,measurements,predZLambdau,predSLambdau
                     hyposLabels = {};
                     % Form list over posterior hypothesis likelihoods based
                     % on Murty's
