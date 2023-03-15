@@ -52,6 +52,7 @@ def number_of_tracks_in_cluster():
     pass
 
 
+# We 
 
 
 if __name__ == "__main__":
@@ -105,18 +106,40 @@ if __name__ == "__main__":
     # plt.show()
 
 
-    # Let's try 
+    # Let's try
 
-    for k, (cluster_stat, cluster_path) in enumerate(larger_bethe[:2]):
-        print(f"Scenario {k+1}\n")
-        print(f"Bethe: {cluster_stat.bethe_normalization_constant}\nExact: {cluster_stat.exact_normalization_constant}")
-        matfile: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(cluster_path), use_cpp=True)
+    # for k, (cluster_stat, cluster_path) in enumerate([larger_bethe[0]]):
+    #     print(f"Scenario {k+1}\n")
+    #     print(f"Bethe: {cluster_stat.bethe_normalization_constant}\nExact: {cluster_stat.exact_normalization_constant}")
+    #     matfile: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(cluster_path), use_cpp=True)
 
-        prior_hypos_per_cluster = matfile.prior_hypotheses_per_cluster
+    #     prior_hypos_per_cluster = matfile.prior_hypotheses_per_cluster
 
-        for c, prior_hypos in enumerate(prior_hypos_per_cluster):
-            print(f"Cluster {c+1}")
-            for h, hypo in enumerate(prior_hypos):
-                print(f"\tHypothesis {h+1}: {hypo.tracks()}")
-        
-        print()
+    #     for c, prior_hypos in enumerate(prior_hypos_per_cluster):
+    #         print(f"Cluster {c+1}")
+    #         for h, hypo in enumerate(prior_hypos):
+    #             print(f"\tHypothesis {h+1}: {hypo.tracks()}\tProbability: {hypo.probability()}")
+
+    #     print()
+
+    cluster_data, cluster_file = larger_bethe[0]
+    # By visual inspection, we claim that cluster 1 and 4 are "flat", so remove them and see how much it helps
+    # I suspect it helps a lot since the other clusters are so small
+    # Perhaps more interesting to set new probabilities that are exponentially decaying or something?
+    # prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+    #     py_dfg_da.hypothesis.Hypotheses([
+    #         py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+    #         py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
+    #     ]),
+    #     py_dfg_da.hypothesis.Hypotheses([
+    #         py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+    #         py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
+    #     ])
+    # ])
+
+    cluster_path = result_path_to_mat_file_string(cluster_file)
+    mat_data: sl.MatFileParser = sl.MatFileParser(cluster_path, use_cpp=True)
+
+    prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
+
+    # Let's split this into 
