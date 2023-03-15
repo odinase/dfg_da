@@ -13,12 +13,29 @@ if __name__ == "__main__":
     ], order='F')
 
     # R = np.array([
-    #     [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-    #     [   -3.0, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-    #     [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-    #     [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    #     [    3.0,     2.9,   -40.60, -np.inf, -np.inf, -np.inf, -np.inf],
+    #     [    3.2,     2.5, -np.inf,   -40.56, -np.inf, -np.inf, -np.inf],
+    #     [    3.0,     3.2, -np.inf, -np.inf,   -30.46, -np.inf, -np.inf],
+    #     [    3.2,     3.0, -np.inf, -np.inf, -np.inf,   -50.62, -np.inf],
+    #     [    3.1,     2.4, -np.inf, -np.inf, -np.inf, -np.inf,   -40.55],
     # ], order='F')
+
+    # R = np.array([
+    #     [    3.0,     2.9,     -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+    #     [    3.2,     2.5, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+    #     [    3.0,     3.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+    #     [    3.2,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+    #     [    3.1,     2.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    # ], order='F')
+
+    # R = np.array([
+    #     [    3.0, -np.inf,   -20.60, -np.inf, -np.inf, -np.inf, -np.inf],
+    #     [    3.0, -np.inf, -np.inf,   -20.60, -np.inf, -np.inf, -np.inf],
+    #     [   -3.0,     1.2, -np.inf, -np.inf,   -20.46, -np.inf, -np.inf],
+    #     [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -25.62, -np.inf],
+    #     [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -25.55],
+    # ], order='F')
+
 
     n, mpn = R.shape
     m = mpn - n
@@ -32,22 +49,20 @@ if __name__ == "__main__":
         ]),
         py_dfg_da.hypothesis.Hypotheses([
             py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5))
+            py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
         ])
     ])
 
     output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
     np.set_printoptions(suppress=True)
+    print("LBP")
     print(output.track_association_marginals().T)
     print(output.bethe_pseudodual_normalization_constant())
-    exact_marginals, exact_normalization_constant = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    print(exact_marginals.T)
-    print(exact_normalization_constant)
-    print(dir(prior_hypotheses_per_cluster))
 
     merged_hypos = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1])
     exact_margs, exact_norm = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, merged_hypos)
 
+    print("\nExact")
     print(exact_margs.T)
     print(exact_norm)
 

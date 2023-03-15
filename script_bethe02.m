@@ -55,7 +55,7 @@ gainMatPostC(isinf(gainMatPostC)) = -1000;
 
 % Let's set this low to try to see the effects of recycling
 % In this example there are 28 posterior hypotheses in total
-nHypoTotalMax = 100;
+nHypoTotalMax = 5;
 
 [hyposLocal,hyposCardLocal,probLogLocal,kInvestigate,pqLen,priorCardAve,pq] ...
     = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,...
@@ -94,7 +94,7 @@ nH = length(hyposCardLocal);
 new_tracks = trackNumberLookup(:);
 new_tracks = new_tracks(~isnan(new_tracks));
 
-bethe_loglikelihood = logsumexp(vertcat(pq.score), 1);
+%bethe_loglikelihood = logsumexp(vertcat(pq.score), 1);
 
 % Loop over all posterior hypotheses
 % Find out what tracks exist and what don't
@@ -122,7 +122,7 @@ for iH = 1:nH
 end
 
 % Now that we have the Murty marginals, compute the recycling weights
-p_P = Z_bethe / Z_P * (LBP_marginals - murty_marginals);
+p_P = LBP_marginals - murty_marginals;
 
 
 

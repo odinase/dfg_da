@@ -11,6 +11,17 @@ import py_dfg_da
 
 
 @dataclass
+class TrackEstimate:
+    state: np.ndarray
+    covariance: np.ndarray
+
+@dataclass
+class PredictedMeasurement:
+    measurement: np.ndarray
+    covariance: np.ndarray
+
+
+@dataclass
 class MatFileParser:
     ws: Dict[str, Any]
 
@@ -174,7 +185,35 @@ class MatFileParser:
             prior_hypotheses_per_cluster.append(prior_hypotheses_in_cluster)
 
         return prior_hypotheses_per_cluster, clusters_to_use
+    
+    def track_states_covariances(self) -> List[TrackEstimate]:
+        estimates: List[TrackEstimate] = []
 
+        predX = self.ws["predX"].T
+        predP = self.ws["predP"].transpose((-1, 0, 1))
+        for x, P in zip(predX, predP):
+            estimates.append(TrackEstimate(state=x, covariance=P))
+
+        return estimates
+    
+    def predicted_track_measurement(self) -> List[PredictedMeasurement]:
+        measurements: List[PredictedMeasurement] = []
+
+        predZ = self.ws["predZ"].T
+        predS = self.ws["predS"].transpose((-1, 0, 1))
+        for z, S in zip(predZ, predS):
+            measurements.append(PredictedMeasurement(measurement=z, covariance=S))
+
+        return measurements
+    
+    def clusters(self) -> List[np.ndarray]:
+        tracks_per_cluster: List[np.ndarray] = []
+
+        for ph in self.prior_hypotheses_per_cluster:
+            t = np.fromiter(ph.tracks(), dtype=int)
+            tracks_per_cluster.append(t)
+
+        return tracks_per_cluster
 
 
 SelfMarginals = TypeVar("SelfMarginals", bound="StatsLogger.Marginals")
@@ -212,6 +251,16 @@ class Marginals:
             setattr(out, marginal_file, np.fromfile(f"{path}/{marginal_file}.bin"))
 
         return out
+
+    def nonexistence_removed(self) -> SelfMarginals:
+        """
+        Sets P(nonexistence) = 0.0 and renormalizes the other probabilities
+        """
+        marginals = self.marginals_raw.copy()
+        marginals[:, -1] = 0.0
+        marginals = marginals / marginals.sum(axis=1, keepdims=True)
+
+        return Marginals(marginals)
 
 
 SelfMarginalsErrors = TypeVar("SelfMarginalsErrors", bound="StatsLogger.MarginalsErrors")

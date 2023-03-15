@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
 from copy import deepcopy
-
+from dataclasses import dataclass
 
 import seaborn as sns
 sns.set_theme(style="ticks")
@@ -66,27 +66,35 @@ def split_cluster_stats_converged(cluster_stats: List[Tuple[ClusterData, Path]])
 
     return cluster_stats_converged, cluster_stats_diverged
 
-def cluster_stats_to_errors(cluster_stats: List[Tuple[ClusterData, Path]], add_williams_exact: bool = False):
+def cluster_stats_to_errors(cluster_stats: List[Tuple[MulticlusterData, Path]]) -> MarginalsErrors:
     lbp_errors = []
-    williams_errors = []
-    if add_williams_exact:
-        williams_exact_errors = []
 
     for cluster_stat, _ in cluster_stats:
-        if cluster_stat.explicit_hypothesis_enumeration_error:
+        if cluster_stat.exact_computation_error:
             continue
-        lbp_errors.append(MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.lbp_stats.marginals))
-        williams_errors.append(MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.williams_stats.marginals))
-        if add_williams_exact:
-            williams_exact_errors.append(MarginalsErrors(cluster_stat.exact_stats.marginals, cluster_stat.williams_stats.marginals_exact_normalization_constant))
+        lbp_errors.append(MarginalsErrors(cluster_stat.exact_marginals, cluster_stat.mhlbp_marginals))
 
 
     lbp_errors: MarginalsErrors = MarginalsErrors.concatenate(lbp_errors)
-    williams_errors: MarginalsErrors = MarginalsErrors.concatenate(williams_errors)
-    if add_williams_exact:
-        williams_exact_errors: MarginalsErrors = MarginalsErrors.concatenate(williams_exact_errors)
 
-    return (lbp_errors, williams_errors) if not add_williams_exact else (lbp_errors, williams_errors, williams_exact_errors)
+    return lbp_errors
+
+@dataclass
+class NormConstTuple:
+    bethe_constant: float
+    exact_constant:float
+
+
+def cluster_stats_to_norm_consts(cluster_stats: List[Tuple[MulticlusterData, Path]]) -> List[NormConstTuple]:
+    norm_consts = []
+
+    for cluster_stat, _ in cluster_stats:
+        if cluster_stat.exact_computation_error:
+            continue
+        norm_consts.append(NormConstTuple(bethe_constant=cluster_stat.bethe_normalization_constant, exact_constant=cluster_stat.exact_marginals))
+
+    return norm_consts
+
 
 
 def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
@@ -133,12 +141,10 @@ def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
 def make_survival_function_plots(cluster_stats: List[ClusterData]):
     fig, ax = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
 
-    lbp_errors, williams_errors, williams_errors_exact  = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
+    fig.suptitle("Survival functions MCMH LBP")
+    lbp_errors  = cluster_stats_to_errors(cluster_stats)
 
-    plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
-    plot_survival_function(ax, williams_errors_exact, "Hypothesis-conditioned LBP with exact normalization constant")
-    plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
-
+    plot_survival_function(ax, lbp_errors)
     save_fig(fig, "sf")
 
 
@@ -495,23 +501,27 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[MulticlusterData, Path]])
     save_fig(fig, "heatmap_correlation")
 
 
-def make_heatmap_correlation_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
+def make_heatmap_correlation_distinct_errors(cluster_stats: List[Tuple[MulticlusterData, Path]], remove_nonexistence: bool = False):
     exact_marginals = []
-    williams_marginals = []
+    lbp_marginals = []
 
     for cluster_stat, _ in cluster_stats:
-        if not cluster_stat.explicit_hypothesis_enumeration_error:
-            exact_marginals.append(cluster_stat.exact_stats.marginals)
-            williams_marginals.append(cluster_stat.williams_stats.marginals)
-            
+        if not cluster_stat.exact_computation_error:
+            if remove_nonexistence:
+                cluster_stat.exact_marginals = cluster_stat.exact_marginals.nonexistence_removed()
+                cluster_stat.mhlbp_marginals = cluster_stat.mhlbp_marginals.nonexistence_removed()
+
+            exact_marginals.append(cluster_stat.exact_marginals)
+            lbp_marginals.append(cluster_stat.mhlbp_marginals)
+
 
     exact_marginals: Marginals = Marginals.concatenate(exact_marginals)
-    williams_marginals: Marginals = Marginals.concatenate(williams_marginals)
+    lbp_marginals: Marginals = Marginals.concatenate(lbp_marginals)
 
     marginals_to_compare = [
-        (exact_marginals.misdetection_marginals, williams_marginals.misdetection_marginals),
-        (exact_marginals.detection_marginals, williams_marginals.detection_marginals),
-        (exact_marginals.nonexistence_marginals, williams_marginals.nonexistence_marginals)
+        (exact_marginals.misdetection_marginals, lbp_marginals.misdetection_marginals),
+        (exact_marginals.detection_marginals, lbp_marginals.detection_marginals),
+        (exact_marginals.nonexistence_marginals, lbp_marginals.nonexistence_marginals)
     ]
 
     marginal_names = ["Misdetection", "Detection", "Nonexistence"]
@@ -529,11 +539,11 @@ def make_heatmap_correlation_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]
         X_w, Y_w = np.meshgrid(xedges[:-1], yedges[:-1])
 
         df = pd.DataFrame({
-            "LBP with PHD approximation normalization constants": np.around(X_w.ravel(), decimals=3),
+            "MCMH LBP": np.around(X_w.ravel(), decimals=3),
             "Exact marginals": np.around(Y_w.ravel(), decimals=3),
             "hist": heatmap_w.ravel()
         })
-        df = df.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
+        df = df.pivot(index="Exact marginals", columns="MCMH LBP", values="hist")
 
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Oranges", ax=axx)
         axx.invert_yaxis()
@@ -541,7 +551,11 @@ def make_heatmap_correlation_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]
         if k < nrows - 1:
             axx.tick_params(bottom=False)
 
-    save_fig(fig, "heatmap_correlation_williams_margs")
+    fig_name = "heatmap_correlation_distinct_margs"
+    if remove_nonexistence:
+        fig_name += "_nonexistence_removed"
+
+    save_fig(fig, fig_name)
 
 
 def subsample(a: np.ndarray, inc: float, first_val=0) -> np.ndarray:
@@ -767,4 +781,4 @@ if __name__ == "__main__":
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)
-    # make_heatmap_correlation_lbpphd(cluster_stats)
+    make_heatmap_correlation_distinct_errors(cluster_stats)
