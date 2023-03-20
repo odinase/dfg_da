@@ -6,9 +6,10 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
+from collections import defaultdict
 
 from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE, PMBM_DATA_PATH
+from cluster_data_asso import edmund_to_lc, lc_to_edmund
 
 
 def find_large_errors(cluster_stats: List[Tuple[sl.MulticlusterData, Path]], max_error_threshold: float = 0.4) -> List[Tuple[sl.MarginalsErrors, Path]]:
@@ -48,9 +49,23 @@ def result_path_to_mat_file_string(result_path: Path, data_path: str = PMBM_DATA
     return data_path + "/" + mat_file + ".mat"
 
 
-def number_of_tracks_in_cluster():
-    pass
 
+
+def cases_with_very_correct_bethe(cluster_stats: List[Tuple[sl.MulticlusterData, Path]], percent_error_threshold: float = 1.0):
+    """
+    Find cases with good estimates of Bethe energy and large clusters to have something to compare with
+    """
+    def percent_error(bethe, exact):
+        return ((bethe - exact) / exact) * 100.0
+        
+    good_cases = [
+        (cluster_stat, cluster_file)
+        for cluster_stat, cluster_file in cluster_stats
+        if (cluster_stat.bethe_normalization_constant < cluster_stat.exact_normalization_constant)
+        and abs(percent_error(cluster_stat.bethe_normalization_constant, cluster_stat.exact_normalization_constant)) < percent_error_threshold
+    ]
+
+    return good_cases
 
 # We 
 
@@ -108,19 +123,21 @@ if __name__ == "__main__":
 
     # Let's try
 
-    # for k, (cluster_stat, cluster_path) in enumerate([larger_bethe[0]]):
-    #     print(f"Scenario {k+1}\n")
-    #     print(f"Bethe: {cluster_stat.bethe_normalization_constant}\nExact: {cluster_stat.exact_normalization_constant}")
-    #     matfile: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(cluster_path), use_cpp=True)
+    for k, (cluster_stat, cluster_path) in enumerate([larger_bethe[0]]):
+        print(f"Scenario {k+1}\n")
+        print(f"Bethe: {cluster_stat.bethe_normalization_constant}\nExact: {cluster_stat.exact_normalization_constant}")
+        percent_error = ((cluster_stat.bethe_normalization_constant - cluster_stat.exact_normalization_constant) / cluster_stat.exact_normalization_constant) * 100.0
+        print(f"Percent error: {percent_error:.3f}%")
+        matfile: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(cluster_path), use_cpp=True)
 
-    #     prior_hypos_per_cluster = matfile.prior_hypotheses_per_cluster
+        prior_hypos_per_cluster = matfile.prior_hypotheses_per_cluster
 
-    #     for c, prior_hypos in enumerate(prior_hypos_per_cluster):
-    #         print(f"Cluster {c+1}")
-    #         for h, hypo in enumerate(prior_hypos):
-    #             print(f"\tHypothesis {h+1}: {hypo.tracks()}\tProbability: {hypo.probability()}")
+        for c, prior_hypos in enumerate(prior_hypos_per_cluster):
+            print(f"Cluster {c+1}")
+            for h, hypo in enumerate(prior_hypos):
+                print(f"\tHypothesis {h+1}: {hypo.tracks()}\t\tProbability: {hypo.probability()}")
 
-    #     print()
+        print()
 
     cluster_data, cluster_file = larger_bethe[0]
     # By visual inspection, we claim that cluster 1 and 4 are "flat", so remove them and see how much it helps
@@ -142,4 +159,64 @@ if __name__ == "__main__":
 
     prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
 
-    # Let's split this into 
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+
+    # Let's split this into the two clusters 1 and 4
+    track_count = defaultdict(lambda: 0)
+    prior_hypotheses_c1 = prior_hypotheses_per_cluster[0]
+    for prior_hypothesis in prior_hypotheses_c1:
+        for t in prior_hypothesis.tracks():
+            track_count[t] += 1
+    
+    prob_density = prior_hypotheses_c1.hypothesis_probabilites()
+
+    track_count = np.array(list(track_count.items()))
+    t_sort = np.argsort(track_count[:,0])
+    track_count = track_count[t_sort]
+
+    axes[0,0].bar(*track_count.T)
+    axes[0,0].set_title("Number of hypotheses each track appears in")
+
+    axes[1,0].plot(prob_density)
+    axes[1,0].set_title("Prior hypothesis density")
+
+
+    # Let's split this into the two clusters 1 and 4
+    track_count = defaultdict(lambda: 0)
+    prior_hypotheses_c1 = prior_hypotheses_per_cluster[3]
+    for prior_hypothesis in prior_hypotheses_c1:
+        for t in prior_hypothesis.tracks():
+            track_count[t] += 1
+    
+    prob_density = prior_hypotheses_c1.hypothesis_probabilites()
+
+    track_count = np.array(list(track_count.items()))
+    t_sort = np.argsort(track_count[:,0])
+    track_count = track_count[t_sort]
+
+    axes[0,1].bar(*track_count.T)
+    axes[0,1].set_title("Number of hypotheses each track appears in")
+
+    axes[1,1].plot(prob_density)
+    axes[1,1].set_title("Prior hypothesis density")
+
+
+    # plt.show()
+
+    good_cases = cases_with_very_correct_bethe(cluster_stats, 1.0)
+    print(len(good_cases))
+
+    # Find the case with largest cluster
+    largest_cluster = -1
+    largest_cluster_idx = -1
+    for k, (c, f) in enumerate(good_cases):
+        path = result_path_to_mat_file_string(f)
+        mat_file = sl.MatFileParser(path, use_cpp=True)
+        prior_hypotheses_per_cluster = mat_file.prior_hypotheses_per_cluster
+        largest_cluster_this_file = max([len(ph.tracks()) for ph in prior_hypos_per_cluster])
+        print(largest_cluster_this_file)
+        if largest_cluster_this_file > largest_cluster:
+            largest_cluster = largest_cluster_this_file
+            largest_cluster_idx = k
+
+    print(largest_cluster, largest_cluster_idx)

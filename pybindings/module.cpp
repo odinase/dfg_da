@@ -130,6 +130,7 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def("__len__", &hypothesis::Hypotheses::num_hypotheses)
     .def("tracks", &hypothesis::Hypotheses::tracks)
     .def("reindex_tracks", &hypothesis::Hypotheses::reindex_tracks)
+    .def("hypothesis_probabilites", &hypothesis::Hypotheses::hypothesis_probabilites)
     .def("__iter__", [](hypothesis::Hypotheses &h) { return py::make_iterator(h.begin(), h.end()); },
                          py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */);
 
