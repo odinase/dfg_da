@@ -28,8 +28,8 @@ namespace dfg_da
             const size_t num_measurements;
 
             MHLBPSingleClusterOutput(
-                Eigen::ArrayXd &&mu_,
-                Eigen::ArrayXd &&nu_,
+                Eigen::ArrayXXd &&mu_,
+                Eigen::ArrayXXd &&nu_,
                 Eigen::ArrayXd &&rho_,
                 Eigen::ArrayXd &&sigma_,
                 Eigen::ArrayXXd &&w_nmd_,
@@ -53,16 +53,19 @@ namespace dfg_da
             Eigen::ArrayXXd track_association_marginals() const;
             Eigen::ArrayXXd measurement_association_marginals() const;
             Eigen::ArrayXd hypotheses_marginal() const;
-            double bethe_pseudodual() const;
+            double bethe_pseudodual_loglikelihood() const;
+            inline double bethe_pseudodual_normalization_constant() const { return exp(bethe_pseudodual_loglikelihood()); }
 
         private:
             // track_normalizing_constant(self, w_nmd: np.ndarray, nu: np.ndarray)
-            Eigen::ArrayXd track_normalization_constant() const;
+            Eigen::ArrayXd track_normalization_constants() const;
             // meas_normalizing_constant(self, mu: np.ndarray)
-            Eigen::ArrayXd meas_normalization_constant() const;
+            Eigen::ArrayXd meas_normalization_constants() const;
             // edge_normalizing_constant(self, w_nmd: np.ndarray, mu: np.ndarray, nu: np.ndarray)
-            Eigen::ArrayXXd edge_normalization_constant() const;
+            Eigen::ArrayXXd track_meas_normalization_constants() const;
             double hypotheses_normalization_constant() const;
+            Eigen::ArrayXd track_hypo_normalization_constants() const;
+
         };
         MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters = 300);
 

@@ -47,6 +47,53 @@ namespace dfg_da
             return hypo_probs;
         }
 
+        double MHLBPSingleClusterOutput::bethe_pseudodual_loglikelihood() const
+        {
+            double Z_theta = hypotheses_normalization_constant();
+            Eigen::ArrayXd Z_tths = track_hypo_normalization_constants();
+            Eigen::ArrayXd Z_ts = track_normalization_constants();
+            Eigen::ArrayXd Z_js = meas_normalization_constants();
+            Eigen::ArrayXXd Z_tjs = track_meas_normalization_constants();
+
+            double F_theta = (num_tracks - 1) * log(Z_theta);
+            double F_ts = num_measurements * Z_ts.log().sum();
+            double F_js = (num_tracks - 1) * Z_js.log().sum();
+            double F_tths = Z_tths.log().sum();
+            double F_tjs = Z_tjs.log().sum();
+
+            double F_bethe_pseudo = F_theta + F_ts + F_js - F_tjs - F_tths;
+
+            return -F_bethe_pseudo;
+        }
+
+        Eigen::ArrayXd MHLBPSingleClusterOutput::track_normalization_constants() const
+        {
+            return w_0 + (w_nmd * nu).rowwise().sum() + sigma;
+        }
+        Eigen::ArrayXd MHLBPSingleClusterOutput::meas_normalization_constants() const
+        {
+            return mu.colwise().sum().transpose() + 1.0;
+        }
+        double MHLBPSingleClusterOutput::hypotheses_normalization_constant() const
+        {
+            double Z_theta = ((t2h.colwise() * rho + t2h_not).colwise().prod().transpose() * phi).sum();
+            
+            return Z_theta;
+        }
+        Eigen::ArrayXXd MHLBPSingleClusterOutput::track_meas_normalization_constants() const
+        {
+            Eigen::ArrayXXd w_times_msg = w_nmd * nu;
+            return (1.0 + ((-mu).rowwise() + mu.colwise().sum())) * ((-w_times_msg).colwise() + (w_times_msg.rowwise().sum() + w_0 + sigma)) + w_nmd;
+        }
+        Eigen::ArrayXd MHLBPSingleClusterOutput::track_hypo_normalization_constants() const
+        {
+            Eigen::ArrayXd w_sum_times_msg = (w_nmd * nu).rowwise().sum() + w_0;
+            Eigen::ArrayXd phi_rho_prods = phi * (t2h.colwise() * rho + t2h_not).colwise().prod().transpose();
+            Eigen::ArrayXd Z_tth = w_sum_times_msg / rho * (t2h.rowwise() * phi_rho_prods.transpose()).rowwise().sum() + (t2h_not.rowwise() * phi_rho_prods.transpose()).rowwise().sum();
+
+            return Z_tth;
+        }
+
         MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
