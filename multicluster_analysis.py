@@ -1,7 +1,7 @@
 from plotting_multicluster import load_cluster_stats
 import dfg_da.stats_logger as sl
 import dfg_da.cluster_visualizations as cv
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -95,6 +95,42 @@ def print_prior_hypotheses_per_cluster_data(prior_hypotheses_per_cluster: pdd.hy
             print(f"\tHypothesis {h+1}: {hypo.tracks()}\t\tProbability: {hypo.probability()}")
 
     print()
+
+
+
+def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], good_bethe: List[Tuple[sl.MulticlusterData, Path]], num_samples: int = 5, seed: Optional[int] = None):
+    """
+    1. Sample from the different scenarios
+    2. For each scenario:
+        - For large bethe: find the cluster that is at fault
+        - For the good bethe: Find the largest cluster and its exact constant? (Might be slow)
+        - Compute constants, prior hypothesis distributions, track distribution, marginals
+        - Print to figure
+            - Overlapping histogram of the two track distributions. Try to compute some normalized curves? We are trying to compare the flatness of the curves. Should we expect the number of tracks to related?
+            - Probability distribution over prior hypotheses. We should use posterior cluster distributions?
+            - Should also plot the correlation between probabilities estimated, in particular the nonexistence probability, since we expect it to be bad.
+    """
+
+    max_possible_samples = min(len(large_bethe), len(good_bethe))
+    if max_possible_samples < num_samples:
+        raise ValueError(f"max_possible_samples (min length of the two lists): {max_possible_samples} but num_samples: {num_samples}")
+
+    rng = np.random.default_rng(seed)
+    
+    large_bethe_samples = [large_bethe[i] for i in rng.choice(0, num_samples, replace=False)]
+    good_bethe_samples = [good_bethe[i] for i in rng.choice(0, num_samples, replace=False)]
+
+
+    path = "./large_bethe_viz_comparisons"
+
+    # Here we will simply make a new figure for each sample
+    for (lb_stats, lb_path), (gb_stats, gb_path) in zip(large_bethe_samples, good_bethe_samples):
+        # Let's first only plot the histogram distribution to get started
+        fig, ax = plt.subplots()
+        lb_mat: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(lb_path), use_cpp=True)
+        gb_mat: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(gb_path), use_cpp=True)
+
+
 
 
 if __name__ == "__main__":

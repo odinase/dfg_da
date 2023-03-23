@@ -51,12 +51,19 @@ class MatFileParser:
         self.reward_matrix_edmund = R_wrapping[:n, :npm]
         self.reward_matrix_lc = np.hstack((np.diag(self.reward_matrix_edmund[:,m:])[:,None], self.reward_matrix_edmund[:,:m]))
 
+        self.using_cpp = use_cpp
+
         if compute_hypotheses and not use_cpp:
             self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses(ws)
 
         if compute_hypotheses and use_cpp:
             self.prior_hypotheses_per_cluster, self.clusters_sorted = self.ws_to_prior_hypotheses_cpp(ws)
 
+    def prior_hypotheses_per_cluster_posterior(self):
+        if not self.using_cpp:
+            raise NotImplementedError("We cannot do merging of prior hypotheses on Python implemenation")
+        
+        
 
     def ws_to_prior_hypotheses_cpp(self, ws):
         hypos = ws["hypos"].ravel().astype(int)
