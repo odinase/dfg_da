@@ -51,14 +51,14 @@ def result_path_to_mat_file_string(result_path: Path, data_path: str = PMBM_DATA
     return data_path + "/" + mat_file + ".mat"
 
 
+def percent_error(bethe, exact):
+    return ((bethe - exact) / exact) * 100.0
 
 
 def cases_with_very_correct_bethe(cluster_stats: List[Tuple[sl.MulticlusterData, Path]], percent_error_threshold: float = 1.0):
     """
     Find cases with good estimates of Bethe energy and large clusters to have something to compare with
     """
-    def percent_error(bethe, exact):
-        return ((bethe - exact) / exact) * 100.0
         
     good_cases = [
         (cluster_stat, cluster_file)
@@ -98,6 +98,31 @@ def print_prior_hypotheses_per_cluster_data(prior_hypotheses_per_cluster: pdd.hy
     print()
 
 
+def correlation_plot(ax: plt.Axes, exact_margs: sl.Marginals, approx_margs: sl.Marginals):
+    labels = [
+        "Misdetection",
+        "Detection",
+        "Nonexistence"
+    ]
+    data = [
+        (exact_margs.misdetection_marginals, approx_margs.misdetection_marginals),
+        (exact_margs.detection_marginals, approx_margs.detection_marginals),
+        (exact_margs.nonexistence_marginals, approx_margs.nonexistence_marginals)
+    ]
+
+    colors = "rgb"
+
+    for label, (exact, approx), c in zip(labels, data, colors):
+        ax.plot(approx, exact, c + "o", label=label, alpha=0.7)
+
+    pmin = exact_margs.marginals_raw.min(axis=1)
+    pmax = exact_margs.marginals_raw.max(axis=1)
+    p = np.linspace(pmin, pmax, exact_margs.marginals_raw.shape[0])
+    ax.plot(p, p, "y--")
+    ax.set_xlabel("Approximate marginals")
+    ax.set_ylabel("Exact marginals")
+    ax.legend()
+
 
 def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], good_bethe: List[Tuple[sl.MulticlusterData, Path]], num_samples: int = 5, normalize: bool = True, seed: Optional[int] = None):
     """
@@ -128,7 +153,7 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
     # Here we will simply make a new figure for each sample
     for k, ((lb_stats, lb_path), (gb_stats, gb_path)) in tqdm(enumerate(zip(large_bethe_samples, good_bethe_samples)), total=num_samples):
         # Let's first only plot the histogram distribution to get started
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(nrows=2, ncols=2)
         lb_mat: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(lb_path), use_cpp=True)
         gb_mat: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(gb_path), use_cpp=True)
 
@@ -149,8 +174,21 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
             if Z_bethe > Z:
                 track_distr = lb_mat.track_distribution(prior_hypotheses, normalized=normalize)
                 num_tracks = track_distr.shape[0]
-                ax.hist(track_distr[:,1], label=f"Large bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
-                print(f"\n\nLarge bethe:\n\tZ_bethe {Z_bethe}\n\tZ {Z}\n")
+                # ax[0,0].hist(track_distr[:,1], label=f"Large bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
+                ax[0,0].plot(*track_distr.T, label=f"Large bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
+                print(f"\n\nLarge bethe:\n\tZ_bethe {Z_bethe}\n\tZ {Z}\n\tPercent error: {percent_error(Z_bethe, Z)}%%\n")
+
+                # Make prior hypothesis distribution
+                pd = np.array(prior_hypotheses.hypothesis_probabilites())
+                x = np.linspace(0, 1, pd.shape[0])
+                ax[0,1].plot(x, pd, label="Large Bethe")
+
+                approx_margs = sl.Marginals(mhlbp.track_association_marginals().T)
+
+                exact_margs = sl.Marginals(exact_margs.T)
+                correlation_plot(ax[1,0], exact_margs, approx_margs)
+                ax[1,0].set_title("Large Bethe correlation")
+
                 break
 
         # Unsure what to compare with here - the largest cluster?
@@ -168,14 +206,30 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
         mhlbp = pdd.lbp.lbp_single_cluster(Rc, prior_hypotheses)
         Z_bethe = mhlbp.bethe_pseudodual_normalization_constant()
         exact_margs, Z = pdd.hypothesis.association_marginal_posteriors_normalization_constant(Rc, prior_hypotheses)
-        print(f"\n\nGood bethe:\n\tZ_bethe {Z_bethe}\n\tZ {Z}\n")
+        print(f"\n\nGood bethe:\n\tZ_bethe {Z_bethe}\n\tZ {Z}\n\tPercent error: {percent_error(Z_bethe, Z)}%%\n")
 
         gb_track_distr = gb_mat.track_distribution(prior_hypotheses, normalized=normalize)
 
         num_tracks = gb_track_distr.shape[0]
-        ax.hist(gb_track_distr[:,1], label=f"Good bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
-        ax.legend()
+        # ax[0,0].hist(gb_track_distr[:,1], label=f"Good bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
+        ax[0,0].plot(*gb_track_distr.T, label=f"Good bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
+        ax[0,0].legend()
 
+        ax[0,0].set_title("Track distribution")
+
+        # Make prior hypothesis distribution
+        pd = np.array(prior_hypotheses.hypothesis_probabilites())
+        print(pd.shape)
+        x = np.linspace(0, 1, pd.shape[0])
+        ax[0,1].plot(x, pd, label="Good Bethe")
+        ax[0,1].legend()
+        ax[0,1].set_title("Prior hypothesis distribution")
+
+        approx_margs = sl.Marginals(mhlbp.track_association_marginals().T)
+        exact_margs = sl.Marginals(exact_margs.T)
+
+        correlation_plot(ax[1,1], exact_margs, approx_margs)
+        ax[1,1].set_title("Good Bethe correlation")
 
         plt.show()
 
@@ -404,4 +458,5 @@ if __name__ == "__main__":
 
     # plt.show()
 
-    visualize_difference(large_bethe, good_bethe, num_samples = 5, normalize=False)
+    print(min(len(large_bethe), len(good_bethe)))
+    visualize_difference(large_bethe, good_bethe, num_samples = 10, normalize=True)
