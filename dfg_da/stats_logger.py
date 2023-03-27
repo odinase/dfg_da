@@ -80,10 +80,14 @@ class MatFileParser:
 
         distr = np.array(list(tracks.items()))
 
+        sorted_tracks = np.argsort(distr[:,0])
+        distr = distr[sorted_tracks]
+
         if normalized:
             x = np.linspace(0, 1, distr.shape[0])
             y = distr[:, 1].astype(float)
-            y /= y.sum()  # TODO(odin): I guess dividing by the sum is correct for it to be a distribution?
+            integral = np.trapz(y, x)
+            y /= integral
             distr = np.vstack((x, y)).T
 
         return distr

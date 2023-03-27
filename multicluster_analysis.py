@@ -119,7 +119,7 @@ def correlation_plot(ax: plt.Axes, exact_margs: sl.Marginals, approx_margs: sl.M
     pmax = exact_margs.marginals_raw.max(axis=1)
     p = np.linspace(pmin, pmax, exact_margs.marginals_raw.shape[0])
     ax.plot(p, p, "y--")
-    ax.set_xlabel("Approximate marginals")
+    # ax.set_xlabel("Approximate marginals")
     ax.set_ylabel("Exact marginals")
     ax.legend()
 
@@ -153,7 +153,8 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
     # Here we will simply make a new figure for each sample
     for k, ((lb_stats, lb_path), (gb_stats, gb_path)) in tqdm(enumerate(zip(large_bethe_samples, good_bethe_samples)), total=num_samples):
         # Let's first only plot the histogram distribution to get started
-        fig, ax = plt.subplots(nrows=2, ncols=2)
+        fig, ax = plt.subplots(nrows=3, ncols=2)
+        fig_measl, ax_measl = plt.subplots(nrows=1, ncols=2)
         lb_mat: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(lb_path), use_cpp=True)
         gb_mat: sl.MatFileParser = sl.MatFileParser(result_path_to_mat_file_string(gb_path), use_cpp=True)
 
@@ -176,18 +177,32 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
                 num_tracks = track_distr.shape[0]
                 # ax[0,0].hist(track_distr[:,1], label=f"Large bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
                 ax[0,0].plot(*track_distr.T, label=f"Large bethe: {num_tracks}, {num_tracks / tot_number_of_tracks * 100.0:.3f}%% of tracks in all clusters", alpha=0.5)
+
                 print(f"\n\nLarge bethe:\n\tZ_bethe {Z_bethe}\n\tZ {Z}\n\tPercent error: {percent_error(Z_bethe, Z)}%%\n")
 
                 # Make prior hypothesis distribution
                 pd = np.array(prior_hypotheses.hypothesis_probabilites())
                 x = np.linspace(0, 1, pd.shape[0])
-                ax[0,1].plot(x, pd, label="Large Bethe")
+                ax[0,1].plot(x, pd, label=f"Large Bethe: {len(pd)}")
 
                 approx_margs = sl.Marginals(mhlbp.track_association_marginals().T)
 
                 exact_margs = sl.Marginals(exact_margs.T)
                 correlation_plot(ax[1,0], exact_margs, approx_margs)
                 ax[1,0].set_title("Large Bethe correlation")
+
+                Rc_imshow = edmund_to_lc(Rc)
+                im = ax[2,0].imshow(Rc_imshow, cmap='viridis', interpolation='nearest')
+                ax[2,0].set_title("Large Bethe")
+                fig.colorbar(im, ax=ax[2,0])
+
+                for j, loglikelihoods in enumerate(Rc_imshow[:, 1:].T):
+                    tracks_that_did_not_gate = ~np.isfinite(loglikelihoods)
+                    likelihoods = np.exp(loglikelihoods)
+                    likelihoods[tracks_that_did_not_gate] = np.nan
+                    ax_measl[0].plot(likelihoods, label=str(j))
+
+                ax_measl[0].legend()
 
                 break
 
@@ -220,8 +235,10 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
         # Make prior hypothesis distribution
         pd = np.array(prior_hypotheses.hypothesis_probabilites())
         print(pd.shape)
+        if len(pd) < 10:
+            print(pd)
         x = np.linspace(0, 1, pd.shape[0])
-        ax[0,1].plot(x, pd, label="Good Bethe")
+        ax[0,1].plot(x, pd, label=f"Good Bethe: {len(pd)}")
         ax[0,1].legend()
         ax[0,1].set_title("Prior hypothesis distribution")
 
@@ -230,6 +247,19 @@ def visualize_difference(large_bethe: List[Tuple[sl.MulticlusterData, Path]], go
 
         correlation_plot(ax[1,1], exact_margs, approx_margs)
         ax[1,1].set_title("Good Bethe correlation")
+
+        Rc_imshow = edmund_to_lc(Rc)
+        im = ax[2,1].imshow(Rc_imshow, cmap='viridis', interpolation='nearest')
+        ax[2,1].set_title("Good Bethe")
+        fig.colorbar(im, ax=ax[2,1])
+
+        for j, loglikelihoods in enumerate(Rc_imshow[:, 1:].T):
+            tracks_that_did_not_gate = ~np.isfinite(loglikelihoods)
+            likelihoods = np.exp(loglikelihoods)
+            likelihoods[tracks_that_did_not_gate] = np.nan
+            ax_measl[1].plot(likelihoods, label=str(j))
+
+        ax_measl[1].legend()
 
         plt.show()
 
@@ -458,5 +488,8 @@ if __name__ == "__main__":
 
     # plt.show()
 
-    print(min(len(large_bethe), len(good_bethe)))
+    num_large_bethe = len(large_bethe)
+    num_good_bethe = len(good_bethe)
+    max_samples = min(num_large_bethe, num_good_bethe)
+    print(num_large_bethe, num_good_bethe, max_samples)
     visualize_difference(large_bethe, good_bethe, num_samples = 10, normalize=True)
