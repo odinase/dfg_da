@@ -7,6 +7,10 @@ from .prior_hypothesis import PriorHypothesis, PriorHypotheses
 from .marginals_computers import MarginalsComputer, ExactMarginals
 import pickle
 
+from ravens_parser_parallell_multicluster import merge_clusters
+
+from collections import defaultdict
+
 import py_dfg_da
 
 
@@ -63,7 +67,27 @@ class MatFileParser:
         if not self.using_cpp:
             raise NotImplementedError("We cannot do merging of prior hypotheses on Python implemenation")
         
-        
+        assocLocal = self.ws["assocLocal"]
+        self.prior_hypotheses_per_cluster_posterior_ = merge_clusters(assocLocal, self.prior_hypotheses_per_cluster)
+        return self.prior_hypotheses_per_cluster_posterior_
+
+    def track_distribution(self, prior_hypotheses: py_dfg_da.hypothesis.Hypotheses, normalized: bool = False):
+        tracks = defaultdict(lambda: 0)
+
+        for ph in prior_hypotheses:
+            for t in ph.tracks():
+                tracks[t] += 1
+
+        distr = np.array(list(tracks.items()))
+
+        if normalized:
+            x = np.linspace(0, 1, distr.shape[0])
+            y = distr[:, 1].astype(float)
+            y /= y.sum()  # TODO(odin): I guess dividing by the sum is correct for it to be a distribution?
+            distr = np.vstack((x, y)).T
+
+        return distr
+
 
     def ws_to_prior_hypotheses_cpp(self, ws):
         hypos = ws["hypos"].ravel().astype(int)
