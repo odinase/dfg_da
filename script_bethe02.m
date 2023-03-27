@@ -97,6 +97,8 @@ nH = length(hyposCardLocal);
 new_tracks = trackNumberLookup(:);
 new_tracks = new_tracks(~isnan(new_tracks));
 
+%bethe_loglikelihood = logsumexp(vertcat(pq.score), 1);
+
 % Loop over all posterior hypotheses
 % Find out what tracks exist and what don't
 % Add the hypothesis score to either the association or to nonexistence
@@ -126,7 +128,7 @@ for iH = 1:nH
 end
 
 % Now that we have the Murty marginals, compute the recycling weights
-p_P = Z_bethe / Z_P * (LBP_marginals - murty_marginals);
+p_P = LBP_marginals - murty_marginals;
 
 
 
