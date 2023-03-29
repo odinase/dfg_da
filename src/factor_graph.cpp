@@ -579,6 +579,73 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
 // }
 
 
+std::tuple<Eigen::MatrixXd, gtsam::KeyVector> calculate_precision_matrix(const gtsam::DiscreteFactorGraph& dfg) {
+    // Let's do this super stupid to start of. We'll loop over all pairs of variables and compute the covariance for each
+
+    // First, get all the keys
+    auto ks = dfg.discreteKeys();
+    std::set<gtsam::DiscreteKey> dks(ks.begin(), ks.end());
+
+    // Now, we'll loop over all pairs of keys and compute the covariance
+    size_t num_keys = dks.size();
+    gtsam::KeyVector rest_keys;
+    std::transform(dks.begin(), dks.end(), std::back_inserter(rest_keys), [](const gtsam::DiscreteKey& dk) { return dk.first; });
+
+    Eigen::MatrixXd covariance_matrix(num_keys, num_keys);
+    for (size_t i = 0; i < num_keys; i++) {
+        auto k1_iter = std::find(rest_keys.begin(), rest_keys.end(), dks[i].first);
+        rest_keys.erase(k1_iter);
+        // Ok, we have to be smarter here.
+        // We marginalize out one variable, as we need it's marginal distribution anyway
+        // The remaining Bayes tree is probably cheaper to marginalize as well(??)
+        auto [bt, marg_fg_i] = dfg.eliminatePartialMultifrontal(rest_keys);
+        
+        // Expected value
+        double Ei = 0.0;
+        for (size_t ki = 0; ki < k1_iter->second; ki++) {
+            gtsam::DiscreteValues dv;
+            dv.insert(dks[i].first, ki);
+            Ei += ki * (*marg_fg_i)(dv);
+        }
+        double Zi = (*(marg_fg_i->product().sum(1)))({});
+        Ei =/ Zi;
+
+        // Compute the variance
+        double Vi = 0.0;
+        for (size_t ki = 0; ki < k1_iter->second; ki++) {
+            gtsam::DiscreteValues dv;
+            dv.insert(dks[i].first, ki);
+            Vi += (ki - Ei) * (ki - Ei) * (*marg_fg_i)(dv);
+        }
+        Vi =/ Zi;
+        covariance_matrix(i, i) = Vi;
+
+        for (size_t j = i + 1; j < num_keys; j++) {
+            auto k2_iter = std::find(rest_keys.begin(), rest_keys.end(), dks[j].first);
+            rest_keys.erase(k2_iter);
+
+            size_t num_vars_left = dks.size() - rest_keys.size();
+            double Z = (*dfg.product().sum(num_vars_left))({});
+
+            double cov = 0.0;
+            for (size_t ki = 0; ki < k1_iter->second; ki++) {
+                for (size_t kj = 0; kj < k2_iter->second; kj++) {
+                    gtsam::DiscreteValues dv;
+                    dv.insert(dks[i].first, ki);
+                    dv.insert(dks[j].first, kj);
+                    double f = (*fg)({dv});
+                    cov += f;
+                }
+            }
+
+            precision_matrix(i, j) = cov_ij;
+
+            rest_keys.push_back(dks[j].first);
+        }
+        rest_keys.push_back(dks[i].first);
+    }
+}
+
 
 } // namespace factor_graph
 } // namespace dfg_da

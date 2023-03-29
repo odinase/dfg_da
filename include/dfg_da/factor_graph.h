@@ -106,5 +106,7 @@ public:
     
 gtsam::DiscreteFactorGraph build_test_factor_graph();
 
+std::tuple<Eigen::MatrixXd, gtsam::KeyVector> calculate_precision_matrix(const gtsam::DiscreteFactorGraph& dfg);
+
 } // namespace factor_graph
 } // namespace dfg_da 
