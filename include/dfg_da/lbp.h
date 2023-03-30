@@ -112,6 +112,7 @@ namespace dfg_da
             const size_t num_tracks;
             const size_t num_measurements;
             const size_t num_clusters;
+            const size_t num_iters;
 
             MHLBPMulticlusterOutput(
                 Eigen::ArrayXXd &&mu_,
@@ -120,7 +121,8 @@ namespace dfg_da
                 Eigen::ArrayXd &&sigma_,
                 Eigen::ArrayXXd &&w_nmd_,
                 Eigen::ArrayXd &&w_0_,
-                std::vector<ClusterData> &&cluster_data_)
+                std::vector<ClusterData> &&cluster_data_,
+                size_t num_iters_)
                 : mu(std::move(mu_)),
                   nu(std::move(nu_)),
                   rho(std::move(rho_)),
@@ -128,6 +130,7 @@ namespace dfg_da
                   w_nmd(std::move(w_nmd_)),
                   w_0(std::move(w_0_)),
                   cluster_data(std::move(cluster_data_)),
+                  num_iters(num_iters_),
                   num_tracks(w_nmd.rows()),
                   num_measurements(w_nmd.cols()),
                   num_clusters(cluster_data.size()) {}
@@ -139,7 +142,8 @@ namespace dfg_da
                 const Eigen::ArrayXd &sigma_,
                 const Eigen::ArrayXXd &w_nmd_,
                 const Eigen::ArrayXd &w_0_,
-                const std::vector<ClusterData> &cluster_data_)
+                const std::vector<ClusterData> &cluster_data_,
+                size_t num_iters_)
                 : mu(mu_),
                   nu(nu_),
                   rho(rho_),
@@ -147,6 +151,7 @@ namespace dfg_da
                   w_nmd(w_nmd_),
                   w_0(w_0_),
                   cluster_data(cluster_data_),
+                  num_iters(num_iters_),
                   num_tracks(w_nmd.rows()),
                   num_measurements(w_nmd.cols()),
                   num_clusters(cluster_data.size()) {}
@@ -166,7 +171,7 @@ namespace dfg_da
             std::vector<Eigen::ArrayXd> track_hypos_normalization_constants() const;
         };
 
-        double dynamic_range(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev);
+        double message_norm(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev);
 
         MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 10'000);
 

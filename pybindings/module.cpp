@@ -170,6 +170,7 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def_readonly("w_nmd", &lbp::MHLBPMulticlusterOutput::w_nmd)
     .def_readonly("w_0", &lbp::MHLBPMulticlusterOutput::w_0)
     .def_readonly("cluster_data", &lbp::MHLBPMulticlusterOutput::cluster_data)
+    .def_readonly("num_iters", &lbp::MHLBPMulticlusterOutput::num_iters)
     .def_readonly("num_tracks", &lbp::MHLBPMulticlusterOutput::num_tracks)
     .def_readonly("num_measurements", &lbp::MHLBPMulticlusterOutput::num_measurements)
     .def_readonly("num_clusters", &lbp::MHLBPMulticlusterOutput::num_clusters)
@@ -183,11 +184,12 @@ PYBIND11_MODULE(py_dfg_da, m) {
                 p.sigma,
                 p.w_nmd,
                 p.w_0,
-                p.cluster_data
+                p.cluster_data,
+                p.num_iters
             );
         },
         [](py::tuple t) { // __setstate__
-            if (t.size() != 7)
+            if (t.size() != 8)
                 throw std::runtime_error("Invalid state!");
 
             /* Create a new C++ instance */
@@ -198,7 +200,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
                 t[3].cast<Eigen::ArrayXd>(),
                 t[4].cast<Eigen::ArrayXXd>(),
                 t[5].cast<Eigen::ArrayXd>(),
-                t[6].cast<std::vector<lbp::ClusterData>>()
+                t[6].cast<std::vector<lbp::ClusterData>>(),
+                t[7].cast<size_t>()
             );
 
             return p;

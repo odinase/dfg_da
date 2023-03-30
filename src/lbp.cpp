@@ -359,8 +359,12 @@ namespace dfg_da
             return -F_bethe_pseudo;
         }
 
-        double dynamic_range(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev) {
-            
+        double message_norm(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev) {
+            Eigen::ArrayXXd nu_ratio = nu / nu_prev;
+            double max_ratio = nu_ratio.maxCoeff();
+            double min_ratio = nu_ratio.minCoeff();
+            double max_abs = std::max(max_ratio, 1.0 / min_ratio);
+            return std::log(max_abs);
         }
 
         MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
@@ -434,12 +438,16 @@ namespace dfg_da
                 w_0,
                 cluster_data);
 
+            Eigen::ArrayXXd prev_nu = nu;
+
             double b;
 
-            double tol = 1e-7;
-            double err = std::numeric_limits<double>::infinity();
+            double tol_b = 1e-7;
+            double tol_msg = 1e-5;
+            double err_bethe = std::numeric_limits<double>::infinity();
+            double err_msg = std::numeric_limits<double>::infinity();
 
-            while (iter < max_num_iters && err > tol)
+            while (iter < max_num_iters && err_bethe > tol_b && err_msg > tol_msg)
             {
                 w_times_msg = w_nmd * nu;
 
@@ -467,7 +475,9 @@ namespace dfg_da
                     w_nmd,
                     w_0,
                     cluster_data);
-                err = fabs(b - prev_b);
+                err_bethe = fabs(b - prev_b);
+                err_msg = message_norm(nu, prev_nu);
+                prev_nu = nu;
                 prev_b = b;
             }
 
@@ -478,7 +488,8 @@ namespace dfg_da
                 std::move(sigma),
                 std::move(w_nmd),
                 std::move(w_0),
-                std::move(cluster_data));
+                std::move(cluster_data),
+                iter);
         }
 
     } // namespace lbp
