@@ -4,7 +4,7 @@ from typing import Dict, Any, List, TypeVar, FrozenSet, Optional
 from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
-from .marginals_computers import MarginalsComputer, ExactMarginals
+from .marginals_computers import MarginalsComputer, ExactMarginals, MulticlusterExactOutput
 import pickle
 
 from ravens_parser_parallell_multicluster import merge_clusters
@@ -450,12 +450,10 @@ class ExactStats:
 
 @dataclass
 class MulticlusterData:
-    exact_computation_error: bool
-
-    exact_marginals: Marginals
-    exact_normalization_constant: float
-
     mhlbp_output: py_dfg_da.lbp.MHLBPMulticlusterOutput
+    exact_output: Optional[MulticlusterExactOutput] = None
+    
+    explicit_hypothesis_enumeration_error: bool = False
 
     def save_data(self, path):
         with open(path, "wb") as f:

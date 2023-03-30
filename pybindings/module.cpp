@@ -102,14 +102,59 @@ PYBIND11_MODULE(py_dfg_da, m) {
     hypothesis.def("mo_to_to_hypothesis", hypothesis::mo_to_to_hypothesis, "mo_hypothesis"_a, "num_tracks"_a);
     hypothesis.def("prior_hypothesis_conditional_association_probability", hypothesis::prior_hypothesis_conditional_association_probability, "to_hypothesis"_a, "prior_hypothesis"_a.noconvert(), "reward_matrix"_a.noconvert());
 
-    py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList");
+    py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList")
+    .def(py::pickle(
+        [](const std::vector<dfg_da::hypothesis::Hypotheses> &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+
+            auto tuple = py::tuple(p.size());
+            for (int i = 0 ; i < p.size() ; i++)
+            {
+                tuple[i] = p.at(i);
+            }
+
+            return tuple;
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() <= 0)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            std::vector<dfg_da::hypothesis::Hypotheses> p;
+            for (int i = 0 ; i < t.size() ; i++)
+            {
+                p.push_back(t[i].cast<dfg_da::hypothesis::Hypotheses>());
+            }
+            return p;
+        }
+    ));
+
     py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
     .def(py::init<const std::vector<size_t>&, double>())
     .def("probability", &hypothesis::Hypothesis::probability)
     .def("tracks", &hypothesis::Hypothesis::tracks)
     .def("reindex_tracks", &hypothesis::Hypothesis::reindex_tracks)
     .def("contains", &hypothesis::Hypothesis::contains)
-    .def("log_prob", &hypothesis::Hypothesis::log_prob);
+    .def("log_prob", &hypothesis::Hypothesis::log_prob)
+    .def(py::pickle(
+        [](const hypothesis::Hypothesis &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple(p.log_prob(), p.tracks());
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 2)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            double log_prob = t[0].cast<double>();
+            dfg_da::hypothesis::Hypothesis h(
+                std::move(t[1].cast<std::vector<size_t>>()),
+                log_prob
+            );
+
+            return h;
+        }
+    ));
 
     py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
     .def(py::init<const std::vector<hypothesis::Hypothesis>&>())
@@ -121,7 +166,23 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def("hypothesis_probabilites", &hypothesis::Hypotheses::hypothesis_probabilites)
     .def("num_hypotheses", &hypothesis::Hypotheses::num_hypotheses)
     .def("__iter__", [](hypothesis::Hypotheses &h) { return py::make_iterator(h.begin(), h.end()); },
-                         py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */);
+                         py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */)
+    .def(py::pickle(
+        [](const hypothesis::Hypotheses &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            std::vector<hypothesis::Hypothesis> h(p.cbegin(), p.cend());
+            return py::make_tuple(h);
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 1)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            dfg_da::hypothesis::Hypotheses hh(std::move(t[0].cast<std::vector<hypothesis::Hypothesis>>()));
+
+            return hh;
+        }
+    ));
 
 
     py::module_ lbp = m.def_submodule("lbp");

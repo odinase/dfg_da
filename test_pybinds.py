@@ -56,24 +56,42 @@ if __name__ == "__main__":
     ])
 
     output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-    np.set_printoptions(suppress=True)
-    print("LBP")
-    print(output.track_association_marginals().T)
-    print(output.bethe_pseudodual_normalization_constant())
-    print(output.num_iters)
+    # np.set_printoptions(suppress=True)
+    # print("LBP")
+    # print(output.track_association_marginals().T)
+    # print(output.bethe_pseudodual_normalization_constant())
+    # print(output.num_iters)
+
+    # path = "./test_cpp_pickle"
+    # with open(path, "wb") as f:
+    #     pickle.dump(output, f)
+
+    # with open(path, "rb") as f:
+    #     mhlbp_from_pickle = pickle.load(f)
+
+    # print("LBP from pickle")
+    # print(mhlbp_from_pickle.track_association_marginals().T)
+    # print(mhlbp_from_pickle.bethe_pseudodual_loglikelihood())
+    # print(mhlbp_from_pickle.bethe_pseudodual_normalization_constant())
+    # print(mhlbp_from_pickle.num_iters)
+
+    for ph in prior_hypotheses_per_cluster:
+        for h in ph:
+            print(h.tracks())
+            print(h.probability())
 
     path = "./test_cpp_pickle"
     with open(path, "wb") as f:
-        pickle.dump(output, f)
+        pickle.dump(prior_hypotheses_per_cluster, f)
 
     with open(path, "rb") as f:
-        mhlbp_from_pickle = pickle.load(f)
+        prior_hypotheses_per_cluster_from_pickle = pickle.load(f)
 
-    print("LBP from pickle")
-    print(mhlbp_from_pickle.track_association_marginals().T)
-    print(mhlbp_from_pickle.bethe_pseudodual_loglikelihood())
-    print(mhlbp_from_pickle.bethe_pseudodual_normalization_constant())
-    print(mhlbp_from_pickle.num_iters)
+    for ph in prior_hypotheses_per_cluster_from_pickle:
+        for h in ph:
+            print(h.tracks())
+            print(h.probability())
+
 
     # merged_hypos = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1])
     # exact_margs, exact_norm = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, merged_hypos)
