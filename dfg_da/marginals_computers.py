@@ -354,25 +354,23 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
         n, mp1 = R_LC.shape
         m = mp1 - 1
 
-        # Initialize variables
+        # Preallocate variables
         hypo_cond_normalization_constants_per_cluster = []
         normalization_constants_per_cluster = np.empty(len(prior_hypotheses_per_cluster_posterior))
         marginal_total = np.zeros((n, m + 1 + 1))
+        conditioned_marginals = np.empty((n, m + 2))
         _0 = np.zeros((n, m + 1))
         _1 = np.ones((n, 1))
 
         # Loop over clusters
         for c, prior_hypotheses in enumerate(prior_hypotheses_per_cluster_posterior):
             all_tracks_idx = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
-            conditioned_marginals = np.zeros((n, m + 2))
+            conditioned_marginals[...] = 0.0
             hypo_cond_normalizing_constants = np.empty(len(prior_hypotheses))
-
-            print(f"Cluster {c+1}")
 
             normalizing_constant_cluster = 0.0
             for k, hypothesis in enumerate(prior_hypotheses):
                 existing_tracks_idx = np.array(hypothesis.tracks()) - 1
-                print(existing_tracks_idx+1)
                 log_prob = hypothesis.log_prob()
                 R_sub = R_LC[existing_tracks_idx, :]
                 JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
