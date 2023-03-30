@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     with open(path, "rb") as f:
         prior_hypotheses_per_cluster_from_pickle = pickle.load(f)
-
+    print("Pickle")
     for ph in prior_hypotheses_per_cluster_from_pickle:
         for h in ph:
             print(h.tracks())

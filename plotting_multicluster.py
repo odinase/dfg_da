@@ -683,8 +683,8 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[MulticlusterDa
     exact_normalization_constants = []
 
     for cluster_stat, _ in cluster_stats:
-        exact_normalization_constants.append(cluster_stat.exact_normalization_constant)
-        bethe_normalization_constants.append(cluster_stat.bethe_normalization_constant)
+        exact_normalization_constants.append(cluster_stat.exact_output.exact_normalization_constant)
+        bethe_normalization_constants.append(cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant())
 
     bethe_normalization_constants = np.hstack(bethe_normalization_constants)
     exact_normalization_constants = np.hstack(exact_normalization_constants)
@@ -774,11 +774,11 @@ if __name__ == "__main__":
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    make_heatmap_correlation(cluster_stats)
+    # make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
     normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)
-    make_heatmap_correlation_distinct_errors(cluster_stats)
+    # make_heatmap_correlation_distinct_errors(cluster_stats)
