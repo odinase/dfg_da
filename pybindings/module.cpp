@@ -108,7 +108,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def("probability", &hypothesis::Hypothesis::probability)
     .def("tracks", &hypothesis::Hypothesis::tracks)
     .def("reindex_tracks", &hypothesis::Hypothesis::reindex_tracks)
-    .def("contains", &hypothesis::Hypothesis::contains);
+    .def("contains", &hypothesis::Hypothesis::contains)
+    .def("log_prob", &hypothesis::Hypothesis::log_prob);
 
     py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
     .def(py::init<const std::vector<hypothesis::Hypothesis>&>())
@@ -125,12 +126,87 @@ PYBIND11_MODULE(py_dfg_da, m) {
 
     py::module_ lbp = m.def_submodule("lbp");
 
-    py::class_<lbp::MHLBPMulticlusterOutput>(lbp, "MHLBPMultilusterOutput")
+
+    py::class_<lbp::ClusterData>(lbp, "ClusterData")
+    .def("phi",  &lbp::ClusterData::phi)
+    .def_readwrite("phi_vec", &lbp::ClusterData::phi_vec)
+    .def_readwrite("t_idx", &lbp::ClusterData::t_idx)
+    .def_readwrite("t2h_not", &lbp::ClusterData::t2h_not)
+    .def_readwrite("t2h", &lbp::ClusterData::t2h)
+    .def(py::pickle(
+        [](const lbp::ClusterData &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+
+            // We need to undo the 0-indexing of tracks that is done in the constructor before saving to file
+            std::vector<size_t> tracks;
+            std::transform(p.t_idx.begin(), p.t_idx.end(), std::back_inserter(tracks), [](const auto& t) { return t + 1; });
+            return py::make_tuple(p.phi_vec, tracks, p.t2h_not, p.t2h);
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 4)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            lbp::ClusterData p(
+                t[0].cast<std::vector<double>>(),
+                t[1].cast<std::vector<size_t>>(),
+                t[2].cast<Eigen::ArrayXXd>(),
+                t[3].cast<Eigen::ArrayXXd>()
+            );
+
+            return p;
+        }
+    ));
+
+
+    py::class_<lbp::MHLBPMulticlusterOutput>(lbp, "MHLBPMulticlusterOutput")
     .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
     .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
-    .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant);
+    .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
+    .def_readonly("mu", &lbp::MHLBPMulticlusterOutput::mu)
+    .def_readonly("nu", &lbp::MHLBPMulticlusterOutput::nu)
+    .def_readonly("rho", &lbp::MHLBPMulticlusterOutput::rho)
+    .def_readonly("sigma", &lbp::MHLBPMulticlusterOutput::sigma)
+    .def_readonly("w_nmd", &lbp::MHLBPMulticlusterOutput::w_nmd)
+    .def_readonly("w_0", &lbp::MHLBPMulticlusterOutput::w_0)
+    .def_readonly("cluster_data", &lbp::MHLBPMulticlusterOutput::cluster_data)
+    .def_readonly("num_tracks", &lbp::MHLBPMulticlusterOutput::num_tracks)
+    .def_readonly("num_measurements", &lbp::MHLBPMulticlusterOutput::num_measurements)
+    .def_readonly("num_clusters", &lbp::MHLBPMulticlusterOutput::num_clusters)
+    .def(py::pickle(
+        [](const lbp::MHLBPMulticlusterOutput &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple(
+                p.mu,
+                p.nu,
+                p.rho,
+                p.sigma,
+                p.w_nmd,
+                p.w_0,
+                p.cluster_data
+            );
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 7)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            lbp::MHLBPMulticlusterOutput p(
+                t[0].cast<Eigen::ArrayXXd>(),
+                t[1].cast<Eigen::ArrayXXd>(),
+                t[2].cast<Eigen::ArrayXd>(),
+                t[3].cast<Eigen::ArrayXd>(),
+                t[4].cast<Eigen::ArrayXXd>(),
+                t[5].cast<Eigen::ArrayXd>(),
+                t[6].cast<std::vector<lbp::ClusterData>>()
+            );
+
+            return p;
+        }
+    ));
+
     // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
-    lbp.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 300);
+    lbp.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 10'000);
 
     py::class_<lbp::MHLBPSingleClusterOutput>(lbp, "MHLBPSingleClusterOutput")
     .def("track_association_marginals",  &lbp::MHLBPSingleClusterOutput::track_association_marginals)

@@ -428,6 +428,26 @@ class ExactStats:
     marginals: Marginals
     normalization_constants: List[float]
 
+# @dataclass
+# class MulticlusterData:
+#     exact_computation_error: bool
+
+#     exact_marginals: Marginals
+#     exact_normalization_constant: float
+
+#     mhlbp_marginals: Marginals
+#     bethe_normalization_constant: float
+
+#     def save_data(self, path):
+#         with open(path, "wb") as f:
+#             pickle.dump(self, f)
+
+#     @classmethod
+#     def from_data(cls, path):
+#         with open(path, "rb") as f:
+#             return pickle.load(f)
+        
+
 @dataclass
 class MulticlusterData:
     exact_computation_error: bool
@@ -435,8 +455,7 @@ class MulticlusterData:
     exact_marginals: Marginals
     exact_normalization_constant: float
 
-    mhlbp_marginals: Marginals
-    bethe_normalization_constant: float
+    mhlbp_output: py_dfg_da.lbp.MHLBPMulticlusterOutput
 
     def save_data(self, path):
         with open(path, "wb") as f:

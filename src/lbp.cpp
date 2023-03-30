@@ -359,6 +359,10 @@ namespace dfg_da
             return -F_bethe_pseudo;
         }
 
+        double dynamic_range(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev) {
+            
+        }
+
         MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();

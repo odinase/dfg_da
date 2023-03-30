@@ -71,10 +71,8 @@ namespace dfg_da
 
         struct ClusterData
         {
-        private:
-            std::vector<double> phi__;
-
         public:
+            std::vector<double> phi_vec;
             std::vector<size_t> t_idx;
             Eigen::ArrayXXd t2h_not;
             Eigen::ArrayXXd t2h;
@@ -84,7 +82,7 @@ namespace dfg_da
                 std::vector<size_t> &&tracks_,
                 Eigen::ArrayXXd &&t2hnot_idx_,
                 Eigen::ArrayXXd &&t2h_idx_)
-                : phi__(std::move(phi_)),
+                : phi_vec(std::move(phi_)),
                   t_idx(std::move(tracks_)),
                   t2h_not(std::move(t2hnot_idx_)),
                   t2h(std::move(t2h_idx_))
@@ -97,7 +95,7 @@ namespace dfg_da
             }
             inline Eigen::Map<const Eigen::ArrayXd> phi() const
             {
-                return Eigen::Map<const Eigen::ArrayXd>(phi__.data(), phi__.size());
+                return Eigen::Map<const Eigen::ArrayXd>(phi_vec.data(), phi_vec.size());
             }
         };
 
@@ -167,7 +165,10 @@ namespace dfg_da
             Eigen::ArrayXXd track_meas_normalization_constants() const;
             std::vector<Eigen::ArrayXd> track_hypos_normalization_constants() const;
         };
-        MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
+
+        double dynamic_range(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev);
+
+        MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 10'000);
 
         double bethe_pseudodual_loglikelihood(const Eigen::ArrayXXd &mu,
                                               const Eigen::ArrayXXd &nu,

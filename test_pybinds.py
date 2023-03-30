@@ -2,6 +2,7 @@ import py_dfg_da
 import numpy as np
 import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
+import pickle
 
 if __name__ == "__main__":
     R = np.array([
@@ -55,16 +56,70 @@ if __name__ == "__main__":
 
     output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
     np.set_printoptions(suppress=True)
-    print("LBP")
-    print(output.track_association_marginals().T)
-    print(output.bethe_pseudodual_normalization_constant())
+    # print("LBP")
+    # print(output.track_association_marginals().T)
+    # print(output.bethe_pseudodual_normalization_constant())
 
     merged_hypos = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1])
     exact_margs, exact_norm = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, merged_hypos)
 
+    margs, const = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+    # print(margs.T)
+    # print(const)
+
+    # print("\nExact")
+    # print(exact_margs.T)
+    # print(exact_norm)
+
+
+    R = np.array([
+        [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
+        [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
+        [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    ], order='F')
+
+
+    prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+        py_dfg_da.hypothesis.Hypotheses([
+            py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
+        ]),
+        py_dfg_da.hypothesis.Hypotheses([
+            py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
+        ]),
+        py_dfg_da.hypothesis.Hypotheses([
+            py_dfg_da.hypothesis.Hypothesis([6], np.log(0.2)),
+            py_dfg_da.hypothesis.Hypothesis([7], np.log(0.8)),
+        ]),
+    ])
+
+    margs, const = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
     print("\nExact")
-    print(exact_margs.T)
-    print(exact_norm)
+    print(margs.T)
+    print(const)
+
+
+    # path = "./test_cpp_pickle"
+    # with open(path, "wb") as f:
+    #     pickle.dump(output, f)
+
+    # with open(path, "rb") as f:
+    #     mhlbp_from_pickle = pickle.load(f)
+
+    # print("LBP from pickle")
+    # print(mhlbp_from_pickle.track_association_marginals().T)
+    # print(mhlbp_from_pickle.bethe_pseudodual_loglikelihood())
+    # print(mhlbp_from_pickle.bethe_pseudodual_normalization_constant())
+    # for data in mhlbp_from_pickle.cluster_data:
+    #     print(data.phi_vec)
+    #     print(data.t_idx)
+    #     print(data.t2h_not)
+    #     print(data.t2h)
 
     # print("Multicluster!!!")
     # exact_margs_mc, exact_norm_mc = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant_multicluster(R, prior_hypotheses_per_cluster)

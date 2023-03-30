@@ -976,8 +976,8 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
     # the hypothesis.
     JPDA_hyp_mat = np.empty((n, Nhypotheses[0]), dtype=np.int16)
 
-    # Hypotheses probabilities #! SHOULD BE ZEROS??
-    hyp_prob_log = np.ones((Nhypotheses[0],))
+    # Hypotheses probabilities #! SHOULD BE ZEROS?? YES!!!!
+    hyp_prob_log = np.zeros((Nhypotheses[0],))
 
     # calculate "extended alphabet" association hypothesis, unnormalized probability.
     for i in range(n):
@@ -999,17 +999,15 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
 
     # normalize and get probabilities
     loglikelihood = logsumexp(hyp_prob_log)  # TODO: Verify that this is ll
-    hyp_prob_log -= loglikelihood  # Normalize the probabilities
-    hypProb = np.exp(hyp_prob_log)
+    # hyp_prob_log -= loglikelihood  # Normalize the probabilities
+    hypProb = np.exp(hyp_prob_log - loglikelihood)
+    hyp_prob_log = hyp_prob_log[~unfeasible_hyps]
+
 
     # calculate the marginalization
     # marginal probability matrix: Rows as tracks and Columns as associations.
     JPDAprobs = (hypProb[None, None] * JPDA_hyp_mat_is_j).sum(axis=2).T
 
-    j_new_track_hyps = np.logical_not(np.any(JPDA_hyp_mat_is_j[1:], axis=1))
-    # array of probabilities for j not coming from existing track
-    notTrackProb = (hypProb[None] * j_new_track_hyps).sum(axis=1)
-
     # calculate number of hypotheses
     # Nhyp = (hypProbLog >= -np.inf).sum()
-    return JPDAprobs, notTrackProb, loglikelihood
+    return JPDAprobs, hyp_prob_log, loglikelihood
