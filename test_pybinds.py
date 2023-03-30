@@ -68,8 +68,8 @@ if __name__ == "__main__":
     # print(const)
 
     # print("\nExact")
-    # print(exact_margs.T)
-    # print(exact_norm)
+    print(exact_margs.T)
+    print(exact_norm)
 
 
     R = np.array([

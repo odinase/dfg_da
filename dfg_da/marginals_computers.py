@@ -353,18 +353,18 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
         prior_hypotheses_per_cluster_posterior = cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior
         n, mp1 = R_LC.shape
         m = mp1 - 1
-        all_tracks_idx = np.arange(n)
 
         # Initialize variables
         hypo_cond_normalization_constants_per_cluster = []
         normalization_constants_per_cluster = np.empty(len(prior_hypotheses_per_cluster_posterior))
         marginal_total = np.zeros((n, m + 1 + 1))
-        conditioned_marginals = np.empty((n, m + 2))
         _0 = np.zeros((n, m + 1))
         _1 = np.ones((n, 1))
 
         # Loop over clusters
         for c, prior_hypotheses in enumerate(prior_hypotheses_per_cluster_posterior):
+            all_tracks_idx = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
+            conditioned_marginals = np.zeros((n, m + 2))
             hypo_cond_normalizing_constants = np.empty(len(prior_hypotheses))
 
             print(f"Cluster {c+1}")
@@ -378,7 +378,7 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
                 JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
 
                 # We need to concatenate the JPDAprobs with all tracks and existence probs
-                non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+                non_existing_tracks_idx = np.setdiff1d(all_tracks_idx, existing_tracks_idx, assume_unique=True)
 
                 existing_probs = np.hstack((JPDAprobs, _0[:len(existing_tracks_idx), 0, None]))
                 nonexisting_probs = np.hstack((_0[len(non_existing_tracks_idx)], _1[len(non_existing_tracks_idx), 0, None]))

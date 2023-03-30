@@ -303,6 +303,11 @@ class TestMulticlusterExact(unittest.TestCase):
             [0.06285782, 0.,         0.84163842, 0.09550376],
             [0.06741553, 0.,         0.02808823, 0.90449624]
         ])
+        
+        np.set_printoptions(suppress=True)
+        print(exact_output.exact_marginals)
+        print(exact_output.exact_normalization_constant)
+
 
         self.assertTrue(np.allclose(correct_marginals, exact_output.exact_marginals))
 
@@ -329,7 +334,6 @@ class TestMulticlusterExact(unittest.TestCase):
             [1, 2, 1],
             [1, 1, 0]
         ])
-
 
         prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
             pdd.hypothesis.Hypotheses([
