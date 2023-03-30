@@ -507,9 +507,9 @@ namespace dfg_da
         Hypotheses Hypotheses::combine(const Hypotheses &h_rhs) const
         {
             std::vector<Hypothesis> hh;
-            for (const Hypothesis &h1 : h_rhs.hypos_)
+            for (const Hypothesis &h1 : hypos_)
             {
-                for (const Hypothesis &h2 : hypos_)
+                for (const Hypothesis &h2 : h_rhs.hypos_)
                 {
                     hh.push_back(h1.combine(h2));
                 }

@@ -131,26 +131,16 @@ if __name__ == "__main__":
 
     pmbm_files = sorted(pmbm_files)
     num_files = len(pmbm_files)
-    # pmbm_files = ["/home/odinase/prog/cpp/dfg_da/data/at612/priorLikelihood612.mat"]
-
-    exact_marginal_computer = mc.ExactMarginals()
-    approx_marginal_computers = {
-        "lbp_williams": mc.LBPMarginalsByTotalProb(),
-        "lbp_mh": mc.LBPMarginalsFullAssociation(),
-        "lbp_bethe": mc.LBPMarginalsByTotalProbBethe()
-    }
-
-    lock = Lock()
 
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
-    stop = time.time()
-    print("Pools done")
-    duration_s = stop - start
-    duration_min = duration_s / 60.0
-    duration_h = duration_min / 60.0
-    print(f"Spent {duration_s:.3f} s = {duration_min:.3f} min = {duration_h:.3f} h")
+    for pmbm_file in tqdm([pmbm_files[20]]):
+        loop_func(pmbm_file)
+    # with Pool() as p:
+    #     p.map(loop_func, pmbm_files)
+    # stop = time.time()
+    # print("Pools done")
+    # duration_s = stop - start
+    # duration_min = duration_s / 60.0
+    # duration_h = duration_min / 60.0
+    # print(f"Spent {duration_s:.3f} s = {duration_min:.3f} min = {duration_h:.3f} h")

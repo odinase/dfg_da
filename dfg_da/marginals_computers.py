@@ -2,7 +2,9 @@ import numpy as np
 from .marginal_association_Odin import lbp_marginal, exact_marginal, lbp_marginal_nonexistence, lbp_marginal_nonexistence_alternative
 from abc import ABC, abstractmethod
 from .prior_hypothesis import PriorHypotheses, PriorHypothesis
-from typing import Tuple, Optional, Union
+from typing import Tuple, Optional, Union, List
+import py_dfg_da as pdd
+from dataclasses import dataclass
 
 
 class MarginalsComputer(ABC):
@@ -236,3 +238,142 @@ class LBPMarginalsFullAssociationAlternative(MarginalsComputer):
         else:
             extra = ()
         return (asso_prob, (it, msg_it, converged)) + extra
+
+
+@dataclass(frozen=True)
+class ClusterHypothesisLabel:
+    cluster_idx: int
+    hypo_idx: int
+
+    def __str__(self) -> str:
+        return f"(C{self.cluster_idx + 1}, H{self.hypo_idx + 1})"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+    
+    def __eq__(self, rhs: object) -> bool:
+        return (self.cluster_idx == rhs.cluster_idx) and (self.hypo_idx == rhs.hypo_idx)
+
+class ClusterHypothesesPosterior:
+    """
+    We need to keep track of what hypothesis in what cluster the merged hypotheses originally came from. Can this be achieved with a recursive list of labels that maps backwards?
+    It would seem that every time we add a hypothesis of a normal cluster to the hypothesis of a super cluster, we add a label to a recursive map of pointers that tracks back what hypothesis is contained?
+    """
+
+    def __init__(self, assocLocal: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList):
+        # Assuming assocLocal is straight from MATLAB, we need to shift the cluster idx to 0-index
+        assocLocal[0] -= 1
+        self.prior_hypotheses_per_cluster_posterior, self.hypothesis_index_map = self.merge_clusters_labled(assocLocal, prior_hypotheses_per_cluster)
+
+    def create_master_mapping(self, assocLocal, prior_hypotheses_per_cluster):
+        # Figure out cluster masters and initialize prior hypothesis list
+        cluster_masters = np.where(assocLocal[1])[0]
+        prior_hypotheses_per_cluster_posterior: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            prior_hypotheses_per_cluster[c] for c in cluster_masters
+        ])
+
+        # cluster hypothesis mapping is initialized as list of labels for each master
+        hypothesis_index_map: List[List[List[ClusterHypothesisLabel]]] = []
+        for k, (ph, c) in enumerate(zip(prior_hypotheses_per_cluster_posterior, cluster_masters)):
+            hypothesis_index_map.append([])
+            for h in range(ph.num_hypotheses()):
+                hypothesis_index_map[k].append(
+                    [ClusterHypothesisLabel(c, h)]
+                )
+        
+        return prior_hypotheses_per_cluster_posterior, hypothesis_index_map
+
+    def update_hypothesis_index_map_master(self, hypothesis_index_map_master: List[ClusterHypothesisLabel], slave: int, slave_ph: pdd.hypothesis.Hypotheses):
+        updated_hypothesis_index_map_master: List[ClusterHypothesisLabel] = []
+
+        # The inner loop in the combine step is the RHS, i.e. the slave
+        # We can do the outer loop over mappings in the master and inner loop over hypos in slave and append the number to the outer mapping
+        for master_hypos in hypothesis_index_map_master:
+            for n in range(slave_ph.num_hypotheses()):
+                updated_hypothesis_index_map_master.append(
+                    master_hypos + [ClusterHypothesisLabel(slave, n)]
+                )
+        
+        return updated_hypothesis_index_map_master
+
+
+    def merge_clusters_labled(self, assocLocal: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList):
+        # Initialize
+        prior_hypotheses_per_cluster_posterior, hypothesis_index_map = self.create_master_mapping(assocLocal, prior_hypotheses_per_cluster)
+
+        # Loop over remaining slave clusters and incrementally build the prior hypotheses posteriors
+        master_idxs = np.cumsum(assocLocal[1]) - 1
+        for prior_cluster_slave_idx, (prior_cluster_master_idx, is_master) in enumerate(assocLocal.T):
+            if is_master:
+                continue
+
+            # Map from prior cluster index to posterior cluster index
+            posterior_cluster_idx = master_idxs[prior_cluster_master_idx]
+
+            # We already have the masters, merge clusters
+            slave_ph = prior_hypotheses_per_cluster[prior_cluster_slave_idx]
+            prior_hypotheses_per_cluster_posterior[posterior_cluster_idx] = prior_hypotheses_per_cluster_posterior[posterior_cluster_idx].combine(slave_ph)
+            
+            # Find the updated mapping for master cluster
+            updated_hypothesis_index_map_master = self.update_hypothesis_index_map_master(hypothesis_index_map[posterior_cluster_idx], prior_cluster_slave_idx, slave_ph)
+            hypothesis_index_map[posterior_cluster_idx] = updated_hypothesis_index_map_master
+
+        return prior_hypotheses_per_cluster_posterior, hypothesis_index_map
+
+
+class MulticlusterMarginalsComputer(ABC):
+    def __call__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> np.ndarray:
+        return self.compute_marginals(R_LC, prior_hypotheses_per_cluster, **kwargs)
+
+    @abstractmethod
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+        return None
+    
+
+class MulticlusterExact(MulticlusterMarginalsComputer):
+    def __call__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> np.ndarray:
+        return self.compute_marginals(R_LC, prior_hypotheses_per_cluster, **kwargs)
+
+
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+        if not "assocLocal" in kwargs:
+            raise ValueError("assocLocal is required as input parameter because of cluster merging!")
+
+        assocLocal = kwargs["assocLocal"]
+        n, mp1 = R_LC.shape
+        m = mp1 - 1
+        all_tracks_idx = np.arange(n)
+
+        
+
+        normalizing_constants = np.empty(len(prior_hypotheses))
+        marginal_total = np.zeros((n, m + 1 + 1))
+        conditioned_marginals = np.empty((n, m + 2))
+
+        _0 = np.zeros((n, 1))
+        for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
+            R_sub = R_LC[tracks-1, :]
+            JPDAprobs, _, loglikelihood = exact_marginal(R_sub, False)
+
+            # We need to concatenate the JPDAprobs with all tracks and existence probs
+            existing_tracks_idx = tracks - 1
+            non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+
+            existing_probs = np.hstack((JPDAprobs, _0[:len(tracks)]))
+            nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
+
+            conditioned_marginals[existing_tracks_idx] = existing_probs
+            conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
+
+            normalizing_constant = np.exp(loglikelihood)
+
+            normalizing_constants[k] = normalizing_constant
+
+            marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
+
+        marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
+
+        assert (np.abs(marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
+        assert ((0 <= marginal_total) & (marginal_total <= 1.0)).all()
+
+        return marginal_total, (normalizing_constants,)
