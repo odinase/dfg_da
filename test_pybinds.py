@@ -4,6 +4,7 @@ import numpy as np
 import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
 import pickle
+import dfg_da as dd
 
 if __name__ == "__main__":
     R = np.array([
@@ -55,7 +56,14 @@ if __name__ == "__main__":
         ])
     ])
 
-    output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+    # output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+
+    exact_computer = dd.marginal_computers.ExactMarginalsComputer()
+    exact_output = exact_computer(R_LC, prior_hypotheses_per_cluster)
+    for c, ph in prior_hypotheses_per_cluster:
+        for k, h in enumerate(ph):
+            # At this point we need to find all cluster 
+
     # np.set_printoptions(suppress=True)
     # print("LBP")
     # print(output.track_association_marginals().T)
@@ -75,22 +83,22 @@ if __name__ == "__main__":
     # print(mhlbp_from_pickle.bethe_pseudodual_normalization_constant())
     # print(mhlbp_from_pickle.num_iters)
 
-    for ph in prior_hypotheses_per_cluster:
-        for h in ph:
-            print(h.tracks())
-            print(h.probability())
+    # for ph in prior_hypotheses_per_cluster:
+    #     for h in ph:
+    #         print(h.tracks())
+    #         print(h.probability())
 
-    path = "./test_cpp_pickle"
-    with open(path, "wb") as f:
-        pickle.dump(prior_hypotheses_per_cluster, f)
+    # path = "./test_cpp_pickle"
+    # with open(path, "wb") as f:
+    #     pickle.dump(prior_hypotheses_per_cluster, f)
 
-    with open(path, "rb") as f:
-        prior_hypotheses_per_cluster_from_pickle = pickle.load(f)
-    print("Pickle")
-    for ph in prior_hypotheses_per_cluster_from_pickle:
-        for h in ph:
-            print(h.tracks())
-            print(h.probability())
+    # with open(path, "rb") as f:
+    #     prior_hypotheses_per_cluster_from_pickle = pickle.load(f)
+    # print("Pickle")
+    # for ph in prior_hypotheses_per_cluster_from_pickle:
+    #     for h in ph:
+    #         print(h.tracks())
+    #         print(h.probability())
 
 
     # merged_hypos = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1])

@@ -539,6 +539,58 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
     return {exact_marginals, exact_normalization_constant};
 }
 
+std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::vector<Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
+    gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
+
+    const size_t num_tracks = R.rows();
+    const size_t num_measurements = R.cols() - num_tracks;
+
+    auto fac = dfg.product();
+    size_t num_thetas = prior_hypotheses_per_cluster.size();
+    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
+
+    double exact_normalization_constant = (*ff)({});
+    
+    gtsam::DiscreteMarginals dfg_marginals(dfg);
+
+    auto dks = dfg.discreteKeys();
+    std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
+    gtsam::DiscreteKeys ais;
+    gtsam::DiscreteKeys bjs;
+    gtsam::DiscreteKeys ths;
+    for (const auto& dk : all_keys) {
+        if (gtsam::symbolChr(dk.first) == 'a') {
+            ais.push_back(dk);
+        } else if (gtsam::symbolChr(dk.first) == 'b') {
+            bjs.push_back(dk);
+        } else if (gtsam::symbolChr(dk.first) == 't') {
+            ths.push_back(dk);
+        } else {
+            std::cerr << "Unknown discrete key: " << dk.first << std::endl;
+            return {};
+        }
+    }
+
+    Eigen::ArrayXXd track_marginals(2 + num_measurements, num_tracks), meas_marginals(1 + num_tracks, num_measurements);
+    std::vector<Eigen::ArrayXd> theta_marginals;
+    size_t c = 0;
+    for (const auto& aik : ais) {
+        track_marginals.col(c) = dfg_marginals.marginalProbabilities(aik);
+        c += 1;
+    }
+
+    c = 0;
+    for (const auto& bjk : bjs) {
+        meas_marginals.col(c) = dfg_marginals.marginalProbabilities(bjk);
+        c += 1;
+    }
+
+    for (const auto& thk : ths) {
+        theta_marginals.push_back(dfg_marginals.marginalProbabilities(thk));
+    }
+
+    return {track_marginals, meas_marginals, theta_marginals, exact_normalization_constant};
+}
 
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster_posterior) {
 

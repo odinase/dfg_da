@@ -269,14 +269,26 @@ int main(int argc, char **argv)
     auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
     double Z_bethe = mhlbp.bethe_pseudodual_normalization_constant();
-    std::cout << marginals << "\n";
-    std::cout << Z_bethe << "\n\n";
+    // std::cout << marginals << "\n";
+    // std::cout << Z_bethe << "\n\n";
 
     // gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
     auto [exact_margs, exact_const] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]));
-    std::cout << exact_margs << "\n";
-    std::cout << exact_const << "\n";
+    // std::cout << exact_margs << "\n";
+    // std::cout << exact_const << "\n";
+
+
+    auto [track_marginals, meas_marginals, theta_marginals, exact_normalization_constant] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
+
+    std::cout << "Track marginals:\n";
+    std::cout << track_marginals << "\n";
+    std::cout << "Meas marginals:\n";
+    std::cout << meas_marginals << "\n";
+    std::cout << "Theta marginals:\n";
+    for (const auto& theta_marginal : theta_marginals) {
+        std::cout << theta_marginal << "\n\n";
+    }
 
     // // dfg.saveGraph("dfg_original.txt");
     // // Marginalize out measurement variables
