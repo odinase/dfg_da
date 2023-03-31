@@ -253,6 +253,9 @@ class ClusterHypothesisLabel:
     
     def __eq__(self, rhs: object) -> bool:
         return (self.cluster_idx == rhs.cluster_idx) and (self.hypo_idx == rhs.hypo_idx)
+    
+    def __iter__(self):
+        return iter(self.__dict__.values())
 
 class ClusterHypothesesPosterior:
     """
@@ -283,7 +286,7 @@ class ClusterHypothesesPosterior:
         
         return prior_hypotheses_per_cluster_posterior, hypothesis_index_map
 
-    def update_hypothesis_index_map_master(self, hypothesis_index_map_master: List[ClusterHypothesisLabel], slave: int, slave_ph: pdd.hypothesis.Hypotheses):
+    def update_hypothesis_index_map_master(self, hypothesis_index_map_master: List[List[ClusterHypothesisLabel]], slave: int, slave_ph: pdd.hypothesis.Hypotheses):
         updated_hypothesis_index_map_master: List[ClusterHypothesisLabel] = []
 
         # The inner loop in the combine step is the RHS, i.e. the slave
@@ -293,7 +296,7 @@ class ClusterHypothesesPosterior:
                 updated_hypothesis_index_map_master.append(
                     master_hypos + [ClusterHypothesisLabel(slave, n)]
                 )
-        
+
         return updated_hypothesis_index_map_master
 
     def merge_clusters_labled(self, assocLocal: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList):
@@ -318,6 +321,24 @@ class ClusterHypothesesPosterior:
             hypothesis_index_map[posterior_cluster_idx] = updated_hypothesis_index_map_master
 
         return prior_hypotheses_per_cluster_posterior, hypothesis_index_map
+    
+    def map_prior_to_posteriors(self, label_prior: ClusterHypothesisLabel):
+        """
+        We wish to, given a prior hypothesis of a prior cluster, find the prior hypotheses in the posterior clusters it appears in.
+        Preferbly, it should be as easy as possible to then look up the hypothesis conditioned likelihoods corresponding to the prior hpyothesis
+        """
+        posterior_prior_hyps_idxs = []
+        # With assocLocal, this first step would be way easier, but oh well. First, find the posterior cluster the prior cluster appears in
+        for posterior_cluster_idx, cluster_hypothesis_map in enumerate(self.hypothesis_index_map):
+            prior_clusters = set(label.cluster_idx for hypotheses_labels in cluster_hypothesis_map for label in hypotheses_labels)
+            if label_prior.cluster_idx in prior_clusters:
+                # Next step is to find all indices for hypotheses in the cluster that matches the prior label
+                for k, hypotheses_labels in enumerate(cluster_hypothesis_map):
+                    if label_prior in hypotheses_labels:
+                        posterior_prior_hyps_idxs.append(k)
+
+        # Should be all?
+        return posterior_cluster_idx, posterior_prior_hyps_idxs
 
 
 class MulticlusterMarginalsComputer(ABC):

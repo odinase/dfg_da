@@ -181,6 +181,51 @@ class TestClusterHypothesesPosterior(unittest.TestCase):
                 self.assertEqual(label, true_label)
 
 
+    def test_correct_hypothesis_idx_mapping5(self):
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 2, 2],
+            [1, 1, 0]
+        ])
+
+        chp = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster)
+        true_mapping = [
+            [
+                [ClusterHypothesisLabel(0, 0)],
+                [ClusterHypothesisLabel(0, 1)],
+            ],
+            [
+                [ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 0)],
+                [ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 1)],
+                [ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 0)],
+                [ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 1)],
+            ]
+        ]
+
+        # Assert we have equally many master clusters
+        self.assertEqual(len(chp.hypothesis_index_map), len(true_mapping))
+
+        for m1, m2 in zip(chp.hypothesis_index_map, true_mapping):
+            # Assert that the number of hypotheses used to construct the posterior set are equal
+            self.assertEqual(len(m1), len(m2))
+            for label, true_label in zip(m1, m2):
+                self.assertEqual(label, true_label)
+
+
     def test_correct_posterior_hypothesis_probabilities1(self):
         prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
             pdd.hypothesis.Hypotheses([
@@ -260,6 +305,96 @@ class TestClusterHypothesesPosterior(unittest.TestCase):
             for true_prob, prob in zip(true_probabilities, ph.hypothesis_probabilites()):
                 self.assertAlmostEqual(true_prob, prob, delta=1e-6)
 
+
+
+    def test_prior_to_posterior_mapping1(self):
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 1],
+            [1, 0, 0]
+        ])
+
+        chp = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster)
+
+        label_prior = ClusterHypothesisLabel(2, 1)
+        # true_mapping = [
+        #     [
+        #         [ClusterHypothesisLabel(0, 0), ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(0, 0), ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 1)],
+        #         [ClusterHypothesisLabel(0, 0), ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(0, 0), ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 1)],
+        #         [ClusterHypothesisLabel(0, 1), ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(0, 1), ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 1)],
+        #         [ClusterHypothesisLabel(0, 1), ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(0, 1), ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 1)]
+        #     ]
+        # ]
+        true_post_cidx = 0
+        true_hyp_idxs = [1, 3, 5, 7]
+
+        post_cidx, hyp_idxs = chp.map_prior_to_posteriors(label_prior)
+
+        self.assertEqual(true_post_cidx, post_cidx)
+        self.assertListEqual(true_hyp_idxs, hyp_idxs)
+
+
+    def test_prior_to_posterior_mapping2(self):
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 2, 2],
+            [1, 1, 0]
+        ])
+
+        chp = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster)
+        # true_mapping = [
+        #     [
+        #         [ClusterHypothesisLabel(0, 0)],
+        #         [ClusterHypothesisLabel(0, 1)],
+        #     ],
+        #     [
+        #         [ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(1, 0), ClusterHypothesisLabel(2, 1)],
+        #         [ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(1, 1), ClusterHypothesisLabel(2, 1)],
+        #     ]
+        # ]
+
+        label_prior = ClusterHypothesisLabel(2, 1)
+        true_post_cidx = 1
+        true_hyp_idxs = [1, 3]
+
+        post_cidx, hyp_idxs = chp.map_prior_to_posteriors(label_prior)
+
+        self.assertEqual(true_post_cidx, post_cidx)
+        self.assertListEqual(true_hyp_idxs, hyp_idxs)
 
 
 class TestMulticlusterExact(unittest.TestCase):
