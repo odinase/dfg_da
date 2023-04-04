@@ -309,9 +309,7 @@ namespace dfg_da
                     // std::cout << "log_p: " << log_p << "\n";
                     // std::cout << "log_Z: " << log_Z << "\n";
                     Z += exp(log_Z);
-                    std::cout << Z << "\n";
                 }
-                std::cout << "\n";
             }
 
             association_marginals.rowwise() /= association_marginals.colwise().sum();

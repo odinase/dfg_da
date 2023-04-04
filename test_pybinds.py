@@ -6,6 +6,42 @@ import dfg_da.marginals_computers as mc
 import pickle
 import dfg_da as dd
 
+
+def make_clusters(llr):
+        g = (llr > -np.inf)
+        pr_a = np.zeros_like(llr)
+        pr_new = np.zeros(llr.shape[1] - 1, float)
+        usedtr = np.zeros(llr.shape[0], bool)
+        usedm = np.zeros(llr.shape[1] - 1, bool)
+        gm = g[:, 1:]
+        c = []
+        for i in range(len(llr)):
+            if not usedtr[i]:
+                ctr = np.zeros_like(usedtr)
+                ca = np.zeros(llr.shape[1], bool)
+                ca[0] = True
+                cm = ca[1:]
+                ctr[i] = True
+                m_in_same = gm[i]
+                cm[m_in_same] = True
+                changed = True
+                while changed:
+                    tr_in_same = np.any(gm[:, cm], axis=1)
+                    changed &= ~np.all(ctr[tr_in_same])
+                    ctr[tr_in_same] = True
+                    m_in_same = np.any(gm[tr_in_same, :], axis=0)
+                    changed &= ~np.all(cm[m_in_same])
+                    cm[m_in_same] = True
+
+                print(ctr, ca)
+        #         pr_a[np.ix_(ctr, ca)], pr_new[cm] = exact_marginal(
+        #             llr[np.ix_(ctr, ca)], False)
+        #         usedtr[ctr] = True
+        #         usedm[cm] = True
+        # pr_new[~usedm] = 1
+        # return pr_a, pr_new
+
+
 if __name__ == "__main__":
     R = np.array([
         [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
@@ -45,6 +81,11 @@ if __name__ == "__main__":
 
     R_LC = np.hstack((np.diag(R[:, m:])[:,None], R[:,:m]))
 
+    assocLocal = np.array([
+        [1, 1],
+        [1, 0]
+    ])
+
     prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
         py_dfg_da.hypothesis.Hypotheses([
             py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
@@ -58,11 +99,46 @@ if __name__ == "__main__":
 
     # output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
 
-    exact_computer = dd.marginal_computers.ExactMarginalsComputer()
-    exact_output = exact_computer(R_LC, prior_hypotheses_per_cluster)
-    for c, ph in prior_hypotheses_per_cluster:
-        for k, h in enumerate(ph):
-            # At this point we need to find all cluster 
+    exact_computer: mc.MulticlusterExact = mc.MulticlusterExact()
+    exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+    np.set_printoptions(suppress=True)
+    print(exact_output.exact_marginals)
+    print(exact_output.compute_theta_posteriors())
+
+    track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+    print(track_marginals)
+    print(meas_marginals)
+    print(theta_marginals)
+    print(exact_normalization_constant)
+
+    # R_LC2 = np.log(np.array([
+    #     [0.2, 1.0]
+    # ]))
+
+    # phs: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+    #     py_dfg_da.hypothesis.Hypotheses([
+    #         py_dfg_da.hypothesis.Hypothesis([1], np.log(0.9)),
+    #         py_dfg_da.hypothesis.Hypothesis([], np.log(0.1))
+    #     ])
+    # ])
+
+    # assocLocal = np.array([
+    #      [1],
+    #      [1]
+    # ])
+
+    # exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC2, phs, assocLocal=assocLocal)
+    # np.set_printoptions(suppress=True)
+    # print(exact_output.exact_marginals)
+    # consts = exact_output.hypo_cond_normalization_constants_per_cluster[0]
+    # print(consts / consts.sum())
+
+    # print(exact_output.compute_theta_posteriors())
+
+    # for c, ph in prior_hypotheses_per_cluster:
+    #     for k, h in enumerate(ph):
+    #         pass
+    #         # At this point we need to find all cluster 
 
     # np.set_printoptions(suppress=True)
     # print("LBP")

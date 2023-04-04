@@ -8,6 +8,7 @@
 #include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
 #include <numeric>
+#include <sstream>
 
 
 namespace dfg_da {
@@ -539,7 +540,7 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
     return {exact_marginals, exact_normalization_constant};
 }
 
-std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::vector<Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
+std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
     gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
     const size_t num_tracks = R.rows();
@@ -567,12 +568,11 @@ std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::vector<Eigen::ArrayXd>, double
             ths.push_back(dk);
         } else {
             std::cerr << "Unknown discrete key: " << dk.first << std::endl;
-            return {};
         }
     }
 
     Eigen::ArrayXXd track_marginals(2 + num_measurements, num_tracks), meas_marginals(1 + num_tracks, num_measurements);
-    std::vector<Eigen::ArrayXd> theta_marginals;
+    std::map<std::string, Eigen::ArrayXd> theta_marginals;
     size_t c = 0;
     for (const auto& aik : ais) {
         track_marginals.col(c) = dfg_marginals.marginalProbabilities(aik);
@@ -585,12 +585,53 @@ std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::vector<Eigen::ArrayXd>, double
         c += 1;
     }
 
+    std::stringstream ss;
     for (const auto& thk : ths) {
-        theta_marginals.push_back(dfg_marginals.marginalProbabilities(thk));
+        ss << gtsam::Symbol(thk.first);
+        theta_marginals.insert({
+            ss.str(), dfg_marginals.marginalProbabilities(thk)
+        });
+        ss.str("");
     }
 
     return {track_marginals, meas_marginals, theta_marginals, exact_normalization_constant};
 }
+
+
+
+Eigen::ArrayXd hypothesis_conditioned_likelihoods(const Eigen::Ref<const Eigen::MatrixXd> &R, const dfg_da::hypothesis::Hypotheses &prior_hypotheses) {
+    gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior(R, prior_hypotheses);
+
+    auto dks = dfg.discreteKeys();
+    std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
+
+    size_t num_hypos = prior_hypotheses.num_hypotheses();
+    gtsam::DiscreteKey t{T(0), num_hypos};
+
+    all_keys.erase(t);
+
+    gtsam::Ordering vars_to_sum_out{};
+    for (const auto& dk : all_keys) {
+        vars_to_sum_out += dk.first;
+    }
+
+    auto fac = dfg.product();
+    auto ff = fac.sum(vars_to_sum_out);
+    Eigen::ArrayXd likelihoods(num_hypos);
+
+    std::vector<double> hypo_probs = prior_hypotheses.hypothesis_probabilites();
+    for (size_t val = 0; val < num_hypos; val++) {
+        gtsam::DiscreteValues v;
+        v.insert({t.first, val});
+        double l = (*ff)(v);
+        // Evaluating the factor graph in this point is just the joint p(Z, theta), so divide by p(theta) to get conditional
+        likelihoods(val) = l / hypo_probs[val];
+    }
+
+    return likelihoods;
+}
+
+
 
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster_posterior) {
 

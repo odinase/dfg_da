@@ -92,7 +92,9 @@ PYBIND11_MODULE(py_dfg_da, m) {
 
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
     py::module_ factor_graph = m.def_submodule("factor_graph");
-    factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert());
+    factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
+    .def("all_exact_marginals_and_normalization_constant", factor_graph::all_exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert());
+
 
     py::module_ hypothesis = m.def_submodule("hypothesis");
 
@@ -101,6 +103,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
     hypothesis.def("hypothesis_enumeration", hypothesis::hypothesis_enumeration, "reward_matrix"_a.noconvert(), "prior_hypothesis"_a.noconvert());
     hypothesis.def("mo_to_to_hypothesis", hypothesis::mo_to_to_hypothesis, "mo_hypothesis"_a, "num_tracks"_a);
     hypothesis.def("prior_hypothesis_conditional_association_probability", hypothesis::prior_hypothesis_conditional_association_probability, "to_hypothesis"_a, "prior_hypothesis"_a.noconvert(), "reward_matrix"_a.noconvert());
+
+// std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant
 
     py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList")
     .def(py::pickle(

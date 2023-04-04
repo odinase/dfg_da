@@ -8,6 +8,97 @@ class TestClusterHypothesesPosterior(unittest.TestCase):
     def setUp(self):
         pass
 
+    def test_prior_hypos_in_posterior_clusters1(self):
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 3],
+            [1, 0, 1]
+        ])
+
+        chp = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster)
+        # true_mapping = [
+        #     [
+        #         [ClusterHypothesisLabel(0, 0), ClusterHypothesisLabel(1, 0)],
+        #         [ClusterHypothesisLabel(0, 0), ClusterHypothesisLabel(1, 1)],
+        #         [ClusterHypothesisLabel(0, 1), ClusterHypothesisLabel(1, 0)],
+        #         [ClusterHypothesisLabel(0, 1), ClusterHypothesisLabel(1, 1)],
+        #     ],
+        #     [
+        #         [ClusterHypothesisLabel(2, 0)],
+        #         [ClusterHypothesisLabel(2, 1)],
+        #     ]
+        # ]
+        true_ph_dict_per_cluster = [
+            {0: 2, 1: 2},
+            {2: 2}
+        ]
+
+        ph_dict_per_cluster = chp.prior_hypos_in_posterior_clusters()
+
+
+        self.assertEqual(len(true_ph_dict_per_cluster), len(ph_dict_per_cluster))
+
+        for true_ph_dict, ph_dict in zip(true_ph_dict_per_cluster, ph_dict_per_cluster):
+            self.assertEqual(len(true_ph_dict), len(ph_dict))
+
+            for (true_c_idx, true_num_hypo), (c_idx, num_hypo) in zip(true_ph_dict.items(), ph_dict.items()):
+                self.assertEqual(true_c_idx, c_idx)
+                self.assertEqual(true_num_hypo, num_hypo)
+
+
+    def test_prior_hypos_in_posterior_clusters2(self):
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 1],
+            [1, 0, 0]
+        ])
+
+        chp = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster)
+
+        true_ph_dict_per_cluster = [
+            {0: 2, 1: 2, 2: 2}
+        ]
+
+        ph_dict_per_cluster = chp.prior_hypos_in_posterior_clusters()
+
+
+        self.assertEqual(len(true_ph_dict_per_cluster), len(ph_dict_per_cluster))
+
+        for true_ph_dict, ph_dict in zip(true_ph_dict_per_cluster, ph_dict_per_cluster):
+            self.assertEqual(len(true_ph_dict), len(ph_dict))
+
+            for (true_c_idx, true_num_hypo), (c_idx, num_hypo) in zip(true_ph_dict.items(), ph_dict.items()):
+                self.assertEqual(true_c_idx, c_idx)
+                self.assertEqual(true_num_hypo, num_hypo)
+
     def test_correct_hypothesis_idx_mapping(self):
         prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
             pdd.hypothesis.Hypotheses([
@@ -237,8 +328,8 @@ class TestClusterHypothesesPosterior(unittest.TestCase):
                 pdd.hypothesis.Hypothesis([4], np.log(0.7))
             ]),
             pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+                pdd.hypothesis.Hypothesis([5], np.log(0.1)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.9))
             ])
         ])
 
@@ -250,10 +341,10 @@ class TestClusterHypothesesPosterior(unittest.TestCase):
         chp = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster)
         true_probabilities_per_cluster = [
             [
-                0.2*0.5,
-                0.2*0.5,
-                0.8*0.5,
-                0.8*0.5,
+                0.2*0.1,
+                0.2*0.9,
+                0.8*0.1,
+                0.8*0.9,
             ],
             [
                 0.3,
@@ -546,6 +637,57 @@ class TestMulticlusterExact(unittest.TestCase):
         self.assertTrue(np.allclose(correct_marginals, exact_output.exact_marginals))
         self.assertAlmostEqual(correct_multicluster_constant, exact_output.exact_normalization_constant, delta=1e-6)
         
+class TestMulticlusterExactOutput(unittest.TestCase):
+    def setUp(self):
+        self.R = np.array([
+            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        assocLocal = np.array([
+            [1, 1],
+            [1, 0]
+        ])
+
+        self.prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([4], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([5], np.log(0.5))
+            ])
+        ])
+
+        exact_computer = MulticlusterExact()
+        self.mco: MulticlusterExactOutput = exact_computer(self.R, self.prior_hypotheses_per_cluster, assocLocal=assocLocal)
+
+    def test_computation_of_prior_hypothesis_posterior_distribution(self):
+        self.mco.hypo_cond_normalization_constants_per_cluster = [
+            np.array([
+                0.00094856564, 5.7367489e-05, 0.00055750393, 0.00010165507
+            ])
+        ]
+        print(self.mco.hypo_cond_normalization_constants_per_cluster[0] / self.mco.hypo_cond_normalization_constants_per_cluster[0].sum())
+        theta_marginals = self.mco.compute_theta_posteriors()
+
+        correct_marginals = [
+            np.array([0.604131, 0.395869]),
+            np.array([0.904496, 0.0955038])
+        ]
+        print(f"Correct marginals: {correct_marginals}")
+        print(f"\nTheta marginals: {theta_marginals}")
+
+        self.assertEqual(len(theta_marginals), len(correct_marginals))
+
+        for correct_marginal, theta_marginal in zip(correct_marginals, theta_marginals):
+            self.assertEqual(len(correct_marginal), len(theta_marginal))
+            self.assertTrue(np.allclose(correct_marginal, theta_marginal))
+
 
 if __name__ == '__main__':
     unittest.main()

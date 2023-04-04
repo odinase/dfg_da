@@ -2,9 +2,10 @@ import numpy as np
 from .marginal_association_Odin import lbp_marginal, exact_marginal, lbp_marginal_nonexistence, lbp_marginal_nonexistence_alternative
 from abc import ABC, abstractmethod
 from .prior_hypothesis import PriorHypotheses, PriorHypothesis
-from typing import Tuple, Optional, Union, List
+from typing import Tuple, Optional, Union, List, Dict
 import py_dfg_da as pdd
 from dataclasses import dataclass
+from collections import Counter, defaultdict
 
 
 class MarginalsComputer(ABC):
@@ -339,6 +340,22 @@ class ClusterHypothesesPosterior:
 
         # Should be all?
         return posterior_cluster_idx, posterior_prior_hyps_idxs
+    
+    def prior_hypos_in_posterior_clusters(self):
+        ph_in_post_c: List[Dict[int, int]] = []
+        for hypotheses_in_cluster in self.hypothesis_index_map:
+            phs = defaultdict(lambda: 0)
+            for prior_cluster_labels in hypotheses_in_cluster:
+                for c_idx, h_idx in prior_cluster_labels:
+                    phs[c_idx] = max(h_idx, phs[c_idx])
+
+            for c_idx in phs:
+                phs[c_idx] += 1 # Hypotheses are 0-indexed, so we need to add 1 to turn them into the number of hypos
+
+            ph_in_post_c.append(phs)
+
+        return ph_in_post_c
+
 
 
 class MulticlusterMarginalsComputer(ABC):
@@ -350,13 +367,57 @@ class MulticlusterMarginalsComputer(ABC):
         return None
     
 
-@dataclass(frozen=True)
+# @dataclass(frozen=True)
+@dataclass
 class MulticlusterExactOutput:
     exact_marginals: np.ndarray
     hypo_cond_normalization_constants_per_cluster: List[np.ndarray]
     normalization_constant_per_cluster: np.ndarray
     exact_normalization_constant: float
     cluster_hypotheses_posterior: ClusterHypothesesPosterior
+
+    def compute_theta_posteriors(self):
+        """
+        Given the method in 'map_prior_to_posteriors' in ClusterHypothesesPosterior, we should be able to compute all we need by looping over each prior cluster and then each hypothesis, collect the necessary hypothesis-conditioned likelihoods and then normalize in the end.
+        """
+
+        # From LC
+        # merged hypotese: theta = (theta_1, …, theta_n), med vekter w^theta = prod_{i=1}^n w_i^{theta_i}
+        # p((theta_1, …, theta_n) | Z) propto w^h * exp(JPDA_loglikelihood), fra merged cluster JPDA
+        # p(theta_i = h | Z) = sum_{(theta_1, …, theta_n): theta_i = h} p((theta_1, …, theta_n) | Z)
+
+
+        # Dictionary over prior clusters in each posterior cluster and their hypothesis cardinality
+        phs_in_post_c = self.cluster_hypotheses_posterior.prior_hypos_in_posterior_clusters()
+        # Initialize container for each prior clusters posterior
+        theta_posterior_marginals = dict()
+        for phs in phs_in_post_c:
+            for prior_c_idxs, num_hypos in phs.items():
+                theta_posterior_marginals[prior_c_idxs] = np.zeros(num_hypos)
+
+        # We have the priors in the from of prior_hypotheses_per_cluster_posterior
+        # For each cluster, form the joint posterior by multipying by the JPDA-likelihood and normalizing over the cluster in the end
+        for ph_posterior, hypo_cond_norm_per_hypo, hypotheses_map_in_cluster in zip(
+            self.cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior,
+            self.hypo_cond_normalization_constants_per_cluster,
+            self.cluster_hypotheses_posterior.hypothesis_index_map
+            ):
+            # ph posterior is the joint prior distribution. Get its probabilities
+            prior_probs = np.array(ph_posterior.hypothesis_probabilites())
+
+            # We have already calculated the hypothesis-conditioned likelihood. For each merged prior hypothesis probability, multiply by the corresponding normalization constant to get the joint posterior
+            joint_theta_posterior_scores = prior_probs * hypo_cond_norm_per_hypo
+
+            # Now that we have the joint posterior, look up what hypotheses in this joint branched from each prior hypothesis in the unmerged clusters and add that to the marginal
+            for joint_theta_score, hypothesis in zip(joint_theta_posterior_scores, hypotheses_map_in_cluster):
+                for prior_cluster_idx, hypo_idx in hypothesis:
+                    theta_posterior_marginals[prior_cluster_idx][hypo_idx] += joint_theta_score
+
+        theta_posteriors = [None]*len(theta_posterior_marginals)
+        for prior_c in theta_posterior_marginals:
+            theta_posteriors[prior_c] = theta_posterior_marginals[prior_c] / theta_posterior_marginals[prior_c].sum()
+
+        return theta_posteriors 
 
 
 class MulticlusterExact(MulticlusterMarginalsComputer):
@@ -391,16 +452,21 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
 
             normalizing_constant_cluster = 0.0
             for k, hypothesis in enumerate(prior_hypotheses):
-                existing_tracks_idx = np.array(hypothesis.tracks()) - 1
                 log_prob = hypothesis.log_prob()
-                R_sub = R_LC[existing_tracks_idx, :]
-                JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
+                existing_tracks_idx = (np.array(hypothesis.tracks()) - 1).astype(int)
+                if existing_tracks_idx.shape[0] > 0:
+                    R_sub = R_LC[existing_tracks_idx, :]
+                    JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
+                else:
+                    JPDAprobs = np.empty((0, m + 1))
+                    hyp_prob_log = np.empty((0,))
+                    loglikelihood = 0.0
 
                 # We need to concatenate the JPDAprobs with all tracks and existence probs
                 non_existing_tracks_idx = np.setdiff1d(all_tracks_idx, existing_tracks_idx, assume_unique=True)
 
                 existing_probs = np.hstack((JPDAprobs, _0[:len(existing_tracks_idx), 0, None]))
-                nonexisting_probs = np.hstack((_0[len(non_existing_tracks_idx)], _1[len(non_existing_tracks_idx), 0, None]))
+                nonexisting_probs = np.hstack((_0[:len(non_existing_tracks_idx)], _1[:len(non_existing_tracks_idx), 0, None]))
 
                 conditioned_marginals[existing_tracks_idx] = existing_probs
                 conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
@@ -412,10 +478,10 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
                 marginal_total += conditioned_marginals * np.exp(loglikelihood + log_prob)
 
                 normalizing_constant_cluster += np.sum(np.exp(hyp_prob_log + log_prob))
-                
+
 
             normalization_constants_per_cluster[c] = normalizing_constant_cluster
-            
+
             hypo_cond_normalization_constants_per_cluster.append(hypo_cond_normalizing_constants)
 
 
