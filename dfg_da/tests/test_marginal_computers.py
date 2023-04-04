@@ -647,6 +647,8 @@ class TestMulticlusterExactOutput(unittest.TestCase):
             [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
         ], order='F')
 
+        self.R_LC = np.asfortranarray(edmund_to_lc(self.R))
+
         assocLocal = np.array([
             [1, 1],
             [1, 0]
@@ -664,23 +666,15 @@ class TestMulticlusterExactOutput(unittest.TestCase):
         ])
 
         exact_computer = MulticlusterExact()
-        self.mco: MulticlusterExactOutput = exact_computer(self.R, self.prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        self.mco: MulticlusterExactOutput = exact_computer(self.R_LC, self.prior_hypotheses_per_cluster, assocLocal=assocLocal)
 
     def test_computation_of_prior_hypothesis_posterior_distribution(self):
-        self.mco.hypo_cond_normalization_constants_per_cluster = [
-            np.array([
-                0.00094856564, 5.7367489e-05, 0.00055750393, 0.00010165507
-            ])
-        ]
-        print(self.mco.hypo_cond_normalization_constants_per_cluster[0] / self.mco.hypo_cond_normalization_constants_per_cluster[0].sum())
         theta_marginals = self.mco.compute_theta_posteriors()
 
         correct_marginals = [
             np.array([0.604131, 0.395869]),
             np.array([0.904496, 0.0955038])
         ]
-        print(f"Correct marginals: {correct_marginals}")
-        print(f"\nTheta marginals: {theta_marginals}")
 
         self.assertEqual(len(theta_marginals), len(correct_marginals))
 

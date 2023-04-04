@@ -105,6 +105,8 @@ if __name__ == "__main__":
     print(exact_output.exact_marginals)
     print(exact_output.compute_theta_posteriors())
 
+    print()
+
     track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
     print(track_marginals)
     print(meas_marginals)
