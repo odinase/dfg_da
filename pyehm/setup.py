@@ -7,12 +7,11 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 with open('README.md') as f:
     long_description = f.read()
 
-
 core_sources = sorted(glob("./src/core/*.cpp"))
 net_sources = sorted(glob("./src/net/*.cpp"))
 utils_sources = sorted(glob("./src/utils/*.cpp"))
 
-version = get_version()
+version = '0.1.0'
 
 ext_module = Pybind11Extension(
     '_pyehm',
@@ -23,6 +22,7 @@ ext_module = Pybind11Extension(
 
 setup(
     name='pyehm',
+    version='0.1.0',
     author="Lyudmil Vladimirov",
     author_email="sglvladi@liverpool.ac.uk",
     maintainer="University of Liverpool",

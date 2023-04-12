@@ -406,31 +406,34 @@ std::tuple<Eigen::MatrixXd, double> EHM2::exact_marginal(const Eigen::MatrixXi& 
 
     // Initialise the association probabilities matrix
     Eigen::MatrixXd a_matrix = Eigen::MatrixXd::Zero(validation_matrix.rows(), validation_matrix.cols());
-    double likelihood;
+    double likelihood{1.0};
+
+    const int num_tracks = validation_matrix.rows();
+    const int num_detections = validation_matrix.cols() - 1;
 
         // Extract track and detection indices
-        std::vector<int> c_tracks = ;
-        std::vector<int> c_detections = cluster->detections;
+        std::vector<int> c_tracks{num_tracks};
+        std::iota(c_tracks.begin(), c_tracks.end(), 0);
+        std::vector<int> c_detections{num_detections};
+        std::iota(c_detections.begin(), c_detections.end(), 0);
 
         if (c_detections.size() == 0) {
             a_matrix(c_tracks, 0).setOnes();
-            continue;
-        }
-
+        } else {
         // Extract validation and likelihood matrices for cluster
-        Eigen::MatrixXi c_validation_matrix = cluster->validation_matrix;
-        Eigen::MatrixXd c_likelihood_matrix = cluster->likelihood_matrix;
+        Eigen::MatrixXi c_validation_matrix = validation_matrix;
+        Eigen::MatrixXd c_likelihood_matrix = likelihood_matrix;
 
         // Construct the EHM net
         EHM2NetPtr net = constructNet(c_validation_matrix);
 
         // Compute the association probabilities
-        Eigen::MatrixXd c_a_matrix = computeAssociationMatrix(net, c_likelihood_matrix);
+        auto [c_a_matrix, likelihood] = computeAssociationMatrixAndLikelihood(net, c_likelihood_matrix);
 
         // Update the association probabilities matrix
         a_matrix(c_tracks, c_detections) = c_a_matrix;
-    }
-    return a_matrix;
+        }
+    return {a_matrix, likelihood};
 }
 
 EHM2TreePtr EHM2::constructTree(const Eigen::MatrixXi& validation_matrix)

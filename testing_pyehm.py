@@ -17,7 +17,7 @@ if __name__ == "__main__":
     likelihood_matrix = np.asfortranarray(np.exp(R_LC))
     validation_matrix = np.asfortranarray((likelihood_matrix > 0.0).astype(int))
 
-    assoc_matrix_ehm2 = EHM2.run(validation_matrix, likelihood_matrix)
+    assoc_matrix_ehm2 = EHM2.exact_marginal(validation_matrix, likelihood_matrix)
     JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_LC, False)
 
     np.set_printoptions(suppress=True)

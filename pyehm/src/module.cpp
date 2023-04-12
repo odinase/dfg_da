@@ -107,7 +107,8 @@ PYBIND11_MODULE(_pyehm, m) {
         .def_static("construct_tree", &EHM2::constructTree, "validation_matrix"_a, docstrings::EHM2_construct_tree().c_str())
         .def_static("compute_association_probabilities", &EHM2::computeAssociationMatrix, "net"_a, "likelihood_matrix"_a, docstrings::EHM2_compute_association_probabilities().c_str())
         .def_static("compute_association_probabilities_likelihood", &EHM2::computeAssociationMatrixAndLikelihood, "net"_a, "likelihood_matrix"_a, docstrings::EHM2_compute_association_probabilities().c_str())
-        .def_static("run", &EHM2::run, "validation_matrix"_a, "likelihood_matrix"_a, docstrings::EHM2_run().c_str());
+        .def_static("run", &EHM2::run, "validation_matrix"_a, "likelihood_matrix"_a, docstrings::EHM2_run().c_str())
+        .def_static("exact_marginal", &EHM2::exact_marginal, "validation_matrix"_a.noconvert(), "likelihood_matrix"_a.noconvert());
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
