@@ -130,6 +130,7 @@ if __name__ == "__main__":
     print(mcmhlbp.track_association_marginals().T)
     hp = mcmhlbp.hypotheses_marginals()
     print(np.hstack(hp))
+    print(mcmhlbp.bethe_pseudodual_normalization_constant())
 
     print()
 

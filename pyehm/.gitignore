@@ -1,0 +1,28 @@
+# General Python
+build/
+dist/
+*.egg-info
+.eggs/
+__pycache__/
+
+# Version from setuptools_scm
+pyehm/_version.py
+
+# Sphinx documentation
+/docs/build/
+/docs/source/auto*
+
+# coverage
+.coverage
+htmlcov/
+
+# pytest
+.pytest_cache/
+
+# IDE
+.idea/
+.vs/
+x64/
+
+# Notebooks
+examples/.ipynb_checkpoints

@@ -6,6 +6,7 @@ from typing import Tuple, Optional, Union, List, Dict
 import py_dfg_da as pdd
 from dataclasses import dataclass
 from collections import Counter, defaultdict
+from pyehm.core import EHM2
 
 
 class MarginalsComputer(ABC):
@@ -476,6 +477,8 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
 
                 marginal_total += conditioned_marginals * np.exp(loglikelihood + log_prob)
 
+                print(np.sum(np.exp(hyp_prob_log + log_prob)))
+                print(np.exp(log_prob + loglikelihood))
                 normalizing_constant_cluster += np.sum(np.exp(hyp_prob_log + log_prob))
 
 
@@ -498,5 +501,84 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
             exact_normalization_constant=exact_normalization_constant,
             cluster_hypotheses_posterior=cluster_hypotheses_posterior
         )
+
+        return output
+
+
+class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
+    def __call__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> np.ndarray:
+        return self.compute_marginals(R_LC, prior_hypotheses_per_cluster, **kwargs)
+
+
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+        if not "assocLocal" in kwargs:
+            raise ValueError("assocLocal is required as input parameter because of cluster merging!")
+
+        # Start by merging clusters if necessary
+        assocLocal = kwargs["assocLocal"]
+        cluster_hypotheses_posterior = ClusterHypothesesPosterior(assocLocal=assocLocal, prior_hypotheses_per_cluster = prior_hypotheses_per_cluster)
+        prior_hypotheses_per_cluster_posterior = cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior
+        n, mp1 = R_LC.shape
+        m = mp1 - 1
+
+        # Preallocate variables
+        hypo_cond_normalization_constants_per_cluster = []
+        normalization_constants_per_cluster = np.empty(len(prior_hypotheses_per_cluster_posterior))
+        marginal_total = np.zeros((n, m + 1 + 1))
+        conditioned_marginals = np.empty((n, m + 2))
+        _0 = np.zeros((n, m + 1))
+        _1 = np.ones((n, 1))
+
+        # Loop over clusters
+        for c, prior_hypotheses in enumerate(prior_hypotheses_per_cluster_posterior):
+            all_tracks_idx = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
+            conditioned_marginals[...] = 0.0
+            hypo_cond_normalizing_constants = np.empty(len(prior_hypotheses))
+
+            normalizing_constant_cluster = 0.0
+            for k, hypothesis in enumerate(prior_hypotheses):
+                log_prob = hypothesis.log_prob()
+                existing_tracks_idx = (np.array(hypothesis.tracks()) - 1).astype(int)
+                if existing_tracks_idx.shape[0] > 0:
+                    R_sub = R_LC[existing_tracks_idx, :]
+                    JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
+
+                    assoc_matrix_ehm2 = EHM2.run(validation_matrix, likelihood_matrix)
+                else:
+                    JPDAprobs = np.empty((0, m + 1))
+                    hyp_prob_log = np.empty((0,))
+                    loglikelihood = 0.0
+
+                # We need to concatenate the JPDAprobs with all tracks and existence probs
+                non_existing_tracks_idx = np.setdiff1d(all_tracks_idx, existing_tracks_idx, assume_unique=True)
+
+                existing_probs = np.hstack((JPDAprobs, _0[:len(existing_tracks_idx), 0, None]))
+                nonexisting_probs = np.hstack((_0[:len(non_existing_tracks_idx)], _1[:len(non_existing_tracks_idx), 0, None]))
+
+                conditioned_marginals[existing_tracks_idx] = existing_probs
+                conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
+
+                hypo_cond_normalization_constant = np.exp(loglikelihood)
+
+                hypo_cond_normalizing_constants[k] = hypo_cond_normalization_constant
+
+                marginal_total += conditioned_marginals * np.exp(loglikelihood + log_prob)
+
+                normalizing_constant_cluster += np.sum(np.exp(hyp_prob_log + log_prob))
+
+
+            normalization_constants_per_cluster[c] = normalizing_constant_cluster
+
+            hypo_cond_normalization_constants_per_cluster.append(hypo_cond_normalizing_constants)
+
+
+        exact_normalization_constant = np.prod(normalization_constants_per_cluster)
+
+        marginal_total = marginal_total / marginal_total.sum(axis=1).reshape(-1, 1)
+
+        assert (np.abs(marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
+        assert ((0 <= marginal_total) & (marginal_total <= 1.0)).all()
+
+
 
         return output
