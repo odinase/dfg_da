@@ -321,6 +321,11 @@ int main(int argc, char **argv)
         std::cout << label << ": " << theta_marginal << "\n\n";
     }
 
+    auto mcmhlbp = dfg_da::lbp::lbp_multicluster(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
+    for (const auto& margs : mcmhlbp.hypotheses_marginals()) {
+        std::cout << margs.transpose() << "\n";
+    }
+
 
 
     // dfg_da::hypothesis::Hypotheses prior_hypotheses_posterior = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]);

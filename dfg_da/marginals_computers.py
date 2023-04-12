@@ -367,8 +367,7 @@ class MulticlusterMarginalsComputer(ABC):
         return None
     
 
-# @dataclass(frozen=True)
-@dataclass
+@dataclass(frozen=True)
 class MulticlusterExactOutput:
     exact_marginals: np.ndarray
     hypo_cond_normalization_constants_per_cluster: List[np.ndarray]

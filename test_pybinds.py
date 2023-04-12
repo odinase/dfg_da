@@ -5,6 +5,8 @@ import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
 import pickle
 import dfg_da as dd
+from typing import List, Optional
+import matplotlib.pyplot as plt
 
 
 def make_clusters(llr):
@@ -40,6 +42,17 @@ def make_clusters(llr):
         #         usedm[cm] = True
         # pr_new[~usedm] = 1
         # return pr_a, pr_new
+
+
+def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posteriors: List[np.ndarray], ax: Optional[plt.Axes] = None):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    true_posteriors = np.hstack(true_posteriors)
+    lbp_posteriors = np.hstack(lbp_posteriors)
+
+    ax.plot(lbp_posteriors, true_posteriors, 'bx')
+
 
 
 if __name__ == "__main__":
@@ -105,6 +118,19 @@ if __name__ == "__main__":
     print(exact_output.exact_marginals)
     print(exact_output.compute_theta_posteriors())
 
+
+    # .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
+    # .def("measurement_association_marginals",  &lbp::MHLBPMulticlusterOutput::measurement_association_marginals)
+    # .def("hypotheses_marginals",  &lbp::MHLBPMulticlusterOutput::hypotheses_marginals)
+    # .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
+    # .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
+
+
+    mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+    print(mcmhlbp.track_association_marginals().T)
+    hp = mcmhlbp.hypotheses_marginals()
+    print(np.hstack(hp))
+
     print()
 
     track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
@@ -112,6 +138,11 @@ if __name__ == "__main__":
     print(meas_marginals)
     print(theta_marginals)
     print(exact_normalization_constant)
+
+    fig, ax = plt.subplots()
+
+    theta_posterior_correlation(exact_output.compute_theta_posteriors(), mcmhlbp.hypotheses_marginals(), ax=ax)
+    plt.show()
 
     # R_LC2 = np.log(np.array([
     #     [0.2, 1.0]

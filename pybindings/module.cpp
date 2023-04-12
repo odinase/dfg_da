@@ -226,6 +226,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
 
     py::class_<lbp::MHLBPMulticlusterOutput>(lbp, "MHLBPMulticlusterOutput")
     .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
+    .def("measurement_association_marginals",  &lbp::MHLBPMulticlusterOutput::measurement_association_marginals)
+    .def("hypotheses_marginals",  &lbp::MHLBPMulticlusterOutput::hypotheses_marginals)
     .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
     .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
     .def_readonly("mu", &lbp::MHLBPMulticlusterOutput::mu)

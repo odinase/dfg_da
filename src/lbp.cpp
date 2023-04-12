@@ -170,7 +170,7 @@ namespace dfg_da
         void MHLBPMulticlusterOutput::track_association_marginals_inplace(double *data) const
         {
             Eigen::Map<Eigen::ArrayXXd> asso_probs(data, 2 + num_measurements, num_tracks);
-            asso_probs.topRows<1>() = w_0;
+            asso_probs.topRows<1>() = w_0.transpose();
             asso_probs.block(1, 0, num_measurements, num_tracks) = (w_nmd * nu).transpose();
             asso_probs.bottomRows<1>() = sigma;
 
@@ -180,11 +180,29 @@ namespace dfg_da
         Eigen::ArrayXXd MHLBPMulticlusterOutput::measurement_association_marginals() const
         {
             Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);
-            meas_probs.topRows<1>() = 1;
+            meas_probs.topRows<1>() = 1.0;
             meas_probs.block(1, 0, num_tracks, num_measurements) = mu;
             meas_probs.rowwise() /= meas_probs.colwise().sum();
 
             return meas_probs;
+        }
+
+        std::vector<Eigen::ArrayXd> MHLBPMulticlusterOutput::hypotheses_marginals() const {
+            std::vector<Eigen::ArrayXd> marginals;
+            Eigen::ArrayXd rho_c, rho_prods;
+            std::transform(
+                cluster_data.begin(), cluster_data.end(),
+                std::back_inserter(marginals),
+                [&](const auto &d)
+                {
+                    rho_c = rho(d.t_idx);
+                    rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
+                    Eigen::ArrayXd hypo_probs = d.phi() * rho_prods;
+                    hypo_probs /= hypo_probs.sum();
+                    return std::move(hypo_probs);
+                });
+
+            return marginals;
         }
 
         double MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood() const
