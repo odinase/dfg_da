@@ -1,5 +1,0 @@
-*	text=auto
-
-*.bat	text eol=crlf
-
-.git_archival.txt  export-subst

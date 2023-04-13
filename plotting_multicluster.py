@@ -501,6 +501,79 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[MulticlusterData, Path]])
     save_fig(fig, "heatmap_correlation")
 
 
+def correlation_plot_theta_posterior(cluster_stats: List[Tuple[MulticlusterData, Path]]):
+    exact_marginals = []
+    lbp_marginals = []
+
+    for cluster_stat, _ in cluster_stats:
+        exact_marginals.extend(cluster_stat.exact_output.compute_theta_posteriors())
+        lbp_marginals.extend(cluster_stat.mhlbp_output.hypotheses_marginals())
+
+    exact_marginals: np.ndarray = np.hstack(exact_marginals)
+    lbp_marginals: np.ndarray = np.hstack(lbp_marginals)
+
+    num_bins = 100
+    xedges = np.linspace(0, 1, num_bins)
+    yedges = xedges
+    bins = (xedges, yedges)
+
+    heatmap_lbp, xedges, yedges = np.histogram2d(lbp_marginals, exact_marginals, bins=bins)
+    X_lbp, Y_lbp = np.meshgrid(xedges[:-1], yedges[:-1])
+
+    df_lbp = pd.DataFrame({
+        "MH-LBP marginals": np.around(X_lbp.ravel(), decimals=3),
+        "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
+        "hist": heatmap_lbp.ravel()
+    })
+    df_lbp = df_lbp.pivot(index="Exact marginals", columns="MH-LBP marginals", values="hist")
+
+    dfs = [df_lbp]
+    figsize = (8, 8)
+
+    nrows = len(dfs)
+    fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    if not isinstance(ax, np.ndarray):
+        ax = [ax]
+    num_ticks = 5
+    depth_list = np.linspace(0, 1, num_ticks)
+    # the index of the position of yticks
+    # yticks = np.arange(0, num_bins, num_bins // num_ticks)
+    # xticks = yticks
+    # # # the content of labels of these yticks
+    # yticklabes = np.linspace()
+    # xticklabes = yticklabes
+    for k, (axx, df) in enumerate(zip(ax, dfs)):
+        # sns.heatmap(df, square=True, cmap="Reds", ax=axx)
+        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
+
+        # axx.set_xticks(xticks)
+        # axx.set_yticks(yticks)
+        axx.tick_params(axis='both', which='major', labelsize=16)
+        axx.tick_params(axis='both', which='minor', labelsize=16)
+        cbar = axx.collections[0].colorbar
+        axx.set_ylabel(df.index.name, fontsize=18)
+        axx.set_xlabel(df.columns.name, fontsize=16)
+        # here set the labelsize by 20
+        cbar.ax.tick_params(labelsize=18)
+        axx.invert_yaxis()
+        if k < nrows - 1:
+            axx.tick_params(bottom=False)
+
+    # params = {
+    #         # 'legend.fontsize': 'x-large',
+    #         # 'figure.figsize': (15, 5),
+    #         # 'axes.labelsize': 30,
+    #         # 'axes.titlesize':'x-large',
+    #         # 'xtick.labelsize':'x-large',
+    #         # 'ytick.labelsize':'x-large'
+    #         }
+    # plt.rcParams.update(params)
+
+
+    save_fig(fig, "heatmap_correlation_theta_posteriors")
+
+
+
 def make_heatmap_correlation_distinct_errors(cluster_stats: List[Tuple[MulticlusterData, Path]], remove_nonexistence: bool = False):
     exact_marginals = []
     lbp_marginals = []
@@ -700,6 +773,10 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[MulticlusterDa
     ax.loglog()
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
+    ax.axis('equal')
+    # set the aspect ratio to be equal
+    ax.set_aspect('equal')
+
 
     # fig2, ax2 = plt.subplots()
     # ax2.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.6, label="Datapoints")
@@ -766,6 +843,8 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
+    path += "_new"
+    print(f"Plotting data in {path}")
     cluster_stats = load_cluster_stats(path=path)
 
     # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
@@ -778,6 +857,7 @@ if __name__ == "__main__":
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
     normalization_constant_scatter_plot(cluster_stats)
+    correlation_plot_theta_posterior(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_survival_function_plots(cluster_stats)

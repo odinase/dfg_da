@@ -477,8 +477,6 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
 
                 marginal_total += conditioned_marginals * np.exp(loglikelihood + log_prob)
 
-                print(np.sum(np.exp(hyp_prob_log + log_prob)))
-                print(np.exp(log_prob + loglikelihood))
                 normalizing_constant_cluster += np.sum(np.exp(hyp_prob_log + log_prob))
 
 

@@ -34,7 +34,7 @@ def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     for c, (master, is_master) in enumerate(assocLocal.T):
         if is_master:
             continue
-            
+
         # We already have the masters, merge clusters
         hs = prior_hypotheses_per_cluster[c]
         prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
@@ -54,7 +54,7 @@ def loop_func(pmbm_file):
 
     path = Path(f"{OUTPUT_PATH_BASE}")
     path.mkdir(parents=True, exist_ok=True)
-    
+
     save_path = f"{path}/{pmbm_filename}_stats"
 
     num_clusters = len(prior_hypotheses_per_cluster)
@@ -64,6 +64,7 @@ def loop_func(pmbm_file):
     mcmhlbp = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
     assocLocal = mat_data.ws["assocLocal"]    
     explicit_hypothesis_enumeration_error = False
+    exact_output = None
 
     try:
         exact_output = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)

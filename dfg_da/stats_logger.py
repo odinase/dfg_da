@@ -7,7 +7,25 @@ from .prior_hypothesis import PriorHypothesis, PriorHypotheses
 from .marginals_computers import MarginalsComputer, ExactMarginals, MulticlusterExactOutput
 import pickle
 
-from ravens_parser_parallell_multicluster import merge_clusters
+def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
+    num_posterior_clusters = np.sum(assocLocal[1])
+    # First build master array
+    prior_hypotheses_per_cluster_posterior: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+        h for k, h in enumerate(prior_hypotheses_per_cluster) if assocLocal[1, k]
+    ])
+    master_idxs = np.cumsum(assocLocal[1]) - 1
+
+    assert len(prior_hypotheses_per_cluster_posterior) == num_posterior_clusters
+    
+    for c, (master, is_master) in enumerate(assocLocal.T):
+        if is_master:
+            continue
+            
+        # We already have the masters, merge clusters
+        hs = prior_hypotheses_per_cluster[c]
+        prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
+
+    return prior_hypotheses_per_cluster_posterior
 
 from collections import defaultdict
 
