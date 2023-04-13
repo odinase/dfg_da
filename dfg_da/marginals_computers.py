@@ -507,6 +507,12 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
     def __call__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> np.ndarray:
         return self.compute_marginals(R_LC, prior_hypotheses_per_cluster, **kwargs)
 
+    def R_LC_to_validation_likelihood_matrix(self, R_LC: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        likelihood_matrix = np.asfortranarray(np.exp(R_LC))
+        validation_matrix = np.asfortranarray((likelihood_matrix > 0.0).astype(np.int32))
+
+        return validation_matrix, likelihood_matrix
+
 
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
         if not "assocLocal" in kwargs:
@@ -535,17 +541,15 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
 
             normalizing_constant_cluster = 0.0
             for k, hypothesis in enumerate(prior_hypotheses):
-                log_prob = hypothesis.log_prob()
+                prob = hypothesis.probability()
                 existing_tracks_idx = (np.array(hypothesis.tracks()) - 1).astype(int)
                 if existing_tracks_idx.shape[0] > 0:
                     R_sub = R_LC[existing_tracks_idx, :]
-                    JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
-
-                    assoc_matrix_ehm2 = EHM2.run(validation_matrix, likelihood_matrix)
+                    validation_matrix, likelihood_matrix = self.R_LC_to_validation_likelihood_matrix(R_sub)
+                    JPDAprobs, likelihood = EHM2.exact_marginal(validation_matrix, likelihood_matrix)
                 else:
                     JPDAprobs = np.empty((0, m + 1))
-                    hyp_prob_log = np.empty((0,))
-                    loglikelihood = 0.0
+                    likelihood = 1.0
 
                 # We need to concatenate the JPDAprobs with all tracks and existence probs
                 non_existing_tracks_idx = np.setdiff1d(all_tracks_idx, existing_tracks_idx, assume_unique=True)
@@ -556,13 +560,13 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
                 conditioned_marginals[existing_tracks_idx] = existing_probs
                 conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
-                hypo_cond_normalization_constant = np.exp(loglikelihood)
+                hypo_cond_normalization_constant = likelihood
 
                 hypo_cond_normalizing_constants[k] = hypo_cond_normalization_constant
 
-                marginal_total += conditioned_marginals * np.exp(loglikelihood + log_prob)
+                marginal_total += conditioned_marginals * likelihood * prob
 
-                normalizing_constant_cluster += np.sum(np.exp(hyp_prob_log + log_prob))
+                normalizing_constant_cluster += likelihood * prob
 
 
             normalization_constants_per_cluster[c] = normalizing_constant_cluster
@@ -577,6 +581,12 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
         assert (np.abs(marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= marginal_total) & (marginal_total <= 1.0)).all()
 
-
+        output = MulticlusterExactOutput(
+            exact_marginals=marginal_total,
+            hypo_cond_normalization_constants_per_cluster=hypo_cond_normalization_constants_per_cluster,
+            normalization_constant_per_cluster=normalization_constants_per_cluster,
+            exact_normalization_constant=exact_normalization_constant,
+            cluster_hypotheses_posterior=cluster_hypotheses_posterior
+        )
 
         return output
