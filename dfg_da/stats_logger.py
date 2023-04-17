@@ -6,6 +6,8 @@ from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
 from .marginals_computers import MarginalsComputer, ExactMarginals, MulticlusterExactOutput
 import pickle
+import pickletools
+
 
 def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     num_posterior_clusters = np.sum(assocLocal[1])

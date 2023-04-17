@@ -818,11 +818,19 @@ def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
     print(f"williams exact mean error\n{williams_errors_exact.raw_errors.mean():.4e} {williams_errors_exact.raw_errors.std():.4f}")
 
 
-def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool = False):
+def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool = False, num_files_process: Optional[int] = None):
     load_dirs = Path(path).glob("**/*")
 
     load_dirs = list(load_dirs)
     num_files = len(load_dirs)
+
+    if not num_files_process is None:
+        if num_files_process > num_files:
+            print(f"Asked to process {num_files_process}, but only {num_files} available! Processing {num_files}")
+            num_files_process = num_files
+
+        load_dirs = load_dirs[:num_files]
+        num_files = num_files_process
 
     cluster_stats: List[Tuple[MulticlusterData, Path]] = []
     if return_empty_clusters:
@@ -843,7 +851,7 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
-    # path += "_new"
+    path += "_last"
     print(f"Plotting data in {path}")
     cluster_stats = load_cluster_stats(path=path)
 
