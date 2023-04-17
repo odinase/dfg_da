@@ -35,7 +35,7 @@ if __name__ == "__main__":
     likelihood_matrix = np.asfortranarray(np.exp(R_LC))
     validation_matrix = np.asfortranarray((likelihood_matrix > 0.0).astype(np.int32))
 
-    EHM2_margs, EHM2_likelihood = EHM2.exact_marginal(validation_matrix, likelihood_matrix)
+    EHM2_margs, EHM2_likelihood = EHM2.run_and_likelihood(validation_matrix, likelihood_matrix)
     JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_LC, False)
 
     np.set_printoptions(suppress=True)
@@ -47,5 +47,11 @@ if __name__ == "__main__":
 
     naive = mc.MulticlusterExact()
     ehm2 = mc.MulticlusterExactEHM2()
-    out_exact = naive(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-    out_ehm2 = ehm2(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+    out_ehm2: mc.MulticlusterExactOutput = ehm2(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+    out_exact: mc.MulticlusterExactOutput = naive(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+
+    print(out_ehm2.exact_marginals)
+    print(out_ehm2.compute_theta_posteriors())
+
+    print(out_exact.exact_marginals)
+    print(out_exact.compute_theta_posteriors())

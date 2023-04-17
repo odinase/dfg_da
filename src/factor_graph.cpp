@@ -110,7 +110,10 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
         // Lastly, add non-existence
         prior_table.push_back(1.0);
 
-        gtsam::DiscreteDistribution prior_factor(ai, prior_table);
+        // gtsam::DecisionTreeFactor hyp_to_track_factor(keys, compatibility_table);
+
+        gtsam::DiscreteKeys ai_key{ai};
+        gtsam::DecisionTreeFactor prior_factor(ai_key, prior_table);
         dfg.push_back(prior_factor);
     }
 

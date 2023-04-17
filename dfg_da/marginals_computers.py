@@ -546,7 +546,7 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
                 if existing_tracks_idx.shape[0] > 0:
                     R_sub = R_LC[existing_tracks_idx, :]
                     validation_matrix, likelihood_matrix = self.R_LC_to_validation_likelihood_matrix(R_sub)
-                    JPDAprobs, likelihood = EHM2.exact_marginal(validation_matrix, likelihood_matrix)
+                    JPDAprobs, likelihood = EHM2.run_and_likelihood(validation_matrix, likelihood_matrix)
                 else:
                     JPDAprobs = np.empty((0, m + 1))
                     likelihood = 1.0

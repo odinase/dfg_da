@@ -683,5 +683,220 @@ class TestMulticlusterExactOutput(unittest.TestCase):
             self.assertTrue(np.allclose(correct_marginal, theta_marginal))
 
 
+class TestMulticlusterExactEHM2(unittest.TestCase):
+    def setUp(self):
+        self.exact_computer = MulticlusterExactEHM2()
+
+    def test_compare_with_naive_exact1(self):
+        R = np.array([
+            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R_LC = np.asfortranarray(edmund_to_lc(R))
+
+        assocLocal = np.array([
+            [1, 1],
+            [1, 0]
+        ])
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([4], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([5], np.log(0.5))
+            ])
+        ])
+
+        mco: MulticlusterExactOutput = self.exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        mco_compare: MulticlusterExactOutput = self.exact_naive(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+
+        self.assertTrue(np.allclose(mco.exact_marginals, mco_compare.exact_marginals))
+
+        theta_posteriors = mco.compute_theta_posteriors()
+        theta_posteriors_compare = mco_compare.compute_theta_posteriors()
+
+        self.assertEqual(len(theta_posteriors), len(theta_posteriors_compare))
+
+        for p, p_compare in zip(theta_posteriors, theta_posteriors_compare):
+            self.assertTrue(np.allclose(p, p_compare))
+
+
+    def test_compare_with_naive_exact1(self):
+        R = np.array([
+            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R_LC = np.asfortranarray(edmund_to_lc(R))
+
+        assocLocal = np.array([
+            [1, 1],
+            [1, 0]
+        ])
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([4], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([5], np.log(0.5))
+            ])
+        ])
+
+        mco: MulticlusterExactOutput = self.exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+        track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+
+
+        self.assertTrue(np.allclose(mco.exact_marginals, track_marginals.T))
+
+        theta_posteriors = mco.compute_theta_posteriors()
+
+        self.assertEqual(len(theta_posteriors), len(theta_marginals))
+
+        for p, p_compare in zip(theta_posteriors, theta_marginals.values()):
+            self.assertTrue(np.allclose(p, p_compare))
+
+        self.assertAlmostEqual(mco.exact_normalization_constant, exact_normalization_constant)
+        for l, ph in zip(mco.hypo_cond_normalization_constants_per_cluster, mco.cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior):
+            tracks = np.sort(np.fromiter(ph.tracks(), dtype=int)) - 1
+            R_sub = R_LC[tracks]
+            R_sub = np.asfortranarray(lc_to_edmund(R_sub))
+            old2new = dict()
+            for i, t in enumerate(tracks):
+                old2new[t+1] = i +1
+            ph.reindex_tracks(old2new)
+            l_compare = pdd.factor_graph.hypothesis_conditioned_likelihoods(R_sub, ph)
+            self.assertTrue(np.allclose(l, l_compare))
+
+
+    def test_compare_with_naive_exact2(self):
+        R = np.array([
+            [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
+            [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
+            [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R_LC = edmund_to_lc(R)
+
+        assocLocal = np.array([
+            [1, 1, 3],
+            [1, 0, 1]
+        ])
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1, 2], np.log(0.2)),
+                pdd.hypothesis.Hypothesis([1, 3], np.log(0.8))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([4], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([5], np.log(0.7))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([6], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([7], np.log(0.5))
+            ])
+        ])
+
+        mco: MulticlusterExactOutput = self.exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+        track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+
+
+        self.assertTrue(np.allclose(mco.exact_marginals, track_marginals.T))
+
+        theta_posteriors = mco.compute_theta_posteriors()
+
+        self.assertEqual(len(theta_posteriors), len(theta_marginals))
+
+        for p, p_compare in zip(theta_posteriors, theta_marginals.values()):
+            self.assertTrue(np.allclose(p, p_compare))
+
+        self.assertAlmostEqual(mco.exact_normalization_constant, exact_normalization_constant)
+        for l, ph in zip(mco.hypo_cond_normalization_constants_per_cluster, mco.cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior):
+            tracks = np.sort(np.fromiter(ph.tracks(), dtype=int)) - 1
+            R_sub = R_LC[tracks]
+            R_sub = np.asfortranarray(lc_to_edmund(R_sub))
+            old2new = dict()
+            for i, t in enumerate(tracks):
+                old2new[t+1] = i +1
+            ph.reindex_tracks(old2new)
+            l_compare = pdd.factor_graph.hypothesis_conditioned_likelihoods(R_sub, ph)
+            self.assertTrue(np.allclose(l, l_compare))
+
+
+    def test_compare_with_naive_exact3(self):
+        R = np.array([
+            [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
+            [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
+            [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R_LC = edmund_to_lc(R)
+
+        assocLocal = np.array([
+            [1, 1, 3],
+            [1, 0, 1]
+        ])
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1, 2], np.log(0.2)),
+                pdd.hypothesis.Hypothesis([1, 3], np.log(0.8))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([4, 5], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([], np.log(0.7))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6, 7], np.log(0.5))
+            ])
+        ])
+
+        mco: MulticlusterExactOutput = self.exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+
+        track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+
+
+        self.assertTrue(np.allclose(mco.exact_marginals, track_marginals.T))
+
+        theta_posteriors = mco.compute_theta_posteriors()
+
+        self.assertEqual(len(theta_posteriors), len(theta_marginals))
+
+        for p, p_compare in zip(theta_posteriors, theta_marginals.values()):
+            self.assertTrue(np.allclose(p, p_compare))
+
+        self.assertAlmostEqual(mco.exact_normalization_constant, exact_normalization_constant)
+        for l, ph in zip(mco.hypo_cond_normalization_constants_per_cluster, mco.cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior):
+            tracks = np.sort(np.fromiter(ph.tracks(), dtype=int)) - 1
+            R_sub = R_LC[tracks]
+            R_sub = np.asfortranarray(lc_to_edmund(R_sub))
+            old2new = dict()
+            for i, t in enumerate(tracks):
+                old2new[t+1] = i +1
+            ph.reindex_tracks(old2new)
+            l_compare = pdd.factor_graph.hypothesis_conditioned_likelihoods(R_sub, ph)
+            self.assertTrue(np.allclose(l, l_compare))
+
+
 if __name__ == '__main__':
     unittest.main()

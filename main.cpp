@@ -296,7 +296,7 @@ int main(int argc, char **argv)
     // for (size_t i = 0; i < prior_hypotheses_per_cluster.size(); i++) {
     //     const auto& ph = prior_hypotheses_per_cluster[i];
     //     const auto& Rr = Rs[i];
-    //     Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(Rr, ph);
+        // Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(Rr, ph);
     //     std::cout << ll << "\n";
     // }
 

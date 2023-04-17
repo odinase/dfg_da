@@ -93,7 +93,9 @@ PYBIND11_MODULE(py_dfg_da, m) {
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
     py::module_ factor_graph = m.def_submodule("factor_graph");
     factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
-    .def("all_exact_marginals_and_normalization_constant", factor_graph::all_exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert());
+    .def("all_exact_marginals_and_normalization_constant", factor_graph::all_exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
+    // Eigen::ArrayXd hypothesis_conditioned_likelihoods(const Eigen::Ref<const Eigen::MatrixXd> &R, const dfg_da::hypothesis::Hypotheses &prior_hypotheses)
+    .def("hypothesis_conditioned_likelihoods", factor_graph::hypothesis_conditioned_likelihoods, "R"_a.noconvert(), "prior_hypotheses"_a.noconvert());
 
 
     py::module_ hypothesis = m.def_submodule("hypothesis");

@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     pmbm_files = sorted(pmbm_files)
     num_files = len(pmbm_files)
-    exact_computer = mc.MulticlusterExact()
+    exact_computer = mc.MulticlusterExactEHM2()
 
     if len(pmbm_files) != 10_000:
         raise ValueError()

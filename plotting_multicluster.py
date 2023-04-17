@@ -843,7 +843,7 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
-    path += "_new"
+    # path += "_new"
     print(f"Plotting data in {path}")
     cluster_stats = load_cluster_stats(path=path)
 
