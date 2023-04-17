@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import seaborn as sns
 sns.set_theme(style="ticks")
+import asyncio
 
 
 from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData, MulticlusterData
@@ -512,7 +513,7 @@ def correlation_plot_theta_posterior(cluster_stats: List[Tuple[MulticlusterData,
     exact_marginals: np.ndarray = np.hstack(exact_marginals)
     lbp_marginals: np.ndarray = np.hstack(lbp_marginals)
 
-    num_bins = 100
+    num_bins = 200
     xedges = np.linspace(0, 1, num_bins)
     yedges = xedges
     bins = (xedges, yedges)
@@ -845,15 +846,44 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
                 (MulticlusterData.from_data(cluster_file), cluster_file)
             )
 
+async def load_cluster_stats_async(path: str = OUTPUT_PATH_BASE, num_files_process: Optional[int] = None):
+    load_dirs = Path(path).glob("**/*")
 
-    return (cluster_stats, empty_clusters) if return_empty_clusters else cluster_stats
+    load_dirs = list(load_dirs)
+    num_files = len(load_dirs)
+
+    if not (num_files_process is None):
+        if num_files_process > num_files:
+            print(f"Asked to process {num_files_process}, but only {num_files} available! Processing {num_files}")
+            num_files_process = num_files
+
+        load_dirs = load_dirs[:num_files_process]
+        num_files = num_files_process
+
+    tasks = []
+    async def task(cluster_file):
+        return (MulticlusterData.from_data(cluster_file), cluster_file)
+
+    for cluster_file in load_dirs:
+        if cluster_file.name != "empty_cluster":
+            tasks.append(asyncio.create_task(task(cluster_file)))
+
+    cluster_stats: List[Tuple[MulticlusterData, Path]] = []
+    # cluster_stats: List[Tuple[MulticlusterData, Path]] = await asyncio.gather(*tasks)
+
+    for f in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+        result = await f
+        cluster_stats.append(result)
+
+    return cluster_stats
 
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
-    path += "_last"
+    # path += "_last"
     print(f"Plotting data in {path}")
-    cluster_stats = load_cluster_stats(path=path)
+    # cluster_stats = asyncio.run(load_cluster_stats_async(path=path, num_files_process=5000))
+    cluster_stats = load_cluster_stats(path=path, num_files_process=5000)
 
     # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
 

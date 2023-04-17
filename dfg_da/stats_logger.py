@@ -7,6 +7,7 @@ from .prior_hypothesis import PriorHypothesis, PriorHypotheses
 from .marginals_computers import MarginalsComputer, ExactMarginals, MulticlusterExactOutput
 import pickle
 import pickletools
+import asyncio
 
 
 def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
@@ -481,6 +482,15 @@ class MulticlusterData:
 
     @classmethod
     def from_data(cls, path):
+        with open(path, "rb") as f:
+            return pickle.load(f)
+
+    async def save_data_async(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    async def from_data_async(cls, path):
         with open(path, "rb") as f:
             return pickle.load(f)
 
