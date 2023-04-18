@@ -26,7 +26,12 @@ def test_case():
         ])
     ])
 
-    return R, prior_hypotheses_per_cluster
+    assocLocal = np.array([
+        [1, 1],
+        [1, 0]
+    ])
+
+    return R, prior_hypotheses_per_cluster, assocLocal
 
 
 class ClusterLinks:
@@ -72,7 +77,7 @@ def find_interacting_tracks(R, prior_hypotheses_per_cluster):
 # Not sure of the best way to find the set of tracks that 
 
 if __name__ == "__main__":
-    R, prior_hypotheses_per_cluster = test_case()
+    R, prior_hypotheses_per_cluster, assocLocal = test_case()
 
 
     find_interacting_tracks(R, trcaks_per_cluster)
