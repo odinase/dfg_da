@@ -8,6 +8,7 @@
 #include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
 #include <numeric>
+#include <sstream>
 
 
 namespace dfg_da {
@@ -109,7 +110,10 @@ gtsam::DiscreteFactorGraph dfg_from_reward_mat_hyp_prior(const Eigen::MatrixXd &
         // Lastly, add non-existence
         prior_table.push_back(1.0);
 
-        gtsam::DiscreteDistribution prior_factor(ai, prior_table);
+        // gtsam::DecisionTreeFactor hyp_to_track_factor(keys, compatibility_table);
+
+        gtsam::DiscreteKeys ai_key{ai};
+        gtsam::DecisionTreeFactor prior_factor(ai_key, prior_table);
         dfg.push_back(prior_factor);
     }
 
@@ -539,6 +543,98 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
     return {exact_marginals, exact_normalization_constant};
 }
 
+std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
+    gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
+
+    const size_t num_tracks = R.rows();
+    const size_t num_measurements = R.cols() - num_tracks;
+
+    auto fac = dfg.product();
+    size_t num_thetas = prior_hypotheses_per_cluster.size();
+    auto ff = fac.sum(num_thetas + num_tracks + num_measurements);
+
+    double exact_normalization_constant = (*ff)({});
+    
+    gtsam::DiscreteMarginals dfg_marginals(dfg);
+
+    auto dks = dfg.discreteKeys();
+    std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
+    gtsam::DiscreteKeys ais;
+    gtsam::DiscreteKeys bjs;
+    gtsam::DiscreteKeys ths;
+    for (const auto& dk : all_keys) {
+        if (gtsam::symbolChr(dk.first) == 'a') {
+            ais.push_back(dk);
+        } else if (gtsam::symbolChr(dk.first) == 'b') {
+            bjs.push_back(dk);
+        } else if (gtsam::symbolChr(dk.first) == 't') {
+            ths.push_back(dk);
+        } else {
+            std::cerr << "Unknown discrete key: " << dk.first << std::endl;
+        }
+    }
+
+    Eigen::ArrayXXd track_marginals(2 + num_measurements, num_tracks), meas_marginals(1 + num_tracks, num_measurements);
+    std::map<std::string, Eigen::ArrayXd> theta_marginals;
+    size_t c = 0;
+    for (const auto& aik : ais) {
+        track_marginals.col(c) = dfg_marginals.marginalProbabilities(aik);
+        c += 1;
+    }
+
+    c = 0;
+    for (const auto& bjk : bjs) {
+        meas_marginals.col(c) = dfg_marginals.marginalProbabilities(bjk);
+        c += 1;
+    }
+
+    std::stringstream ss;
+    for (const auto& thk : ths) {
+        ss << gtsam::Symbol(thk.first);
+        theta_marginals.insert({
+            ss.str(), dfg_marginals.marginalProbabilities(thk)
+        });
+        ss.str("");
+    }
+
+    return {track_marginals, meas_marginals, theta_marginals, exact_normalization_constant};
+}
+
+
+
+Eigen::ArrayXd hypothesis_conditioned_likelihoods(const Eigen::Ref<const Eigen::MatrixXd> &R, const dfg_da::hypothesis::Hypotheses &prior_hypotheses) {
+    gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior(R, prior_hypotheses);
+
+    auto dks = dfg.discreteKeys();
+    std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
+
+    size_t num_hypos = prior_hypotheses.num_hypotheses();
+    gtsam::DiscreteKey t{T(0), num_hypos};
+
+    all_keys.erase(t);
+
+    gtsam::Ordering vars_to_sum_out{};
+    for (const auto& dk : all_keys) {
+        vars_to_sum_out += dk.first;
+    }
+
+    auto fac = dfg.product();
+    auto ff = fac.sum(vars_to_sum_out);
+    Eigen::ArrayXd likelihoods(num_hypos);
+
+    std::vector<double> hypo_probs = prior_hypotheses.hypothesis_probabilites();
+    for (size_t val = 0; val < num_hypos; val++) {
+        gtsam::DiscreteValues v;
+        v.insert({t.first, val});
+        double l = (*ff)(v);
+        // Evaluating the factor graph in this point is just the joint p(Z, theta), so divide by p(theta) to get conditional
+        likelihoods(val) = l / hypo_probs[val];
+    }
+
+    return likelihoods;
+}
+
+
 
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster_posterior) {
 
@@ -578,6 +674,73 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
 //     return {exact_marginals, exact_normalization_constant};
 // }
 
+
+// std::tuple<Eigen::MatrixXd, gtsam::KeyVector> calculate_precision_matrix(const gtsam::DiscreteFactorGraph& dfg) {
+//     // Let's do this super stupid to start of. We'll loop over all pairs of variables and compute the covariance for each
+
+//     // First, get all the keys
+//     auto ks = dfg.discreteKeys();
+//     std::set<gtsam::DiscreteKey> dks(ks.begin(), ks.end());
+
+//     // Now, we'll loop over all pairs of keys and compute the covariance
+//     size_t num_keys = dks.size();
+//     gtsam::KeyVector rest_keys;
+//     std::transform(dks.begin(), dks.end(), std::back_inserter(rest_keys), [](const gtsam::DiscreteKey& dk) { return dk.first; });
+
+//     Eigen::MatrixXd covariance_matrix(num_keys, num_keys);
+//     for (size_t i = 0; i < num_keys; i++) {
+//         auto k1_iter = std::find(rest_keys.begin(), rest_keys.end(), dks[i].first);
+//         rest_keys.erase(k1_iter);
+//         // Ok, we have to be smarter here.
+//         // We marginalize out one variable, as we need it's marginal distribution anyway
+//         // The remaining Bayes tree is probably cheaper to marginalize as well(??)
+//         auto [bt, marg_fg_i] = dfg.eliminatePartialMultifrontal(rest_keys);
+        
+//         // Expected value
+//         double Ei = 0.0;
+//         for (size_t ki = 0; ki < k1_iter->second; ki++) {
+//             gtsam::DiscreteValues dv;
+//             dv.insert(dks[i].first, ki);
+//             Ei += ki * (*marg_fg_i)(dv);
+//         }
+//         double Zi = (*(marg_fg_i->product().sum(1)))({});
+//         Ei =/ Zi;
+
+//         // Compute the variance
+//         double Vi = 0.0;
+//         for (size_t ki = 0; ki < k1_iter->second; ki++) {
+//             gtsam::DiscreteValues dv;
+//             dv.insert(dks[i].first, ki);
+//             Vi += (ki - Ei) * (ki - Ei) * (*marg_fg_i)(dv);
+//         }
+//         Vi =/ Zi;
+//         covariance_matrix(i, i) = Vi;
+
+//         for (size_t j = i + 1; j < num_keys; j++) {
+//             auto k2_iter = std::find(rest_keys.begin(), rest_keys.end(), dks[j].first);
+//             rest_keys.erase(k2_iter);
+
+//             size_t num_vars_left = dks.size() - rest_keys.size();
+//             double Z = (*dfg.product().sum(num_vars_left))({});
+
+//             double cov = 0.0;
+//             for (size_t ki = 0; ki < k1_iter->second; ki++) {
+//                 for (size_t kj = 0; kj < k2_iter->second; kj++) {
+//                     gtsam::DiscreteValues dv;
+//                     dv.insert(dks[i].first, ki);
+//                     dv.insert(dks[j].first, kj);
+//                     double f = (*fg)({dv});
+//                     cov += f;
+//                 }
+//             }
+
+//             precision_matrix(i, j) = cov_ij;
+
+//             rest_keys.push_back(dks[j].first);
+//         }
+//         rest_keys.push_back(dks[i].first);
+//     }
+// }
 
 
 } // namespace factor_graph

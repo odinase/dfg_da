@@ -269,14 +269,77 @@ int main(int argc, char **argv)
     auto mhlbp = dfg_da::lbp::lbp_multicluster(R, prior_hypotheses_per_cluster);
     Eigen::ArrayXXd marginals = mhlbp.track_association_marginals();
     double Z_bethe = mhlbp.bethe_pseudodual_normalization_constant();
-    std::cout << marginals << "\n";
-    std::cout << Z_bethe << "\n\n";
+    // std::cout << marginals << "\n";
+    // std::cout << Z_bethe << "\n\n";
 
     // gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
-    auto [exact_margs, exact_const] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]));
-    std::cout << exact_margs << "\n";
-    std::cout << exact_const << "\n";
+    // auto [exact_margs, exact_const] = dfg_da::hypothesis::association_marginal_posteriors_normalization_constant(R, prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]));
+    // std::cout << exact_margs << "\n";
+    // std::cout << exact_const << "\n";
+
+
+    auto [track_marginals, meas_marginals, theta_marginals, exact_normalization_constant] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
+
+        Eigen::MatrixXd R1(3, num_measurements + 3), R2(2, num_measurements + 2);
+    R2 << 
+        -inf, 3.0,  -0.62, -inf,
+        -inf, -0.4, -inf, -0.55;
+
+    R1 << 3.0, -inf, -0.60, -inf, -inf,
+        3.2, -inf, -inf, -0.56, -inf,
+        -3.0, 1.2, -inf, -inf, -0.46;
+
+
+    std::vector<Eigen::MatrixXd> Rs = {R1, R2};
+
+    // for (size_t i = 0; i < prior_hypotheses_per_cluster.size(); i++) {
+    //     const auto& ph = prior_hypotheses_per_cluster[i];
+    //     const auto& Rr = Rs[i];
+        // Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(Rr, ph);
+    //     std::cout << ll << "\n";
+    // }
+
+    Eigen::MatrixXd Rl(1, 2);
+    Rl << 0.0, log(0.2);
+    dfg_da::hypothesis::Hypotheses phs{{
+        dfg_da::hypothesis::Hypothesis{{1}, log(0.9)},
+        dfg_da::hypothesis::Hypothesis{{}, log(0.1)}
+    }};
+
+    auto [track_marginalsl, meas_marginalsl, theta_marginalsl, exact_normalization_constantl] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
+
+    Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(Rl, phs);
+    std::cout << "ll\n" << ll << "\n";
+
+    std::cout << "Track marginalsl:\n";
+    std::cout << track_marginalsl << "\n";
+    std::cout << "Meas marginalsl:\n";
+    std::cout << meas_marginalsl << "\n";
+    std::cout << "Theta marginalsl:\n";
+    for (const auto& [label, theta_marginal] : theta_marginalsl) {
+        std::cout << label << ": " << theta_marginal << "\n\n";
+    }
+
+    auto mcmhlbp = dfg_da::lbp::lbp_multicluster(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
+    for (const auto& margs : mcmhlbp.hypotheses_marginals()) {
+        std::cout << margs.transpose() << "\n";
+    }
+
+
+
+    // dfg_da::hypothesis::Hypotheses prior_hypotheses_posterior = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]);
+    // Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(R, prior_hypotheses_posterior);
+    // std::cout << ll << "\n";
+
+    // std::cout << "Track marginals:\n";
+    // std::cout << track_marginals << "\n";
+    // std::cout << "Meas marginals:\n";
+    // std::cout << meas_marginals << "\n";
+    // std::cout << "Theta marginals:\n";
+    // for (const auto& [label, theta_marginal] : theta_marginals) {
+    //     std::cout << label << ": " << theta_marginal << "\n\n";
+    // }
 
     // // dfg.saveGraph("dfg_original.txt");
     // // Marginalize out measurement variables

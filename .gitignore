@@ -23,9 +23,12 @@ py_dfg_da.cpython-39-x86_64-linux-gnu.so
 *.pdf
 /ravens_output
 /ravens_output_multicluster
+/ravens_output_multicluster_new
+/ravens_output_multicluster_last
 /ravens_output_multicluster_backup
 /ravens_output_multicluster (copy)
 /ravens_output_multicluster (another copy)
+/ravens_output_multicluster (3rd copy)
 /ravens_output_backup
 /ravens_output2
 **/*.mp4
@@ -34,3 +37,4 @@ py_dfg_da.cpython-39-x86_64-linux-gnu.so
 /lightspeed
 !./data/scenario210/k210ic5Few_prior.mat
 !./data/scenario210/k210ic5Many_prior.mat
+/build_cpp

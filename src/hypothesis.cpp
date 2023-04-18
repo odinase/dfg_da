@@ -306,6 +306,8 @@ namespace dfg_da
                         association_marginals(idx, i) += exp(log_p + log_prior_prob);
                     }
                     log_Z += log_p + log_prior_prob;
+                    // std::cout << "log_p: " << log_p << "\n";
+                    // std::cout << "log_Z: " << log_Z << "\n";
                     Z += exp(log_Z);
                 }
             }
@@ -358,9 +360,11 @@ namespace dfg_da
                             }
                         }
                         log_Z += log_p + log_prior_prob;
+                        std::cout << log_p << ", " << log_prior_prob << "\n";
                         Z_cluster += exp(log_Z);
                     }
                 }
+                std::cout << Z_cluster << "\n";
                 Z_tot *= Z_cluster;
             }
 
@@ -507,9 +511,9 @@ namespace dfg_da
         Hypotheses Hypotheses::combine(const Hypotheses &h_rhs) const
         {
             std::vector<Hypothesis> hh;
-            for (const Hypothesis &h1 : h_rhs.hypos_)
+            for (const Hypothesis &h1 : hypos_)
             {
-                for (const Hypothesis &h2 : hypos_)
+                for (const Hypothesis &h2 : h_rhs.hypos_)
                 {
                     hh.push_back(h1.combine(h2));
                 }

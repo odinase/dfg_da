@@ -1,5 +1,9 @@
 import numpy as np
 import py_dfg_da as pdd
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+from cluster_data_asso import edmund_to_lc, lc_to_edmund
+from collections import defaultdict
 
 
 def test_case():
@@ -10,9 +14,6 @@ def test_case():
         [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
         [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
     ], order='F')
-
-    n, mpn = R.shape
-    m = mpn - n
 
     prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
         pdd.hypothesis.Hypotheses([
@@ -28,12 +29,25 @@ def test_case():
     return R, prior_hypotheses_per_cluster
 
 
-def find_interacting_tracks(R, tracks_per_cluster):
+class ClusterLinks:
+    def __init__(self):
+        self.cluster_links = defaultdict(set)
+
+    def add_measurement_link(self, measurement_idx: int, cluster1: int, cluster2):
+        link_tuple = (min(cluster1, cluster2), max(cluster1, cluster2))
+        self.cluster_links[link_tuple].add(measurement_idx)
+
+
+def find_interacting_tracks(R, prior_hypotheses_per_cluster):
     n, mpn = R.shape
     m = mpn - n
-    
+
     Rd = R[:, :m]
 
+    num_clusters = len(prior_hypotheses_per_cluster)
+    trcaks_per_cluster = [np.sort(np.fromiter(ph.tracks(), dtype=int)) for ph in prior_hypotheses_per_cluster]
+
+    cluster_links = ClusterLinks()
     # First we find the set of gated measurements for each cluster
     measurement_sets = []
     for tracks in tracks_per_cluster:
@@ -60,6 +74,5 @@ def find_interacting_tracks(R, tracks_per_cluster):
 if __name__ == "__main__":
     R, prior_hypotheses_per_cluster = test_case()
 
-    trcaks_per_cluster = [np.sort(np.fromiter(ph.tracks(), dtype=int)) for ph in prior_hypotheses_per_cluster]
 
     find_interacting_tracks(R, trcaks_per_cluster)
