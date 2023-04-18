@@ -44,7 +44,7 @@ class TestClusterLinks(unittest.TestCase):
             2: {0, 1}
         }
 
-        for (correct_measurement, correct_cluster_idx_set), (measurement, cluster_idx_set) in zip(correct_mapping.values(), self.cluster_links.meas_to_clusters().values()):
+        for (correct_measurement, correct_cluster_idx_set), (measurement, cluster_idx_set) in zip(correct_mapping.items(), self.cluster_links.meas_to_clusters().items()):
             self.assertEqual(correct_measurement, measurement)
             self.assertEqual(correct_cluster_idx_set, cluster_idx_set)
 
