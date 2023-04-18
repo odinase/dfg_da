@@ -4,12 +4,21 @@ from dfg_da.cluster_bayes_tree import *
 from cluster_data_asso import edmund_to_lc, lc_to_edmund
 
 
-
 class TestClusterLinks(unittest.TestCase):
     def setUp(self):
-        pass
+        assocLocal = np.array([
+            [1, 1],
+            [1, 0]
+        ])
 
-    def test_forms_correct_links(self):
+        R = np.array([
+            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+        R_LC = edmund_to_lc(R)
 
         prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
             pdd.hypothesis.Hypotheses([
@@ -22,46 +31,33 @@ class TestClusterLinks(unittest.TestCase):
             ])
         ])
 
-        assocLocal = np.array([
-            [1, 1],
-            [1, 0]
-        ])
-        
-        cluster_links = ClusterLinks()
-        
-        cluster1s = [1, 2, 2]
-        cluster2s = [2, 3, 1]
+        self.cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
 
-        R = np.array([
-            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-        ], order='F')
 
-        # What should cluster link be?
-        # It might actually be more beneficial to assume we know the clusters that are merged (which we do), and keep track of the measurements together with the tracks of each cluster that gates that
-        # In that sense, perhaps the best is to let cluster links denote all links, i.e >= 1, that connects >= 1 clusters into a supercluster
-        # For the case above, perhaps the best way of containing the data is
-        # (cluster_idxs...) -> [measurement_idx: (track_idxs, cluster_idxs...), ...] ?
-        # Actually, it's probably more practical from an implementation perspective to loop over each linked cluster and get the measurements and gated tracks in that cluster
-        # In that sense, the link is just a list that is number of clusters long with a dict over all measurement idxs that maps to the tracks that gates it. It might be redundant information to also include the tracks that gate the measurement, but it doesn't hurt
-        # Maybe use a dict instead of a list as well, with cluster idx?
+    def test_measurement_to_cluster_map(self):
 
-        correct_cluster_links = {
-            0: {
-                1: { 3 },
-                2: { 3 }
-            },
-            1: {}
+        # cluster links should actually just be a dict over measurement indices with set over cluster
+        # We create a dict over linking measurement indices with set over cluster indices, but the inverted dict, i.e a dict over cluster indices with set over linking measurements, is more useful implementation-wise
+
+        # In this case, the "culprit" is measurement 2, as it's gated by tracks in both cluster 0 and 1
+        correct_mapping = {
+            2: {0, 1}
         }
-        for cluster_idx, linking_measurements in cluster_links:
-            # cluster idx is a integer
-            # linking measurement is a dict over measurement idxs that are involved in the
-            self.assertEqu
-            for meas_idx, gated_tracks in linking_measurements.values():
 
+        for (correct_measurement, correct_cluster_idx_set), (measurement, cluster_idx_set) in zip(correct_mapping.values(), self.cluster_links.meas_to_clusters().values()):
+            self.assertEqual(correct_measurement, measurement)
+            self.assertEqual(correct_cluster_idx_set, cluster_idx_set)
+
+
+    def test_cluster_to_measurements_map(self):
+        correct_mapping = {
+            0: { 2 },
+            1: { 2 }
+        }
+
+        for (correct_cluster, correct_measurement_set), (cluster, measurement_set) in zip(correct_mapping.values(), self.cluster_links.cluster_to_linking_meas().values()):
+            self.assertEqual(correct_cluster, cluster)
+            self.assertEqual(correct_measurement_set, measurement_set)
 
 
 

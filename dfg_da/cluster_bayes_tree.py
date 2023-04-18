@@ -4,6 +4,7 @@ import sys
 sys.path.append("..") # Adds higher directory to python modules path.
 from cluster_data_asso import edmund_to_lc, lc_to_edmund
 from collections import defaultdict
+from typing import List, FrozenSet
 
 
 def test_case():
@@ -35,8 +36,34 @@ def test_case():
 
 
 class ClusterLinks:
-    def __init__(self):
-        self.cluster_links = defaultdict(set)
+    def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, assocLocal: np.ndarray):
+        self.R_LC = R_LC
+        self.merging_clusters = self.find_merging_clusters(assocLocal.copy())
+        self.tracks_per_cluster = self.get_tracks_per_merging_cluster(self.merging_clusters, prior_hypotheses_per_cluster)
+
+    def find_merging_clusters(self, assocLocal) -> List[FrozenSet]:
+        assocLocal[0] -= 1
+        master_clusters, counts = np.unique(assocLocal[0], return_counts=True)
+        merging_masters = master_clusters[counts > 1]
+        merging_clusters = []
+        for merging_master in merging_masters:
+            clusters_to_merge = np.where(assocLocal[0] == merging_master)[0]
+            merging_clusters.append(frozenset(clusters_to_merge))
+
+        return merging_clusters
+
+    def get_tracks_per_cluster(self, merging_clusters, prior_hypotheses_per_cluster) -> List[np.ndarray]:
+        relevant_clusters = set()
+        for merge in merging_clusters:
+            relevant_clusters |= merge
+
+        tracks_per_cluster = []
+        for cluster in relevant_clusters:
+            tracks = np.sort(np.fromiter(prior_hypotheses_per_cluster[cluster]))
+            tracks_per_cluster.append(tracks)
+
+        return tracks_per_cluster
+
 
     def add_measurement_link(self, measurement_idx: int, cluster1: int, cluster2):
         link_tuple = (min(cluster1, cluster2), max(cluster1, cluster2))
