@@ -880,10 +880,10 @@ async def load_cluster_stats_async(path: str = OUTPUT_PATH_BASE, num_files_proce
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
-    # path += "_last"
+    path += "_last"
     print(f"Plotting data in {path}")
     # cluster_stats = asyncio.run(load_cluster_stats_async(path=path, num_files_process=5000))
-    cluster_stats = load_cluster_stats(path=path, num_files_process=5000)
+    cluster_stats = load_cluster_stats(path=path)
 
     # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
 
