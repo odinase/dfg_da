@@ -71,10 +71,8 @@ namespace dfg_da
 
         struct ClusterData
         {
-        private:
-            std::vector<double> phi__;
-
         public:
+            std::vector<double> phi_vec;
             std::vector<size_t> t_idx;
             Eigen::ArrayXXd t2h_not;
             Eigen::ArrayXXd t2h;
@@ -84,7 +82,7 @@ namespace dfg_da
                 std::vector<size_t> &&tracks_,
                 Eigen::ArrayXXd &&t2hnot_idx_,
                 Eigen::ArrayXXd &&t2h_idx_)
-                : phi__(std::move(phi_)),
+                : phi_vec(std::move(phi_)),
                   t_idx(std::move(tracks_)),
                   t2h_not(std::move(t2hnot_idx_)),
                   t2h(std::move(t2h_idx_))
@@ -97,7 +95,7 @@ namespace dfg_da
             }
             inline Eigen::Map<const Eigen::ArrayXd> phi() const
             {
-                return Eigen::Map<const Eigen::ArrayXd>(phi__.data(), phi__.size());
+                return Eigen::Map<const Eigen::ArrayXd>(phi_vec.data(), phi_vec.size());
             }
         };
 
@@ -114,6 +112,7 @@ namespace dfg_da
             const size_t num_tracks;
             const size_t num_measurements;
             const size_t num_clusters;
+            const size_t num_iters;
 
             MHLBPMulticlusterOutput(
                 Eigen::ArrayXXd &&mu_,
@@ -122,7 +121,8 @@ namespace dfg_da
                 Eigen::ArrayXd &&sigma_,
                 Eigen::ArrayXXd &&w_nmd_,
                 Eigen::ArrayXd &&w_0_,
-                std::vector<ClusterData> &&cluster_data_)
+                std::vector<ClusterData> &&cluster_data_,
+                size_t num_iters_)
                 : mu(std::move(mu_)),
                   nu(std::move(nu_)),
                   rho(std::move(rho_)),
@@ -130,6 +130,7 @@ namespace dfg_da
                   w_nmd(std::move(w_nmd_)),
                   w_0(std::move(w_0_)),
                   cluster_data(std::move(cluster_data_)),
+                  num_iters(num_iters_),
                   num_tracks(w_nmd.rows()),
                   num_measurements(w_nmd.cols()),
                   num_clusters(cluster_data.size()) {}
@@ -141,7 +142,8 @@ namespace dfg_da
                 const Eigen::ArrayXd &sigma_,
                 const Eigen::ArrayXXd &w_nmd_,
                 const Eigen::ArrayXd &w_0_,
-                const std::vector<ClusterData> &cluster_data_)
+                const std::vector<ClusterData> &cluster_data_,
+                size_t num_iters_)
                 : mu(mu_),
                   nu(nu_),
                   rho(rho_),
@@ -149,6 +151,7 @@ namespace dfg_da
                   w_nmd(w_nmd_),
                   w_0(w_0_),
                   cluster_data(cluster_data_),
+                  num_iters(num_iters_),
                   num_tracks(w_nmd.rows()),
                   num_measurements(w_nmd.cols()),
                   num_clusters(cluster_data.size()) {}
@@ -156,7 +159,7 @@ namespace dfg_da
             Eigen::ArrayXXd track_association_marginals() const;
             void track_association_marginals_inplace(double *data) const;
             Eigen::ArrayXXd measurement_association_marginals() const;
-            Eigen::ArrayXXd hypotheses_marginals() const;
+            std::vector<Eigen::ArrayXd> hypotheses_marginals() const;
             double bethe_pseudodual_loglikelihood() const;
             inline double bethe_pseudodual_normalization_constant() const { return exp(bethe_pseudodual_loglikelihood()); }
 
@@ -167,7 +170,10 @@ namespace dfg_da
             Eigen::ArrayXXd track_meas_normalization_constants() const;
             std::vector<Eigen::ArrayXd> track_hypos_normalization_constants() const;
         };
-        MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
+
+        double message_norm(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev);
+
+        MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 10'000);
 
         double bethe_pseudodual_loglikelihood(const Eigen::ArrayXXd &mu,
                                               const Eigen::ArrayXXd &nu,

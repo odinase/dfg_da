@@ -41,7 +41,7 @@ iC = 1;
 assocLocal = [1,1;1,0];
 gainMatPostC = [rewMat; eye(2), -Inf*ones(2,5)];
 gainMatPostC(gainMatPostC == 0) = -Inf;
-nHypoTotalMax = 100;
+nHypoTotalMax = 20;
 
 
 preTN1 = ~isinf(gainMatPostC);
@@ -71,7 +71,8 @@ num_measurements = m;
 % recycling proportion, and then the Murty marginals normalized by Bethe
 
 % The normalization constants are easy
-Z_murty = exp(logsumexp(probLogLocal, 2));
+log_murty_norm = logsumexp(probLogLocal, 2);
+Z_murty = exp(log_murty_norm);
 Z_bethe = exp(bethe_loglikelihood);
 Z_P = Z_bethe - Z_murty;
 
@@ -82,7 +83,9 @@ Z_P = Z_bethe - Z_murty;
 % track. We then add the score to the proper element in the marginals
 % matrix. For tracks that does not appear in the 
 
+murty_marginals_bethe = zeros(size(LBP_marginals));
 murty_marginals = zeros(size(LBP_marginals));
+
 
 begsC = tCloud2BegInd(clustersCard);
 endsC = tCloud2EndInd(clustersCard);
@@ -104,7 +107,8 @@ for iH = 1:nH
     tracks_in_hypo = hyposLocal(begsH(iH):endsH(iH));
     old_tracks = map_new_tracks_to_old_tracks(tracks_in_hypo, trackNumberLookup);
     tracks_not_in_hypo(old_tracks) = [];
-    hypo_prob = exp(probLogLocal(iH) - bethe_loglikelihood);
+    hypo_prob = exp(probLogLocal(iH) - log_murty_norm);
+    hypo_prob_bethe = exp(probLogLocal(iH) - bethe_loglikelihood);
     for track = tracks_in_hypo
         [t,j] = find(trackNumberLookup == track);
         % If the track is made from misdetection, map it to 1
@@ -114,9 +118,11 @@ for iH = 1:nH
             % We need to offset by 1 if it was detection
             j = j + 1;
         end
+        murty_marginals_bethe(j, t) = murty_marginals_bethe(j, t) + hypo_prob_bethe;
         murty_marginals(j, t) = murty_marginals(j, t) + hypo_prob;
     end
     for track = tracks_not_in_hypo
+        murty_marginals_bethe(num_measurements + 2, track) = murty_marginals_bethe(num_measurements + 2, track) + hypo_prob_bethe;
         murty_marginals(num_measurements + 2, track) = murty_marginals(num_measurements + 2, track) + hypo_prob;
     end
 end

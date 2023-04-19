@@ -170,7 +170,7 @@ namespace dfg_da
         void MHLBPMulticlusterOutput::track_association_marginals_inplace(double *data) const
         {
             Eigen::Map<Eigen::ArrayXXd> asso_probs(data, 2 + num_measurements, num_tracks);
-            asso_probs.topRows<1>() = w_0;
+            asso_probs.topRows<1>() = w_0.transpose();
             asso_probs.block(1, 0, num_measurements, num_tracks) = (w_nmd * nu).transpose();
             asso_probs.bottomRows<1>() = sigma;
 
@@ -180,11 +180,29 @@ namespace dfg_da
         Eigen::ArrayXXd MHLBPMulticlusterOutput::measurement_association_marginals() const
         {
             Eigen::ArrayXXd meas_probs(1 + num_tracks, num_measurements);
-            meas_probs.topRows<1>() = 1;
+            meas_probs.topRows<1>() = 1.0;
             meas_probs.block(1, 0, num_tracks, num_measurements) = mu;
             meas_probs.rowwise() /= meas_probs.colwise().sum();
 
             return meas_probs;
+        }
+
+        std::vector<Eigen::ArrayXd> MHLBPMulticlusterOutput::hypotheses_marginals() const {
+            std::vector<Eigen::ArrayXd> marginals;
+            Eigen::ArrayXd rho_c, rho_prods;
+            std::transform(
+                cluster_data.begin(), cluster_data.end(),
+                std::back_inserter(marginals),
+                [&](const auto &d)
+                {
+                    rho_c = rho(d.t_idx);
+                    rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
+                    Eigen::ArrayXd hypo_probs = d.phi() * rho_prods;
+                    hypo_probs /= hypo_probs.sum();
+                    return std::move(hypo_probs);
+                });
+
+            return marginals;
         }
 
         double MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood() const
@@ -359,6 +377,14 @@ namespace dfg_da
             return -F_bethe_pseudo;
         }
 
+        double message_norm(const Eigen::ArrayXXd &nu, const Eigen::ArrayXXd &nu_prev) {
+            Eigen::ArrayXXd nu_ratio = nu / nu_prev;
+            double max_ratio = nu_ratio.maxCoeff();
+            double min_ratio = nu_ratio.minCoeff();
+            double max_abs = std::max(max_ratio, 1.0 / min_ratio);
+            return std::log(max_abs);
+        }
+
         MHLBPMulticlusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters)
         {
             const size_t n = reward_matrix.rows();
@@ -430,12 +456,16 @@ namespace dfg_da
                 w_0,
                 cluster_data);
 
+            Eigen::ArrayXXd prev_nu = nu;
+
             double b;
 
-            double tol = 1e-7;
-            double err = std::numeric_limits<double>::infinity();
+            double tol_b = 1e-7;
+            double tol_msg = 1e-5;
+            double err_bethe = std::numeric_limits<double>::infinity();
+            double err_msg = std::numeric_limits<double>::infinity();
 
-            while (iter < max_num_iters && err > tol)
+            while (iter < max_num_iters && err_bethe > tol_b && err_msg > tol_msg)
             {
                 w_times_msg = w_nmd * nu;
 
@@ -463,7 +493,9 @@ namespace dfg_da
                     w_nmd,
                     w_0,
                     cluster_data);
-                err = fabs(b - prev_b);
+                err_bethe = fabs(b - prev_b);
+                err_msg = message_norm(nu, prev_nu);
+                prev_nu = nu;
                 prev_b = b;
             }
 
@@ -474,7 +506,8 @@ namespace dfg_da
                 std::move(sigma),
                 std::move(w_nmd),
                 std::move(w_0),
-                std::move(cluster_data));
+                std::move(cluster_data),
+                iter);
         }
 
     } // namespace lbp

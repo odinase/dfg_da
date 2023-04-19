@@ -4,8 +4,33 @@ from typing import Dict, Any, List, TypeVar, FrozenSet, Optional
 from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
-from .marginals_computers import MarginalsComputer, ExactMarginals
+from .marginals_computers import MarginalsComputer, ExactMarginals, MulticlusterExactOutput
 import pickle
+import pickletools
+import asyncio
+
+
+def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
+    num_posterior_clusters = np.sum(assocLocal[1])
+    # First build master array
+    prior_hypotheses_per_cluster_posterior: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+        h for k, h in enumerate(prior_hypotheses_per_cluster) if assocLocal[1, k]
+    ])
+    master_idxs = np.cumsum(assocLocal[1]) - 1
+
+    assert len(prior_hypotheses_per_cluster_posterior) == num_posterior_clusters
+    
+    for c, (master, is_master) in enumerate(assocLocal.T):
+        if is_master:
+            continue
+            
+        # We already have the masters, merge clusters
+        hs = prior_hypotheses_per_cluster[c]
+        prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
+
+    return prior_hypotheses_per_cluster_posterior
+
+from collections import defaultdict
 
 import py_dfg_da
 
@@ -63,7 +88,31 @@ class MatFileParser:
         if not self.using_cpp:
             raise NotImplementedError("We cannot do merging of prior hypotheses on Python implemenation")
         
-        
+        assocLocal = self.ws["assocLocal"]
+        self.prior_hypotheses_per_cluster_posterior_ = merge_clusters(assocLocal, self.prior_hypotheses_per_cluster)
+        return self.prior_hypotheses_per_cluster_posterior_
+
+    def track_distribution(self, prior_hypotheses: py_dfg_da.hypothesis.Hypotheses, normalized: bool = False):
+        tracks = defaultdict(lambda: 0)
+
+        for ph in prior_hypotheses:
+            for t in ph.tracks():
+                tracks[t] += 1
+
+        distr = np.array(list(tracks.items()))
+
+        sorted_tracks = np.argsort(distr[:,0])
+        distr = distr[sorted_tracks]
+
+        if normalized:
+            x = np.linspace(0, 1, distr.shape[0])
+            y = distr[:, 1].astype(float)
+            integral = np.trapz(y, x)
+            y /= integral
+            distr = np.vstack((x, y)).T
+
+        return distr
+
 
     def ws_to_prior_hypotheses_cpp(self, ws):
         hypos = ws["hypos"].ravel().astype(int)
@@ -400,15 +449,32 @@ class ExactStats:
     marginals: Marginals
     normalization_constants: List[float]
 
+# @dataclass
+# class MulticlusterData:
+#     exact_computation_error: bool
+
+#     exact_marginals: Marginals
+#     exact_normalization_constant: float
+
+#     mhlbp_marginals: Marginals
+#     bethe_normalization_constant: float
+
+#     def save_data(self, path):
+#         with open(path, "wb") as f:
+#             pickle.dump(self, f)
+
+#     @classmethod
+#     def from_data(cls, path):
+#         with open(path, "rb") as f:
+#             return pickle.load(f)
+        
+
 @dataclass
 class MulticlusterData:
-    exact_computation_error: bool
-
-    exact_marginals: Marginals
-    exact_normalization_constant: float
-
-    mhlbp_marginals: Marginals
-    bethe_normalization_constant: float
+    mhlbp_output: py_dfg_da.lbp.MHLBPMulticlusterOutput
+    exact_output: Optional[MulticlusterExactOutput] = None
+    
+    explicit_hypothesis_enumeration_error: bool = False
 
     def save_data(self, path):
         with open(path, "wb") as f:
@@ -416,6 +482,15 @@ class MulticlusterData:
 
     @classmethod
     def from_data(cls, path):
+        with open(path, "rb") as f:
+            return pickle.load(f)
+
+    async def save_data_async(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    async def from_data_async(cls, path):
         with open(path, "rb") as f:
             return pickle.load(f)
 
