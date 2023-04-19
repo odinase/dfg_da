@@ -4,7 +4,7 @@ import sys
 sys.path.append("..") # Adds higher directory to python modules path.
 from cluster_data_asso import edmund_to_lc, lc_to_edmund
 from collections import defaultdict
-from typing import List, FrozenSet, Dict
+from typing import *
 
 
 def test_case():
@@ -51,14 +51,14 @@ class ClusterLinks:
     def cluster_to_linking_meas(self):
         return self.cluster_to_linking_measurement_map
 
-    def find_merging_clusters(self, assocLocal) -> List[FrozenSet]:
+    def find_merging_clusters(self, assocLocal) -> List[MutableSet]:
         assocLocal[0] -= 1
         master_clusters, counts = np.unique(assocLocal[0], return_counts=True)
         merging_masters = master_clusters[counts > 1]
         merging_clusters = []
         for merging_master in merging_masters:
             clusters_to_merge = np.where(assocLocal[0] == merging_master)[0]
-            merging_clusters.append(frozenset(clusters_to_merge))
+            merging_clusters.append(set(clusters_to_merge))
 
         return merging_clusters
 
@@ -89,12 +89,15 @@ class ClusterLinks:
             for c, cluster in enumerate(cluster_idxs):
                 t_idx = tracks_per_merging_cluster[cluster] - 1
                 R_sub = self.R_LC[t_idx]
-                gated_measurements[c] = np.where(np.isfinite(R_sub[:, 1:]).any(axis=0))[0]
+                gated_measurements[c] = np.isfinite(R_sub[:, 1:]).any(axis=0)
+
+            # We need to construct an index map back to the original clusters
+            c_map = np.array(list(cluster_idxs))
 
             for j, clusters_gated_meas in enumerate(gated_measurements.T):
-                if clusters_gated_meas.sum() > 0:
-                    assert not (j in m2c_map), f"Measurement {j + 1} already accounted for, should not be possible(?)"
-                    m2c_map[j + 1] = np.where(clusters_gated_meas)[0]
+                if clusters_gated_meas.sum() > 1:
+                    assert not (j + 1 in m2c_map), f"Measurement {j + 1} already accounted for, should not be possible(?)"
+                    m2c_map[j + 1] = set(c_map[np.where(clusters_gated_meas)[0]])
 
         return m2c_map
 
