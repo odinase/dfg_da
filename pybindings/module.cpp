@@ -139,7 +139,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def(py::init<const std::vector<size_t>&, double>())
     .def("probability", &hypothesis::Hypothesis::probability)
     .def("tracks", &hypothesis::Hypothesis::tracks)
-    .def("reindex_tracks", &hypothesis::Hypothesis::reindex_tracks)
+    .def("reindex_tracks", py::overload_cast<const std::map<size_t, size_t>&>(&hypothesis::Hypothesis::reindex_tracks))
+    .def("reindex_tracks", py::overload_cast<>(&hypothesis::Hypothesis::reindex_tracks))
     .def("contains", &hypothesis::Hypothesis::contains)
     .def("log_prob", &hypothesis::Hypothesis::log_prob)
     .def(py::pickle(
@@ -168,7 +169,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def("__getitem__", &hypothesis::Hypotheses::operator[])
     .def("__len__", &hypothesis::Hypotheses::num_hypotheses)
     .def("tracks", &hypothesis::Hypotheses::tracks)
-    .def("reindex_tracks", &hypothesis::Hypotheses::reindex_tracks)
+    .def("reindex_tracks", py::overload_cast<const std::map<size_t, size_t>&>(&hypothesis::Hypotheses::reindex_tracks))
+    .def("reindex_tracks", py::overload_cast<>(&hypothesis::Hypotheses::reindex_tracks))
     .def("hypothesis_probabilites", &hypothesis::Hypotheses::hypothesis_probabilites)
     .def("num_hypotheses", &hypothesis::Hypotheses::num_hypotheses)
     .def("__iter__", [](hypothesis::Hypotheses &h) { return py::make_iterator(h.begin(), h.end()); },

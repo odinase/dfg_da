@@ -1,6 +1,7 @@
 import unittest
 import py_dfg_da as pdd
 from dfg_da.cluster_bayes_tree import *
+from dfg_da.marginals_computers import MulticlusterExactEHM2, MulticlusterExactOutput
 from cluster_data_asso import edmund_to_lc, lc_to_edmund
 
 
@@ -233,6 +234,8 @@ class TestClusterLinks(unittest.TestCase):
             self.assertEqual(correct_measurement, measurement)
             self.assertEqual(correct_cluster_idx_set, cluster_idx_set)
 
+        unmerged_clusters_correct = { 5 }
+        self.assertEqual(unmerged_clusters_correct, cluster_links.unmerging_clusters())
  
     def test_cluster_to_measurements_map3(self):
         R_LC = np.array([
@@ -299,6 +302,9 @@ class TestClusterLinks(unittest.TestCase):
             self.assertEqual(correct_cluster, cluster)
             self.assertEqual(correct_measurement_set, measurement_set)
 
+        unmerged_clusters_correct = { 5 }
+        self.assertEqual(unmerged_clusters_correct, cluster_links.unmerging_clusters())
+
 
     def test_measurement_to_cluster_map4(self):
         R_LC = np.array([
@@ -363,6 +369,8 @@ class TestClusterLinks(unittest.TestCase):
             self.assertEqual(correct_measurement, measurement)
             self.assertEqual(correct_cluster_idx_set, cluster_idx_set)
 
+        unmerged_clusters_correct = { 5 }
+        self.assertEqual(unmerged_clusters_correct, cluster_links.unmerging_clusters())
  
     def test_cluster_to_measurements_map4(self):
         R_LC = np.array([
@@ -427,6 +435,187 @@ class TestClusterLinks(unittest.TestCase):
         for (correct_cluster, correct_measurement_set), (cluster, measurement_set) in zip(correct_mapping.items(), cluster_links.cluster_to_linking_meas().items()):
             self.assertEqual(correct_cluster, cluster)
             self.assertEqual(correct_measurement_set, measurement_set)
+
+        unmerged_clusters_correct = { 5 }
+        self.assertEqual(unmerged_clusters_correct, cluster_links.unmerging_clusters())
+
+
+    def test_cluster_to_measurements_map_per_merging_clusters(self):
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
+        ], order='F')
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([7], np.log(0.4))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([8], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([9], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([10], np.log(0.4))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([11], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([12], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 3, 3, 1, 6],
+            [1, 0, 1, 0, 0, 1]
+        ])
+
+        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
+
+        # correct_mapping = {
+        #     1: {0, 1, 4},
+        #     3: { 2, 3 },
+        #     4: { 2, 3 }
+        # }
+        correct_list = [
+            {
+                0: { 1 },
+                1: { 1 },
+                4: { 1 }
+            },
+            {
+                2: { 3, 4 },
+                3: { 3, 4 }
+            }
+        ]
+
+        for correct_mapping, mapping in zip(correct_list, cluster_links.cluster_to_measurement_map_per_merging_clusters()):
+            for (correct_cluster_idx, correct_meas_set), (cluster_idx, meas_set) in zip(correct_mapping.items(), mapping.items()):
+                self.assertEqual(correct_cluster_idx, cluster_idx)
+                self.assertEqual(correct_meas_set, meas_set)
+
+
+    def test_cluster_to_measurements_map_per_merging_clusters(self):
+
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf],
+            [0.1,     1.0, -np.inf],
+            [0.1,     1.0,     1.0],
+            [0.1, -np.inf,     1.0],
+            [0.1, -np.inf,     1.0],
+            [0.1,     1.0, -np.inf],
+        ], order='F')
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 1],
+            [1, 0, 0]
+        ])
+
+        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
+
+        # correct_mapping = {
+        #     0: { 1 },
+        #     1: { 1, 2 },
+        #     2: { 1, 2 }
+        # }
+        correct_list = [
+            {
+                0: { 1 },
+                1: { 1, 2 },
+                2: { 1, 2 }
+            }
+        ]
+
+        for correct_mapping, mapping in zip(correct_list, cluster_links.cluster_to_measurement_map_per_merging_clusters()):
+            for (correct_cluster_idx, correct_meas_set), (cluster_idx, meas_set) in zip(correct_mapping.items(), mapping.items()):
+                self.assertEqual(correct_cluster_idx, cluster_idx)
+                self.assertEqual(correct_meas_set, meas_set)
+
+
+class TestMulticlusterEfficientMarginals(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_marginals_computation(self):
+        R = np.array([
+            [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
+            [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
+            [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R_LC = edmund_to_lc(R)
+
+        assocLocal = np.array([
+            [1, 1, 3],
+            [1, 0, 1]
+        ])
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1, 2], np.log(0.2)),
+                pdd.hypothesis.Hypothesis([1, 3], np.log(0.8))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([4, 5], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([], np.log(0.7))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6, 7], np.log(0.5))
+            ])
+        ])
+        
+        exact_computer = MulticlusterExactEHM2()
+
+        exact_output: MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        
+        efficient_cluster = MulticlusterEfficientMarginals(
+            R_LC=R_LC,
+            prior_hypotheses_per_cluster=prior_hypotheses_per_cluster,
+            assocLocal=assocLocal
+        )
+
+        efficient_marginals = efficient_cluster.compute_marginals_likelihood()
+
+        self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
 
 
 if __name__ == "__main__":

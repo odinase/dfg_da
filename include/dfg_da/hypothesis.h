@@ -41,6 +41,7 @@ namespace dfg_da
             inline size_t size() const { return tracks_.size(); }
             const std::vector<Track> &tracks() const { return tracks_; }
             void reindex_tracks(const std::map<size_t, size_t>& old2new_idx);
+            void reindex_tracks();
 
             // Combining two hypotheses means to concatenate the tracks existing and adding the log probabilities together
             Hypothesis combine(const Hypothesis &h_rhs) const;
@@ -60,6 +61,7 @@ namespace dfg_da
             const Hypothesis &operator[](size_t i) const { return hypos_[i]; }
             inline size_t num_hypotheses() const { return hypos_.size(); }
             void reindex_tracks(const std::map<size_t, size_t>& old2new_idx);
+            void reindex_tracks();
 
             template <class TrackIterator>
             Hypotheses hypotheses_containing(TrackIterator tracks_iter_begin, TrackIterator tracks_iter_end) const

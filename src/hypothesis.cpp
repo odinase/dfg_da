@@ -21,6 +21,14 @@ namespace dfg_da
             }
         }
 
+        void Hypothesis::reindex_tracks() {
+            size_t new_t = 1;
+            for (auto& track : tracks_) {
+                track = new_t;
+                new_t++;
+            }
+        }
+
         // Combining two hypotheses means to concatenate the tracks existing and adding the log probabilities together
         Hypothesis Hypothesis::combine(const Hypothesis &h_rhs) const
         {
@@ -97,6 +105,19 @@ namespace dfg_da
             for (auto& ph : hypos_) {
                 ph.reindex_tracks(old2new_idx);
             }
+        }
+
+        void Hypotheses::reindex_tracks() {
+            std::map<size_t, size_t> old2new_idx;
+            std::set<size_t> _tracks = tracks();
+
+            size_t new_t = 1;
+            for (const auto old_t : _tracks) {
+                old2new_idx.insert({old_t, new_t});
+                new_t++;
+            }
+
+            reindex_tracks(old2new_idx);
         }
 
         // Return map over each measurement together with list of tracks gated by measurement

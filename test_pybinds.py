@@ -108,69 +108,80 @@ if __name__ == "__main__":
         py_dfg_da.hypothesis.Hypotheses([
             py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
             py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
+        ]),
+        py_dfg_da.hypothesis.Hypotheses([
+            py_dfg_da.hypothesis.Hypothesis([6, 7], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([8], np.log(0.5)),
         ])
     ])
 
+    for ph in prior_hypotheses_per_cluster:
+        print(f"Tracks before: {ph.tracks()}")
+        ph.reindex_tracks()
+        print(f"Tracks after: {ph.tracks()}")
     
 
-    def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
-        num_posterior_clusters = np.sum(assocLocal[1])
-        # First build master array
-        prior_hypotheses_per_cluster_posterior: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
-            h for k, h in enumerate(prior_hypotheses_per_cluster) if assocLocal[1, k]
-        ])
-        master_idxs = np.cumsum(assocLocal[1]) - 1
+    # def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
+    #     num_posterior_clusters = np.sum(assocLocal[1])
+    #     # First build master array
+    #     prior_hypotheses_per_cluster_posterior: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+    #         h for k, h in enumerate(prior_hypotheses_per_cluster) if assocLocal[1, k]
+    #     ])
+    #     master_idxs = np.cumsum(assocLocal[1]) - 1
 
-        assert len(prior_hypotheses_per_cluster_posterior) == num_posterior_clusters
+    #     assert len(prior_hypotheses_per_cluster_posterior) == num_posterior_clusters
         
-        for c, (master, is_master) in enumerate(assocLocal.T):
-            if is_master:
-                continue
+    #     for c, (master, is_master) in enumerate(assocLocal.T):
+    #         if is_master:
+    #             continue
                 
-            # We already have the masters, merge clusters
-            hs = prior_hypotheses_per_cluster[c]
-            prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
+    #         # We already have the masters, merge clusters
+    #         hs = prior_hypotheses_per_cluster[c]
+    #         prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
 
-        return prior_hypotheses_per_cluster_posterior
+    #     return prior_hypotheses_per_cluster_posterior
 
-    ppp = merge_clusters(assocLocal, prior_hypotheses_per_cluster)
-
-
-
-    # output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-
-    exact_computer: mc.MulticlusterExact = mc.MulticlusterExact()
-    exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
-    np.set_printoptions(suppress=True)
-    print(exact_output.exact_marginals)
-    print(exact_output.compute_theta_posteriors())
+    # ppp = merge_clusters(assocLocal, prior_hypotheses_per_cluster)
 
 
-    # .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
-    # .def("measurement_association_marginals",  &lbp::MHLBPMulticlusterOutput::measurement_association_marginals)
-    # .def("hypotheses_marginals",  &lbp::MHLBPMulticlusterOutput::hypotheses_marginals)
-    # .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
-    # .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
+
+    # # output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+
+    # exact_computer: mc.MulticlusterExact = mc.MulticlusterExact()
+    # exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+    # np.set_printoptions(suppress=True)
+    # print(exact_output.exact_marginals)
+    # print(exact_output.compute_theta_posteriors())
 
 
-    mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-    print(mcmhlbp.track_association_marginals().T)
-    hp = mcmhlbp.hypotheses_marginals()
-    print(np.hstack(hp))
-    print(mcmhlbp.bethe_pseudodual_normalization_constant())
+    # # .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
+    # # .def("measurement_association_marginals",  &lbp::MHLBPMulticlusterOutput::measurement_association_marginals)
+    # # .def("hypotheses_marginals",  &lbp::MHLBPMulticlusterOutput::hypotheses_marginals)
+    # # .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
+    # # .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
 
-    print()
 
-    track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    print(track_marginals)
-    print(meas_marginals)
-    print(theta_marginals)
-    print(exact_normalization_constant)
+    # mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+    # print(mcmhlbp.track_association_marginals().T)
+    # hp = mcmhlbp.hypotheses_marginals()
+    # print(np.hstack(hp))
+    # print(mcmhlbp.bethe_pseudodual_normalization_constant())
 
-    fig, ax = plt.subplots()
+    # print()
 
-    theta_posterior_correlation(exact_output.compute_theta_posteriors(), mcmhlbp.hypotheses_marginals(), ax=ax)
-    plt.show()
+    # track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+    # print(track_marginals)
+    # print(meas_marginals)
+    # print(theta_marginals)
+    # print(exact_normalization_constant)
+
+    # fig, ax = plt.subplots()
+
+    # theta_posterior_correlation(exact_output.compute_theta_posteriors(), mcmhlbp.hypotheses_marginals(), ax=ax)
+    # plt.show()
+
+
+
 
     # R_LC2 = np.log(np.array([
     #     [0.2, 1.0]
