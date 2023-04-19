@@ -62,6 +62,7 @@ namespace dfg_da
             inline size_t num_hypotheses() const { return hypos_.size(); }
             void reindex_tracks(const std::map<size_t, size_t>& old2new_idx);
             void reindex_tracks();
+            Eigen::ArrayXi t_idxs() const;
 
             template <class TrackIterator>
             Hypotheses hypotheses_containing(TrackIterator tracks_iter_begin, TrackIterator tracks_iter_end) const

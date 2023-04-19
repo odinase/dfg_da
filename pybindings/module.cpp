@@ -173,6 +173,7 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def("reindex_tracks", py::overload_cast<>(&hypothesis::Hypotheses::reindex_tracks))
     .def("hypothesis_probabilites", &hypothesis::Hypotheses::hypothesis_probabilites)
     .def("num_hypotheses", &hypothesis::Hypotheses::num_hypotheses)
+    .def("t_idxs", &hypothesis::Hypotheses::t_idxs)
     .def("__iter__", [](hypothesis::Hypotheses &h) { return py::make_iterator(h.begin(), h.end()); },
                          py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */)
     .def(py::pickle(

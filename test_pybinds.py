@@ -117,9 +117,10 @@ if __name__ == "__main__":
 
     for ph in prior_hypotheses_per_cluster:
         print(f"Tracks before: {ph.tracks()}")
-        ph.reindex_tracks()
-        print(f"Tracks after: {ph.tracks()}")
-    
+        # ph.reindex_tracks()
+        # print(f"Tracks after: {ph.tracks()}")
+
+        print(f"t idxs: {ph.t_idxs()}")
 
     # def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     #     num_posterior_clusters = np.sum(assocLocal[1])

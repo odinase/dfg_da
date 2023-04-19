@@ -120,6 +120,19 @@ namespace dfg_da
             reindex_tracks(old2new_idx);
         }
 
+        Eigen::ArrayXi Hypotheses::t_idxs() const {
+            auto _tracks = tracks();
+            Eigen::ArrayXi idxs(_tracks.size());
+            std::transform(_tracks.begin(), _tracks.end(), idxs.begin(),
+                [](const auto& track) {
+                    return track - 1;
+                }
+            );
+            std::sort(idxs.begin(), idxs.end());
+
+            return idxs;
+        }
+
         // Return map over each measurement together with list of tracks gated by measurement
         std::unordered_map<size_t, std::vector<size_t>> gated_tracks(const Eigen::MatrixXd &reward_matrix)
         {

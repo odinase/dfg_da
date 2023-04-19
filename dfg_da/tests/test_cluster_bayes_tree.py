@@ -440,7 +440,56 @@ class TestClusterLinks(unittest.TestCase):
         self.assertEqual(unmerged_clusters_correct, cluster_links.unmerging_clusters())
 
 
-    def test_cluster_to_measurements_map_per_merging_clusters(self):
+    def test_linking_mappings_per_merging_clusters(self):
+
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf],
+            [0.1,     1.0, -np.inf],
+            [0.1,     1.0,     1.0],
+            [0.1, -np.inf,     1.0],
+            [0.1, -np.inf,     1.0],
+            [0.1,     1.0, -np.inf],
+        ], order='F')
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 1],
+            [1, 0, 0]
+        ])
+
+        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
+
+        correct_list = [
+            LinkingMappings(cluster_to_linking_measurements={
+                0: { 1 },
+                1: { 1, 2 },
+                2: { 1, 2 }
+            }, linking_measurements_to_clusters={
+                1: { 0, 1, 2},
+                2: { 1, 2}
+            }
+            )
+        ]
+
+        for correct_mapping, mapping in zip(correct_list, cluster_links.linking_mappings_per_merging_clusters()):
+            self.assertDictEqual(correct_mapping.cluster_to_linking_measurements, mapping.cluster_to_linking_measurements)
+            self.assertDictEqual(correct_mapping.linking_measurements_to_clusters, mapping.linking_measurements_to_clusters)
+
+    def test_linking_mappings_per_merging_clusters2(self):
         R_LC = np.array([
             [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
             [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
@@ -492,79 +541,28 @@ class TestClusterLinks(unittest.TestCase):
 
         cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
 
-        # correct_mapping = {
-        #     1: {0, 1, 4},
-        #     3: { 2, 3 },
-        #     4: { 2, 3 }
-        # }
         correct_list = [
-            {
+            
+            LinkingMappings(cluster_to_linking_measurements={
                 0: { 1 },
                 1: { 1 },
                 4: { 1 }
-            },
-            {
+            }, linking_measurements_to_clusters={
+                1: { 0, 1, 4 }            
+            }),
+
+            LinkingMappings(cluster_to_linking_measurements={
                 2: { 3, 4 },
                 3: { 3, 4 }
-            }
+            }, linking_measurements_to_clusters={
+                3: { 2, 3 },
+                4: { 2, 3 }
+            })
         ]
 
-        for correct_mapping, mapping in zip(correct_list, cluster_links.cluster_to_measurement_map_per_merging_clusters()):
-            for (correct_cluster_idx, correct_meas_set), (cluster_idx, meas_set) in zip(correct_mapping.items(), mapping.items()):
-                self.assertEqual(correct_cluster_idx, cluster_idx)
-                self.assertEqual(correct_meas_set, meas_set)
-
-
-    def test_cluster_to_measurements_map_per_merging_clusters(self):
-
-        R_LC = np.array([
-            [0.1,     1.0, -np.inf],
-            [0.1,     1.0, -np.inf],
-            [0.1,     1.0,     1.0],
-            [0.1, -np.inf,     1.0],
-            [0.1, -np.inf,     1.0],
-            [0.1,     1.0, -np.inf],
-        ], order='F')
-
-        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([2], np.log(0.5))
-            ]),
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([4], np.log(0.5))
-            ]),
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([5], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([6], np.log(0.5))
-            ])
-        ])
-
-        assocLocal = np.array([
-            [1, 1, 1],
-            [1, 0, 0]
-        ])
-
-        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
-
-        # correct_mapping = {
-        #     0: { 1 },
-        #     1: { 1, 2 },
-        #     2: { 1, 2 }
-        # }
-        correct_list = [
-            {
-                0: { 1 },
-                1: { 1, 2 },
-                2: { 1, 2 }
-            }
-        ]
-
-        for correct_mapping, mapping in zip(correct_list, cluster_links.cluster_to_measurement_map_per_merging_clusters()):
-            for (correct_cluster_idx, correct_meas_set), (cluster_idx, meas_set) in zip(correct_mapping.items(), mapping.items()):
-                self.assertEqual(correct_cluster_idx, cluster_idx)
-                self.assertEqual(correct_meas_set, meas_set)
+        for correct_mapping, mapping in zip(correct_list, cluster_links.linking_mappings_per_merging_clusters()):
+            self.assertDictEqual(correct_mapping.cluster_to_linking_measurements, mapping.cluster_to_linking_measurements)
+            self.assertDictEqual(correct_mapping.linking_measurements_to_clusters, mapping.linking_measurements_to_clusters)
 
 
 class TestMulticlusterEfficientMarginals(unittest.TestCase):
