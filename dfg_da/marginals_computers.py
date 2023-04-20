@@ -514,7 +514,7 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
         return validation_matrix, likelihood_matrix
 
 
-    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> MulticlusterExactOutput:
         if not "assocLocal" in kwargs:
             raise ValueError("assocLocal is required as input parameter because of cluster merging!")
 

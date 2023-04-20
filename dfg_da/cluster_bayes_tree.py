@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import *
 from pyehm.core import EHM2
 from dataclasses import dataclass
+from dfg_da.marginal_association_Odin import exact_marginal
 
 
 def test_case():
@@ -40,6 +41,12 @@ def test_case():
 class LinkingMappings:
     cluster_to_linking_measurements: Dict[int, MutableSet[int]]
     linking_measurements_to_clusters: Dict[int, MutableSet[int]]
+
+    def all_linking_measurements_idxs(self) -> MutableSet[int]:
+        return set(m for m in self.linking_measurements_to_clusters)
+
+    def all_cluster_idxs(self) -> MutableSet[int]:
+        return set(c for c in self.cluster_to_linking_measurements)
 
 
 class ClusterLinks:
@@ -150,13 +157,24 @@ class ClusterLinks:
         return map_list
 
 
+def cartesian_product(*arrays):
+    import numpy
+
+    la = len(arrays)
+    dtype = numpy.result_type(*arrays)
+    arr = numpy.empty([len(a) for a in arrays] + [la], dtype=dtype)
+    for i, a in enumerate(numpy.ix_(*arrays)):
+        arr[...,i] = a
+    return arr.reshape(-1, la)
+
+
 def multihypothesis_ehm2(R_cluster, prior_hypotheses, reindex_tracks: bool = True):
     if reindex_tracks:
         prior_hypotheses.reindex_tracks()  # reindex tracks to {1, 2, ..., n} for later convenience
     all_tracks_idx = np.arange(R_cluster.shape[0])
     n, mp1 = R_cluster.shape
-    marginals = np.zeros((n, mp1))
-    conditioned_marginals = np.empty((n, mp1))
+    marginals = np.zeros((n, mp1 + 1))
+    conditioned_marginals = np.empty((n, mp1 + 1))  # Needs to add nonexistence
     _0 = np.zeros((n, mp1))
     _1 = np.ones((n, 1))
     hypo_cond_normalizing_constants = np.empty(len(prior_hypotheses))
@@ -177,6 +195,8 @@ def multihypothesis_ehm2(R_cluster, prior_hypotheses, reindex_tracks: bool = Tru
             R_sub = R_cluster[existing_tracks_idx, :]
             validation_matrix, likelihood_matrix = R_LC_to_validation_likelihood_matrix(R_sub)
             JPDAprobs, likelihood = EHM2.run_and_likelihood(validation_matrix, likelihood_matrix)
+            # JPDAprobs, _, loglikelihood = exact_marginal(R_sub, False)
+            # likelihood = np.exp(loglikelihood)
         else:
             JPDAprobs = np.empty((0, mp1))
             likelihood = 1.0
@@ -198,6 +218,8 @@ def multihypothesis_ehm2(R_cluster, prior_hypotheses, reindex_tracks: bool = Tru
 
         normalizing_constant_cluster += likelihood * prob
 
+    marginals = marginals / marginals.sum(axis=1, keepdims=True)
+
     return marginals, normalizing_constant_cluster
 
 
@@ -211,7 +233,7 @@ class MulticlusterEfficientMarginals:
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
         self.assocLocal = assocLocal
-        
+
         # Compute linking measurements and superclusters
         self.cluster_links = ClusterLinks(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal)
 
@@ -229,7 +251,7 @@ class MulticlusterEfficientMarginals:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
         n, mp1 = self.R_LC.shape
 
-        marginals = np.empty((n, mp1))
+        marginals = np.empty((n, mp1 + 1))
         self._0 = np.zeros((n, mp1))
         self._1 = np.ones((n, 1))
 
@@ -250,89 +272,153 @@ class MulticlusterEfficientMarginals:
             marginals[t_idxs] = marginals_unmerged
             likelihood *= likelihood_unmerged
 
+        marginals = marginals / marginals.sum(axis=1, keepdims=True)
+
         return marginals, likelihood
-            
+
 
 class ConditionalSuperclusterMarginals:
     def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, linking_mappings: LinkingMappings):
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
         self.linking_mappings = linking_mappings
+        self.t_idxs = self.supercluster_t_idxs()
 
         # Construct conditioned clusters
-        self.conditioned_clusters: Dict[int, ConditionedCluster] = dict()
+        # The supercluster knows all linking measurements between the clusters, and so enumerates all and passes this enumeration to the cluster
+        # Each Conditional Cluster then looks up whether its cluster received the measurement or not? We know the cluster idx, so simply name them by that
+
+        # Before we construct the conditional clusters we need to remap the measurement idxs that exist to a more useful "array indexing index"
+        self.lm2arr_idx = self.remap_linking_measurements(self.linking_mappings)
+
+        self.conditioned_clusters: List[ConditionedCluster] = []
         for cluster, linking_measurements in linking_mappings.cluster_to_linking_measurements.items():
             prior_hypotheses = prior_hypotheses_per_cluster[cluster]
             t_idxs = prior_hypotheses.t_idxs()
             R_cluster = self.R_LC[t_idxs]
-            linking_measurements = np.fromiter(linking_measurements, dtype=int)
-            self.conditioned_clusters[cluster] = ConditionedCluster(
+
+            # We actually need to know both the actual measurement idx and it's reindexed index for conditioning
+            # The actual measurement idxs are used for conditioning the reward matrix, while the reindex index is used to look up the assignment mask
+            # Each row has first element the actual idx while the second is the reindexed index
+            linking_mappings_mapping_mat = np.array(tuple((lm, self.lm2arr_idx[lm]) for lm in linking_measurements))
+            self.conditioned_clusters.append(ConditionedCluster(
+                cluster_idx=cluster,
                 R_cluster=R_cluster,
                 prior_hypotheses=prior_hypotheses,
-                linking_measurements=linking_measurements
-            )
+                linking_mappings_mapping_mat=linking_mappings_mapping_mat
+            ))
+
+    def remap_linking_measurements(self, linking_mappings: LinkingMappings) -> Dict[int, int]:
+        # The simplest is probably to just make a dictionary from one idx to another?
+        return {
+            lm: idx for idx, lm in enumerate(linking_mappings.all_linking_measurements_idxs())
+        }
 
     def supercluster_t_idxs(self):
+        if hasattr(self, 't_idxs'):
+            return self.t_idxs
+
         idxs = [ph.tracks() for ph in self.prior_hypotheses_per_cluster]
         return np.sort(np.fromiter(set.union(*idxs), dtype=int)) - 1
 
-    def enumerate_meas_exist(linking_measurements) -> np.ndarray:
-        # This function needs to take all linking measurements of the supercluster and make a list of all valid assignments the measurements can do
-        # We have access to the map for each cluster what measurements it 
+    def enumerate_meas_exist(self) -> np.ndarray:
+        # Should be simply make a list for each measurement that should 
+        # Needs to be careful that the measurements are enumerated in the correct column to make conditioning work
 
-        n = linking_measurements.shape[0]
-        return np.array([np.fromiter(np.binary_repr(b, width=n), dtype=int) for b in range(2**n)])
+        # Premake list over assignments
+        meas_assignements = [None]*len(self.lm2arr_idx)
+        # Populate the list with the assignments in the correct place
+        for lm, idx in self.lm2arr_idx.items():
+            meas_assignements[idx] = np.fromiter(self.linking_mappings.linking_measurements_to_clusters[lm], dtype=int)
+
+        return cartesian_product(*meas_assignements)
 
 
     def compute_marginals_likelihood(self) -> np.ndarray:
-        t_idxs = self.supercluster_t_idxs()
-        num_tracks = t_idxs.shape[0]
-        num_measurements = self.R_LC.shape[1] - 1
-        marginals = np.zeros((num_tracks, num_measurements + 1))
+        t_idxs = self.t_idxs
+        # num_tracks = t_idxs.shape[0]
+        # num_measurements = self.R_LC.shape[1] - 1
+
+        # Let's use a lazy solution for now to avoid more index mapping hell than necessary
+        n, mp1 = self.R_LC.shape
+        marginals = np.empty((n , mp1 + 1))
+        marginals[t_idxs] = 0.0
 
         # It is at this point we need to loop over all ways to assign the linking measurements, multiply the clusters conditioned marginals together
         # (since they're independent) and sum up
 
-        
+        # Need to figure out assignments to loop over, construct matrix first
+        measurement_assignments = self.enumerate_meas_exist()
 
-        # for cluster_idx, conditioned_cluster in self.conditioned_clusters.items():
-        #     cluster_linking_measurements = conditioned_cluster.linking_measurements
-        #     enumerated_meas_exist = self.enumerate_meas_exist(cluster_linking_measurements)
-        #     cluster_t_idxs = conditioned_cluster.t_idxs
-        #     for meas_exist in enumerated_meas_exist:
-        #         conditioned_marginals, conditioned_likelihood = conditioned_cluster.meas_conditionend_marginals(meas_exist)
-        #         marginals[cluster_t_idxs] += conditioned_marginals
+        # Preallocate marginal_term variable. We will write to all rows for each iteration, so safe to do here
+        marginal_term = np.empty_like(marginals)
+        likelihood = 0.0
+        # Sum, loop over assignments
+        for measurement_assignment in measurement_assignments:
+            # Construct each term
+            # Since the clusters now are independent, we simply compute the conditional marginals for each cluster and appropriately insert them into the supercluster marginal, and sum
+            assignment_likelihood = 1.0
+            for cluster in self.conditioned_clusters:
+                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)
+                cluster_t_idxs = cluster.t_idxs
+                marginal_term[cluster_t_idxs] = conditioned_cluster_marginal*conditioned_cluster_likelihood
+                assignment_likelihood *= conditioned_cluster_likelihood
 
-        return marginals, 1.0
+            marginals += marginal_term
+            likelihood += assignment_likelihood
+
+        marginals: np.ndarray = marginals[t_idxs]
+        marginals = marginals / marginals.sum(axis=1, keepdims=True)
+
+        return marginals, likelihood
 
 
 class ConditionedCluster:
-    def __init__(self, R_cluster: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, linking_measurements: np.ndarray):
-        self.t_idxs = self.prior_hypotheses.t_idxs()
+    def __init__(self, cluster_idx: int, R_cluster: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, linking_mappings_mapping_mat: np.ndarray):
+        self.t_idxs = prior_hypotheses.t_idxs()
 
+        self.cluster_idx = cluster_idx
         self.R_cluster: np.ndarray = R_cluster
         self.prior_hypotheses: pdd.hypothesis.Hypotheses = prior_hypotheses
         self.prior_hypotheses.reindex_tracks()
-        self.linking_measurements: np.ndarray = linking_measurements
+        self.linking_mappings_mapping_mat: np.ndarray = linking_mappings_mapping_mat
+        self.actual_meas_idxs: np.ndarray = linking_mappings_mapping_mat[:, 0]
+        self.reindex_meas: np.ndarray = linking_mappings_mapping_mat[:, 1]
 
         # We should definitively cache results, but not sure right now the best way. Will probably be more "obvious" later
         self.cache: Dict[Tuple[int], Tuple[np.ndarray, float]] = dict()
 
-    def conditioned_reward_matrix(self, meas_exist) -> np.ndarray:
+    def conditioned_reward_matrix(self, assigned_to_this_cluster_mask) -> np.ndarray:
         R_conditioned = self.R_cluster.copy()
  
-        nonexisting_linking_meas = self.linking_measurements[~meas_exist]
+        nonexisting_linking_meas = self.actual_meas_idxs[~assigned_to_this_cluster_mask]
+        # Since column 0 is misdetection and meas idx >= 1, we can access the conditioned matrix directly with nonexisting_linking_meas
         R_conditioned[:, nonexisting_linking_meas] = -np.inf
 
         return R_conditioned
 
-    def meas_conditionend_marginals(self, meas_exist: np.ndarray) -> np.ndarray:
-        # meas_exist should be m long for all linking measurements in the cluster, where each element is 0 or 1 at index of measurement (0-indexed) indicating whether it's conditionend or not
-        meas_exist_tuple = tuple(meas_exist)
+    def parse_meas_assign_to_cluster_meas_and_assign_mask(self, measurement_assignments: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # Should parse the assignment, which is over the assignment of all linking measurements in the supercluster,
+        # to a subarray with just the assignments of the measurements in the cluster and a boolean mask for whether each 
+        # measurement is assign to this cluster or not
+        this_cluster_meas_assignments = measurement_assignments[self.reindex_meas]
+        assigned_to_this_cluster_mask = this_cluster_meas_assignments == self.cluster_idx
+        return this_cluster_meas_assignments, assigned_to_this_cluster_mask
+
+
+    def meas_conditioned_marginals(self, measurement_assignments: np.ndarray) -> np.ndarray:
+        # measurement_assignments is an array num linking measurements in supercluster long
+        # It might be beneficial to reindex the measurement idxs to an array indexing index for quick look-up.
+        (
+            this_cluster_meas_assignments,
+            assigned_to_this_cluster_mask
+        ) = self.parse_meas_assign_to_cluster_meas_and_assign_mask(measurement_assignments)
+
+        meas_exist_tuple = tuple(assigned_to_this_cluster_mask)
         if meas_exist_tuple in self.cache:
             return self.cache[meas_exist_tuple]
 
-        R_conditioned = self.conditioned_reward_matrix(meas_exist)
+        R_conditioned = self.conditioned_reward_matrix(assigned_to_this_cluster_mask)
 
         # At this point we simply do normal computation??
         marginals_conditioned, likelihood_conditioned = multihypothesis_ehm2(R_conditioned, self.prior_hypotheses, reindex_tracks=False)

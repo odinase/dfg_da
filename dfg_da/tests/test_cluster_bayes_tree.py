@@ -1,7 +1,8 @@
 import unittest
 import py_dfg_da as pdd
+import py_dfg_da
 from dfg_da.cluster_bayes_tree import *
-from dfg_da.marginals_computers import MulticlusterExactEHM2, MulticlusterExactOutput
+from dfg_da.marginals_computers import MulticlusterExactEHM2, MulticlusterExactOutput, MulticlusterExact
 from cluster_data_asso import edmund_to_lc, lc_to_edmund
 
 
@@ -565,41 +566,133 @@ class TestClusterLinks(unittest.TestCase):
             self.assertDictEqual(correct_mapping.linking_measurements_to_clusters, mapping.linking_measurements_to_clusters)
 
 
+class TestMHEHM2(unittest.TestCase):
+    def test_mhehm2(self):
+        R = np.array([
+            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R = R[:3]
+
+        R_LC = edmund_to_lc(R)
+
+        assocLocal = np.array([
+            [1],
+            [1]
+        ])
+
+        prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+            py_dfg_da.hypothesis.Hypotheses([
+                py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+                py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            ])
+        ])
+
+        margs, l = multihypothesis_ehm2(R_LC, prior_hypotheses_per_cluster[0])
+
+        correct = MulticlusterExactEHM2()
+        correct_out = correct.compute_marginals(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+
+        self.assertAlmostEqual(l, correct_out.exact_normalization_constant)
+        self.assertTrue(np.allclose(margs, correct_out.exact_marginals))
+
+    def test_mhehm2_2(self):
+        R = np.array([
+            [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+            [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+            [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+            [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+            [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        ], order='F')
+
+        R = R[3:]
+
+        R_LC = edmund_to_lc(R)
+
+        assocLocal = np.array([
+            [1],
+            [1]
+        ])
+
+        prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+            py_dfg_da.hypothesis.Hypotheses([
+                py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+                py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
+            ])
+        ])
+
+        margs, l = multihypothesis_ehm2(R_LC, prior_hypotheses_per_cluster[0])
+
+        correct = MulticlusterExactEHM2()
+        correct_out = correct.compute_marginals(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+
+        self.assertAlmostEqual(l, correct_out.exact_normalization_constant)
+        self.assertTrue(np.allclose(margs, correct_out.exact_marginals))
+
+
 class TestMulticlusterEfficientMarginals(unittest.TestCase):
     def setUp(self):
         pass
 
     def test_marginals_computation(self):
         R = np.array([
-            [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-            [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-            [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
-            [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
-            [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-            [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-            [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+            [    3.0, -0.60, -np.inf],
+            [    3.2, -np.inf,   -0.56],
         ], order='F')
+
 
         R_LC = edmund_to_lc(R)
 
         assocLocal = np.array([
-            [1, 1, 3],
-            [1, 0, 1]
+            [1, 1],
+            [1, 0]
         ])
-        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([1, 2], np.log(0.2)),
-                pdd.hypothesis.Hypothesis([1, 3], np.log(0.8))
+
+        prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+            py_dfg_da.hypothesis.Hypotheses([
+                py_dfg_da.hypothesis.Hypothesis([1], np.log(0.5)),
+                py_dfg_da.hypothesis.Hypothesis([], np.log(0.5))
             ]),
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([4, 5], np.log(0.3)),
-                pdd.hypothesis.Hypothesis([], np.log(0.7))
-            ]),
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([6, 7], np.log(0.5))
+            py_dfg_da.hypothesis.Hypotheses([
+                py_dfg_da.hypothesis.Hypothesis([2], np.log(0.5)),
+                py_dfg_da.hypothesis.Hypothesis([], np.log(0.5)),
             ])
         ])
+
+        # R = np.array([
+        #     [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        #     [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        #     [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
+        #     [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
+        #     [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        #     [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        #     [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        # ], order='F')
+
+        # R_LC = edmund_to_lc(R)
+
+        # assocLocal = np.array([
+        #     [1, 1, 3],
+        #     [1, 0, 1]
+        # ])
+        # prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+        #     pdd.hypothesis.Hypotheses([
+        #         pdd.hypothesis.Hypothesis([1, 2], np.log(0.2)),
+        #         pdd.hypothesis.Hypothesis([1, 3], np.log(0.8))
+        #     ]),
+        #     pdd.hypothesis.Hypotheses([
+        #         pdd.hypothesis.Hypothesis([4, 5], np.log(0.3)),
+        #         pdd.hypothesis.Hypothesis([], np.log(0.7))
+        #     ]),
+        #     pdd.hypothesis.Hypotheses([
+        #         pdd.hypothesis.Hypothesis([], np.log(0.5)),
+        #         pdd.hypothesis.Hypothesis([6, 7], np.log(0.5))
+        #     ])
+        # ])
         
         exact_computer = MulticlusterExactEHM2()
 
@@ -611,8 +704,13 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             assocLocal=assocLocal
         )
 
-        efficient_marginals = efficient_cluster.compute_marginals_likelihood()
+        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
 
+        print()
+        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
+        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
+
+        self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
 
 
