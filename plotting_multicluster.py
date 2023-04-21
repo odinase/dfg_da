@@ -753,15 +753,14 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
 
 
 def normalization_constant_scatter_plot(cluster_stats: List[Tuple[MulticlusterData, Path]]):
-    bethe_normalization_constants = []
-    exact_normalization_constants = []
+    num_files = len(cluster_stats)
+    bethe_normalization_constants = np.empty(num_files)
+    exact_normalization_constants = np.empty(num_files)
 
-    for cluster_stat, _ in cluster_stats:
-        exact_normalization_constants.append(cluster_stat.exact_output.exact_normalization_constant)
-        bethe_normalization_constants.append(cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant())
-
-    bethe_normalization_constants = np.hstack(bethe_normalization_constants)
-    exact_normalization_constants = np.hstack(exact_normalization_constants)
+    print("Loading normalization constants in from file...")
+    for k, (cluster_stat, _) in tqdm(enumerate(cluster_stats)):
+        exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
+        bethe_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
 
     fig, ax = plt.subplots()
     # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
@@ -775,8 +774,15 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[MulticlusterDa
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
     ax.axis('equal')
-    # set the aspect ratio to be equal
+    # # set the aspect ratio to be equal
     ax.set_aspect('equal')
+
+    # xticks = ax.get_xticks()
+    # xticklabels = ax.get_xticklabels()
+
+    # # Set the y-axis ticks and tick labels to be the same as the x-axis
+    # ax.set_yticks(xticks)
+    # ax.set_yticklabels(xticklabels)
 
 
     # fig2, ax2 = plt.subplots()
@@ -830,12 +836,14 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
             print(f"Asked to process {num_files_process}, but only {num_files} available! Processing {num_files}")
             num_files_process = num_files
 
-        load_dirs = load_dirs[:num_files]
+        load_dirs = load_dirs[:num_files_process]
+        assert len(load_dirs) == num_files_process
         num_files = num_files_process
 
     cluster_stats: List[Tuple[MulticlusterData, Path]] = []
     if return_empty_clusters:
         empty_clusters: List[Tuple[MulticlusterData, Path]] = []
+    print(f"Looping over {len(load_dirs)} files!")
     for cluster_file in tqdm(load_dirs, total=num_files):
         if cluster_file.name != "empty_cluster":
             cluster_stats.append(
@@ -845,6 +853,8 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
             empty_clusters.append(
                 (MulticlusterData.from_data(cluster_file), cluster_file)
             )
+
+    return cluster_stats
 
 async def load_cluster_stats_async(path: str = OUTPUT_PATH_BASE, num_files_process: Optional[int] = None):
     load_dirs = Path(path).glob("**/*")
@@ -880,11 +890,11 @@ async def load_cluster_stats_async(path: str = OUTPUT_PATH_BASE, num_files_proce
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
-    path += "_last"
+    # path += "_last"
     print(f"Plotting data in {path}")
     # cluster_stats = asyncio.run(load_cluster_stats_async(path=path, num_files_process=5000))
-    cluster_stats = load_cluster_stats(path=path)
-
+    cluster_stats = load_cluster_stats(path=path, num_files_process=100)
+    print("Loaded cluster stats!")
     # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
 
     # print(illegal_files)
