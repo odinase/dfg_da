@@ -8,6 +8,7 @@ from typing import *
 from pyehm.core import EHM2
 from dataclasses import dataclass
 from dfg_da.marginal_association_Odin import exact_marginal
+from scipy.special import binom
 
 
 def test_case():
@@ -329,7 +330,7 @@ class ConditionalSuperclusterMarginals:
         meas_assignements = [None]*len(self.lm2arr_idx)
         # Populate the list with the assignments in the correct place
         for lm, idx in self.lm2arr_idx.items():
-            meas_assignements[idx] = np.fromiter(self.linking_mappings.linking_measurements_to_clusters[lm], dtype=int)
+            meas_assignements[idx] = np.array([-1, *np.fromiter(self.linking_mappings.linking_measurements_to_clusters[lm], dtype=int)])
 
         return cartesian_product(*meas_assignements)
 
@@ -349,6 +350,7 @@ class ConditionalSuperclusterMarginals:
 
         # Need to figure out assignments to loop over, construct matrix first
         measurement_assignments = self.enumerate_meas_exist()
+        print(measurement_assignments)
 
         # Preallocate marginal_term variable. We will write to all rows for each iteration, so safe to do here
         marginal_term = np.empty_like(marginals)
@@ -367,23 +369,76 @@ class ConditionalSuperclusterMarginals:
             marginals += marginal_term*assignment_likelihood
             likelihood += assignment_likelihood
 
-        null_assignment = np.full(measurement_assignments.shape[1], -1, dtype=int)
-        assignment_likelihood = 1.0
-        for cluster in self.conditioned_clusters:
-            conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(null_assignment)
-            cluster_t_idxs = cluster.t_idxs
-            marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
-            assignment_likelihood *= conditioned_cluster_likelihood
+        if measurement_assignments.shape[1] == 1:
+            null_assignment = np.full(measurement_assignments.shape[1], -1, dtype=int)
+            assignment_likelihood = 1.0
+            for cluster in self.conditioned_clusters:
+                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(null_assignment)
+                cluster_t_idxs = cluster.t_idxs
+                marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
+                assignment_likelihood *= conditioned_cluster_likelihood
 
-        num_clusters = len(self.conditioned_clusters)
-
-        marginals -= marginal_term*assignment_likelihood
-        likelihood -= assignment_likelihood
+            marginals -= 2*marginal_term*assignment_likelihood
+            likelihood -= 2*assignment_likelihood
+        elif measurement_assignments.shape[1] == 2:
+            extra_term, extra_likelihood = self.extra_term_likelihood_2meas(measurement_assignments, marginal_term.shape)
+            marginals += extra_term
+            likelihood += extra_likelihood
+        else:
+            raise NotImplementedError()
 
         marginals: np.ndarray = marginals[t_idxs]
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
         return marginals, likelihood
+
+    def extra_term_likelihood_2meas(self, measurement_assignments: np.ndarray, marginals_shape: Tuple[int, int]):
+        # We know that no tuples should be without null detection
+        measurement_assignments_sub = measurement_assignments.copy()
+        null_assignements = (measurement_assignments_sub == -1).any(axis=1)
+        measurement_assignments_sub = measurement_assignments_sub[null_assignements]
+        # Top row should be all -1
+        assert (measurement_assignments_sub[0] == -1).all()
+        # Slice it off
+        measurement_assignments_sub = measurement_assignments_sub[1:]
+
+        # We have only two measurements, so we should be able to compute the partial sums for each assignment of measurement with the null assignment
+        num_possible_intersections = (measurement_assignments_sub == -1).sum(0) + 1  # This corresponds to n variable
+
+        marginal_sum = np.zeros(marginals_shape)
+        likelihood_sum = 0.0
+        marginal_term = np.empty(marginals_shape)
+        
+
+
+        for col, n in enumerate(num_possible_intersections):
+            # Compute the coefficients
+            col_assignments = measurement_assignments_sub[:, col] == -1
+            coeff_sum = self.coefficient_sum(n)
+            if (abs(coeff_sum) < 1e-6):
+                continue
+            for assignment in measurement_assignments_sub[col_assignments]:
+                assignment_likelihood = 1.0
+                for cluster in self.conditioned_clusters:
+                    conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(assignment)
+                    cluster_t_idxs = cluster.t_idxs
+                    marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
+                    assignment_likelihood *= conditioned_cluster_likelihood
+
+                marginal_sum += coeff_sum*marginal_term*assignment_likelihood
+                likelihood_sum += coeff_sum*assignment_likelihood
+
+        # We need to add in the pure null assignments
+        # Hard code and check for now??
+        coeff_sum_null = -(66 - 27) + ((66*12/2) - )
+
+        return marginal_sum, likelihood_sum
+
+
+    def coefficient_sum(self, n):
+        k = np.arange(2, n + 1)
+        coeffs = binom(n, k)
+        return np.cumprod(-coeffs).sum()
 
 
 class ConditionedCluster:
@@ -429,6 +484,7 @@ class ConditionedCluster:
 
         meas_exist_tuple = tuple(assigned_to_this_cluster_mask)
         if meas_exist_tuple in self.cache:
+            print(f"Cluster {self.cluster_idx} has seen assignment {meas_exist_tuple} before! Returning cache!")
             return self.cache[meas_exist_tuple]
 
         R_conditioned = self.conditioned_reward_matrix(assigned_to_this_cluster_mask)
