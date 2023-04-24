@@ -429,8 +429,32 @@ class ConditionalSuperclusterMarginals:
                 likelihood_sum += coeff_sum*assignment_likelihood
 
         # We need to add in the pure null assignments
-        # Hard code and check for now??
-        coeff_sum_null = -(66 - 27) + ((66*12/2) - )
+        # N = measurement_assignments.shape[0]
+        # num_null_assignments = np.zeros(N)
+        # for col, n in enumerate(num_possible_intersections):
+        #     num = (measurement_assignments_sub[:, col] == -1).sum()
+        #     for k in range(2, n + 1):
+        #         num_null_assignments[k-2] += (-1)**(k-1)*binom(n, k)*num
+            
+        # print(num_null_assignments)
+        # for k in range(N):
+        #     num_null_assignments[k] += (-1)**(k - 1) * binom(N, k)
+
+        assignment_likelihood = 1.0
+        null_assignement = np.full(measurement_assignments_sub.shape[1], -1)
+        for cluster in self.conditioned_clusters:
+            conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(null_assignement)
+            cluster_t_idxs = cluster.t_idxs
+            marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
+            assignment_likelihood *= conditioned_cluster_likelihood
+
+        # null_sum = num_null_assignments.sum()
+
+        # print(null_sum)
+        null_sum = +326
+
+        marginal_sum += null_sum*marginal_term*assignment_likelihood
+        likelihood_sum += null_sum*assignment_likelihood        
 
         return marginal_sum, likelihood_sum
 
