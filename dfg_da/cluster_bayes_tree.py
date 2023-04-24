@@ -430,7 +430,7 @@ class ConditionalSuperclusterMarginals:
 
         # We need to add in the pure null assignments
         # Hard code and check for now??
-        coeff_sum_null = -(66 - 27) + ((66*12/2) - )
+        # coeff_sum_null = -(66 - 27) + ((66*12/2) - )
 
         return marginal_sum, likelihood_sum
 
@@ -438,7 +438,7 @@ class ConditionalSuperclusterMarginals:
     def coefficient_sum(self, n):
         k = np.arange(2, n + 1)
         coeffs = binom(n, k)
-        return np.cumprod(-coeffs).sum()
+        return ((-1)**(k - 1) * coeffs).sum()
 
 
 class ConditionedCluster:
