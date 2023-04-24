@@ -361,11 +361,24 @@ class ConditionalSuperclusterMarginals:
             for cluster in self.conditioned_clusters:
                 conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)
                 cluster_t_idxs = cluster.t_idxs
-                marginal_term[cluster_t_idxs] = conditioned_cluster_marginal*conditioned_cluster_likelihood
+                marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
                 assignment_likelihood *= conditioned_cluster_likelihood
 
-            marginals += marginal_term
+            marginals += marginal_term*assignment_likelihood
             likelihood += assignment_likelihood
+
+        null_assignment = np.full(measurement_assignments.shape[1], -1, dtype=int)
+        assignment_likelihood = 1.0
+        for cluster in self.conditioned_clusters:
+            conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(null_assignment)
+            cluster_t_idxs = cluster.t_idxs
+            marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
+            assignment_likelihood *= conditioned_cluster_likelihood
+
+        num_clusters = len(self.conditioned_clusters)
+
+        marginals -= marginal_term*assignment_likelihood
+        likelihood -= assignment_likelihood
 
         marginals: np.ndarray = marginals[t_idxs]
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
