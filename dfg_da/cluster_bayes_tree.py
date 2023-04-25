@@ -277,6 +277,12 @@ class MulticlusterEfficientMarginals:
 
         return marginals, likelihood
 
+def print_numbers_to_chars_assignment(assignment):
+    assert len(assignment) == 2
+    chr1 = chr(assignment[0] + ord('A')) if assignment[0] != -1 else 'N'
+    chr2 = chr(assignment[1] + ord('X') - 1) if assignment[1] != -1 else 'N'
+    print(f"({chr1}, {chr2})")
+
 
 class ConditionalSuperclusterMarginals:
     def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, linking_mappings: LinkingMappings):
@@ -403,21 +409,22 @@ class ConditionalSuperclusterMarginals:
         measurement_assignments_sub = measurement_assignments_sub[1:]
 
         # We have only two measurements, so we should be able to compute the partial sums for each assignment of measurement with the null assignment
-        num_possible_intersections = (measurement_assignments_sub == -1).sum(0) + 1  # This corresponds to n variable
+        num_possible_intersections = (measurement_assignments_sub != -1).sum(0) + 1  # This corresponds to n variable
 
         marginal_sum = np.zeros(marginals_shape)
         likelihood_sum = 0.0
         marginal_term = np.empty(marginals_shape)
         
 
-
+        tot_coeff_sum = 0.0
         for col, n in enumerate(num_possible_intersections):
             # Compute the coefficients
             col_assignments = measurement_assignments_sub[:, col] == -1
             coeff_sum = self.coefficient_sum(n)
             if (abs(coeff_sum) < 1e-6):
                 continue
-            for assignment in measurement_assignments_sub[col_assignments]:
+            for j, assignment in enumerate(measurement_assignments_sub[col_assignments]):
+                # print_numbers_to_chars_assignment(assignment)
                 assignment_likelihood = 1.0
                 for cluster in self.conditioned_clusters:
                     conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(assignment)
@@ -425,6 +432,8 @@ class ConditionalSuperclusterMarginals:
                     marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
                     assignment_likelihood *= conditioned_cluster_likelihood
 
+                # print(f"Applied {coeff_sum} {j+1} times")
+                tot_coeff_sum += coeff_sum
                 marginal_sum += coeff_sum*marginal_term*assignment_likelihood
                 likelihood_sum += coeff_sum*assignment_likelihood
 
@@ -435,7 +444,7 @@ class ConditionalSuperclusterMarginals:
         #     num = (measurement_assignments_sub[:, col] == -1).sum()
         #     for k in range(2, n + 1):
         #         num_null_assignments[k-2] += (-1)**(k-1)*binom(n, k)*num
-            
+
         # print(num_null_assignments)
         # for k in range(N):
         #     num_null_assignments[k] += (-1)**(k - 1) * binom(N, k)
@@ -451,7 +460,7 @@ class ConditionalSuperclusterMarginals:
         # null_sum = num_null_assignments.sum()
 
         # print(null_sum)
-        null_sum = -4
+        null_sum = 1 - measurement_assignments.shape[0] - tot_coeff_sum
 
         marginal_sum += null_sum*marginal_term*assignment_likelihood
         likelihood_sum += null_sum*assignment_likelihood        
@@ -462,6 +471,12 @@ class ConditionalSuperclusterMarginals:
     def coefficient_sum(self, n):
         k = np.arange(2, n + 1)
         coeffs = binom(n, k)
+        # print(f"For {n} starting tuples, we have ")
+        # signs = (-1)**(k - 1)
+        # for s, kk in zip(signs, k):
+        #     ss = '-' if s < 0 else '+'
+        #     print(f"{ss}({n} {kk})", end='')
+        # print(f"={((-1)**(k - 1) * coeffs).sum()}\n")
         return ((-1)**(k - 1) * coeffs).sum()
 
 
@@ -508,7 +523,6 @@ class ConditionedCluster:
 
         meas_exist_tuple = tuple(assigned_to_this_cluster_mask)
         if meas_exist_tuple in self.cache:
-            print(f"Cluster {self.cluster_idx} has seen assignment {meas_exist_tuple} before! Returning cache!")
             return self.cache[meas_exist_tuple]
 
         R_conditioned = self.conditioned_reward_matrix(assigned_to_this_cluster_mask)
