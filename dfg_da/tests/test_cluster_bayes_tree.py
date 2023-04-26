@@ -366,6 +366,8 @@ class TestClusterLinks(unittest.TestCase):
             5: { 3, 4 }
         }
 
+        self.assertDictEqual(correct_mapping, cluster_links.meas_to_clusters())
+
         for (correct_measurement, correct_cluster_idx_set), (measurement, cluster_idx_set) in zip(correct_mapping.items(), cluster_links.meas_to_clusters().items()):
             self.assertEqual(correct_measurement, measurement)
             self.assertEqual(correct_cluster_idx_set, cluster_idx_set)
@@ -432,6 +434,8 @@ class TestClusterLinks(unittest.TestCase):
             3: { 3, 4, 5 },
             4: { 1, 5 },
         }
+
+        self.assertDictEqual(correct_mapping, cluster_links.cluster_to_linking_meas())
 
         for (correct_cluster, correct_measurement_set), (cluster, measurement_set) in zip(correct_mapping.items(), cluster_links.cluster_to_linking_meas().items()):
             self.assertEqual(correct_cluster, cluster)
@@ -725,6 +729,218 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
         efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
 
         print()
+        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
+        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
+
+        self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
+        self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
+
+    def test_marginals_computation3(self):
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
+        ], order='F')
+
+        R_LC[:, 0] = np.log(R_LC[:, 0])
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([7], np.log(0.4))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([8], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([9], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([10], np.log(0.4))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([11], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([12], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 3, 3, 1, 6],
+            [1, 0, 1, 0, 0, 1]
+        ])
+
+        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
+
+        correct_mapping = {
+            1: {0, 1, 4},
+            3: { 2, 3 },
+            4: { 2, 3 }
+        }
+       
+        exact_computer = MulticlusterExactEHM2()
+
+        exact_output: MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        
+        efficient_cluster = MulticlusterEfficientMarginals(
+            R_LC=R_LC,
+            prior_hypotheses_per_cluster=prior_hypotheses_per_cluster,
+            assocLocal=assocLocal
+        )
+
+        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        print()
+        np.set_printoptions(suppress=False, linewidth=150)
+        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
+        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
+
+        self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
+        self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
+
+
+    def test_marginals_computation4(self):
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
+        ], order='F')
+
+        R_LC[:, 0] = np.log(R_LC[:, 0])
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([7], np.log(0.4))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([8], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([9], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([10], np.log(0.4))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([11], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([12], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 1, 1, 1, 6],
+            [1, 0, 0, 0, 0, 1]
+        ])
+
+        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
+
+        correct_mapping = {
+            1: { 0, 1, 4 },
+            3: { 2, 3 },
+            4: { 2, 3 },
+            5: { 3, 4 }
+        }
+       
+        exact_computer = MulticlusterExactEHM2()
+
+        exact_output: MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        
+        efficient_cluster = MulticlusterEfficientMarginals(
+            R_LC=R_LC,
+            prior_hypotheses_per_cluster=prior_hypotheses_per_cluster,
+            assocLocal=assocLocal
+        )
+
+        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        print()
+        np.set_printoptions(suppress=False, linewidth=150)
+        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
+        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
+
+        self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
+        self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
+
+    def test_marginals_computation5(self):
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf,     1.0],
+            [0.1,     1.0,     1.0,     1.0, -np.inf],
+            [0.1,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf,     1.0],
+        ], order='F')
+
+        R_LC[:, 0] = np.log(R_LC[:, 0])
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1],
+            [1, 0]
+        ])
+
+        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
+        self.assertEqual(len(cluster_links.linking_mappings_per_merging_clusters()), 1)
+        self.assertEqual(len(cluster_links.linking_mappings_per_merging_clusters()[0].all_linking_measurements_idxs()), 4)
+       
+        exact_computer = MulticlusterExactEHM2()
+
+        exact_output: MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        
+        efficient_cluster = MulticlusterEfficientMarginals(
+            R_LC=R_LC,
+            prior_hypotheses_per_cluster=prior_hypotheses_per_cluster,
+            assocLocal=assocLocal
+        )
+
+        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        print()
+        np.set_printoptions(suppress=False, linewidth=150)
         print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
         print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
 

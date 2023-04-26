@@ -190,7 +190,9 @@ class ExactMarginals(MarginalsComputer):
         conditioned_marginals = np.empty((n, m + 2))
 
         _0 = np.zeros((n, 1))
-        for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
+        for k, hypothesis in enumerate(prior_hypotheses):
+            hypo_prob = hypothesis.probability()
+            tracks = (np.array(hypothesis.tracks())).astype(int)
             R_sub = R_LC[tracks-1, :]
             JPDAprobs, _, loglikelihood = exact_marginal(R_sub, False)
 

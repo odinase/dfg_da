@@ -8,6 +8,7 @@ from typing import *
 from pyehm.core import EHM2
 from dataclasses import dataclass
 from dfg_da.marginal_association_Odin import exact_marginal
+import dfg_da.marginals_computers as mc
 from scipy.special import binom
 
 
@@ -242,7 +243,7 @@ class MulticlusterEfficientMarginals:
         self.superclusters = [
             ConditionalSuperclusterMarginals(
                 R_LC=R_LC,
-                prior_hypotheses_per_cluster=prior_hypotheses_per_cluster,
+                prior_hypotheses_per_cluster=self.prior_hypotheses_per_cluster,
                 linking_mappings=linking_mappings
             )
             for linking_mappings in self.cluster_links.linking_mappings_per_merging_clusters()
@@ -325,8 +326,8 @@ class ConditionalSuperclusterMarginals:
         if hasattr(self, 't_idxs'):
             return self.t_idxs
 
-        idxs = [ph.tracks() for ph in self.prior_hypotheses_per_cluster]
-        return np.sort(np.fromiter(set.union(*idxs), dtype=int)) - 1
+        idxs = [ph.t_idxs() for c, ph in enumerate(self.prior_hypotheses_per_cluster) if c in self.linking_mappings.all_cluster_idxs()]
+        return np.sort(np.hstack(idxs))
 
     def enumerate_meas_exist(self) -> np.ndarray:
         # Should be simply make a list for each measurement that should 
@@ -356,7 +357,7 @@ class ConditionalSuperclusterMarginals:
 
         # Need to figure out assignments to loop over, construct matrix first
         measurement_assignments = self.enumerate_meas_exist()
-        print(measurement_assignments)
+
 
         # Preallocate marginal_term variable. We will write to all rows for each iteration, so safe to do here
         marginal_term = np.empty_like(marginals)
@@ -375,23 +376,9 @@ class ConditionalSuperclusterMarginals:
             marginals += marginal_term*assignment_likelihood
             likelihood += assignment_likelihood
 
-        if measurement_assignments.shape[1] == 1:
-            null_assignment = np.full(measurement_assignments.shape[1], -1, dtype=int)
-            assignment_likelihood = 1.0
-            for cluster in self.conditioned_clusters:
-                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(null_assignment)
-                cluster_t_idxs = cluster.t_idxs
-                marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
-                assignment_likelihood *= conditioned_cluster_likelihood
-
-            marginals -= 2*marginal_term*assignment_likelihood
-            likelihood -= 2*assignment_likelihood
-        elif measurement_assignments.shape[1] == 2:
-            extra_term, extra_likelihood = self.extra_term_likelihood_2meas(measurement_assignments, marginal_term.shape)
-            marginals += extra_term
-            likelihood += extra_likelihood
-        else:
-            raise NotImplementedError()
+        extra_term, extra_likelihood = self.extra_term_likelihood_general(measurement_assignments, marginal_term.shape)
+        marginals += extra_term
+        likelihood += extra_likelihood
 
         marginals: np.ndarray = marginals[t_idxs]
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
@@ -424,7 +411,7 @@ class ConditionalSuperclusterMarginals:
             if (abs(coeff_sum) < 1e-6):
                 continue
             for j, assignment in enumerate(measurement_assignments_sub[col_assignments]):
-                # print_numbers_to_chars_assignment(assignment)
+                print_numbers_to_chars_assignment(assignment)
                 assignment_likelihood = 1.0
                 for cluster in self.conditioned_clusters:
                     conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(assignment)
@@ -432,7 +419,7 @@ class ConditionalSuperclusterMarginals:
                     marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
                     assignment_likelihood *= conditioned_cluster_likelihood
 
-                # print(f"Applied {coeff_sum} {j+1} times")
+                print(f"Applied {coeff_sum} {j+1} times")
                 tot_coeff_sum += coeff_sum
                 marginal_sum += coeff_sum*marginal_term*assignment_likelihood
                 likelihood_sum += coeff_sum*assignment_likelihood
@@ -460,6 +447,7 @@ class ConditionalSuperclusterMarginals:
         # null_sum = num_null_assignments.sum()
 
         # print(null_sum)
+        print(tot_coeff_sum)
         null_sum = 1 - measurement_assignments.shape[0] - tot_coeff_sum
 
         marginal_sum += null_sum*marginal_term*assignment_likelihood
@@ -467,16 +455,80 @@ class ConditionalSuperclusterMarginals:
 
         return marginal_sum, likelihood_sum
 
+    def coeff_sum_lookup(num_linking_measurements):
+        pass
+
+
+    def extra_term_likelihood_general(self, measurement_assignments: np.ndarray, marginals_shape: Tuple[int, int]):
+        # We know that no tuples should be without null detection
+        null_assignements = (measurement_assignments == -1).any(axis=1)
+        measurement_assignments_sub = measurement_assignments[null_assignements]
+        # Top row should be all -1
+        assert (measurement_assignments_sub[0] == -1).all()
+        # Slice it off
+        measurement_assignments_sub = measurement_assignments_sub[1:]
+
+        # These are the assignments we need to count for all the deeper levels
+        # Get the cardinality of each linking measurement for each column
+        # Invert dict
+        cards = np.empty(len(self.lm2arr_idx), dtype=int)
+        for lm, idx in self.lm2arr_idx.items():
+            cards[idx] = len(self.linking_mappings.linking_measurements_to_clusters[lm]) + 1  # We add 1 for the null assignment
+        
+        print(cards)
+        N = measurement_assignments.shape[0]
+        assert cards.prod() == measurement_assignments.shape[0], f"Num cart prod is {measurement_assignments.shape[0]} but card prod is {cards.prod()}"
+
+        marginal_sum = np.zeros(marginals_shape)
+        likelihood_sum = 0.0
+        marginal_term = np.empty(marginals_shape)
+
+        # For now, let's loop over the rows of measurement_assignment_sub and do the counting for each assignment there. I guess this amount to roughly the same any way, as we need to compute the marginal terms anyway?
+        tot_coeff_sum = 0.0
+        for j, assignment in enumerate(measurement_assignments_sub):
+            # Find the nulls, i.e. the free columns
+            nulls = assignment == -1
+            # Compute the product over free columns, as this will be the number of tuples that can be combined to this assignment
+            cards_free = cards[nulls]
+            n_free = cards_free.prod()
+            coeff_sum = (1 - n_free + np.sum(((n_free // cards_free) - 1)**2))
+            assignment_likelihood = 1.0
+            for cluster in self.conditioned_clusters:
+                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(assignment)
+                cluster_t_idxs = cluster.t_idxs
+                marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
+                assignment_likelihood *= conditioned_cluster_likelihood
+
+            tot_coeff_sum += coeff_sum
+            marginal_sum += coeff_sum*marginal_term*assignment_likelihood
+            likelihood_sum += coeff_sum*assignment_likelihood
+
+        assignment_likelihood = 1.0
+        null_assignement = np.full(measurement_assignments_sub.shape[1], -1)
+        for cluster in self.conditioned_clusters:
+            conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(null_assignement)
+            cluster_t_idxs = cluster.t_idxs
+            marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
+            assignment_likelihood *= conditioned_cluster_likelihood
+
+        null_sum = 1 - measurement_assignments.shape[0] - tot_coeff_sum
+
+        marginal_sum += null_sum*marginal_term*assignment_likelihood
+        likelihood_sum += null_sum*assignment_likelihood
+
+        return marginal_sum, likelihood_sum
+
+
 
     def coefficient_sum(self, n):
         k = np.arange(2, n + 1)
         coeffs = binom(n, k)
-        # print(f"For {n} starting tuples, we have ")
-        # signs = (-1)**(k - 1)
-        # for s, kk in zip(signs, k):
-        #     ss = '-' if s < 0 else '+'
-        #     print(f"{ss}({n} {kk})", end='')
-        # print(f"={((-1)**(k - 1) * coeffs).sum()}\n")
+        print(f"For {n} starting tuples, we have ")
+        signs = (-1)**(k - 1)
+        for s, kk in zip(signs, k):
+            ss = '-' if s < 0 else '+'
+            print(f"{ss}({n} {kk})", end='')
+        print(f"={((-1)**(k - 1) * coeffs).sum()}\n")
         return ((-1)**(k - 1) * coeffs).sum()
 
 
