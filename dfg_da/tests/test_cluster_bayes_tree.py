@@ -678,10 +678,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
 
         efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
 
-        print()
-        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
-        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
-
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
 
@@ -726,10 +722,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
         )
 
         efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
-
-        print()
-        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
-        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -786,14 +778,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             [1, 0, 1, 0, 0, 1]
         ])
 
-        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
-
-        correct_mapping = {
-            1: {0, 1, 4},
-            3: { 2, 3 },
-            4: { 2, 3 }
-        }
-       
         exact_computer = MulticlusterExactEHM2()
 
         exact_output: MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
@@ -805,11 +789,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
         )
 
         efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
-
-        print()
-        np.set_printoptions(suppress=False, linewidth=150)
-        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
-        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -866,15 +845,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             [1, 1, 1, 1, 1, 6],
             [1, 0, 0, 0, 0, 1]
         ])
-
-        cluster_links = ClusterLinks(R_LC, prior_hypotheses_per_cluster, assocLocal)
-
-        correct_mapping = {
-            1: { 0, 1, 4 },
-            3: { 2, 3 },
-            4: { 2, 3 },
-            5: { 3, 4 }
-        }
        
         exact_computer = MulticlusterExactEHM2()
 
@@ -887,11 +857,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
         )
 
         efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
-
-        print()
-        np.set_printoptions(suppress=False, linewidth=150)
-        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
-        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -937,11 +902,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
         )
 
         efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
-
-        print()
-        np.set_printoptions(suppress=False, linewidth=150)
-        print(f"Efficient:\n{efficient_marginals}\nExact:\n{exact_output.exact_marginals}")
-        print(f"Efficient:\n{efficient_likelihood}\nExact:\n{exact_output.exact_normalization_constant}")
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -992,8 +952,6 @@ class TestBprobsToAprobs(unittest.TestCase):
         validation_matrix_b, likelihood_matrix_b = R_LC_to_validation_likelihood_matrix(Rb)
 
         b_probs, b_likelihood = EHM2.run_and_likelihood(validation_matrix_b, likelihood_matrix_b)
-        # b_probs, _, b_loglikelihood = exact_marginal(R_conditioned_bversion, False)
-        # b_likelihood = np.exp(b_loglikelihood)
         JPDAprobs, likelihood = b_probs_likelihood_to_a_probs_likelihood(b_probs, b_likelihood, R_LC)
 
         validation_matrix, likelihood_matrix = R_LC_to_validation_likelihood_matrix(R_LC)

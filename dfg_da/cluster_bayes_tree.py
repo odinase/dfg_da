@@ -275,7 +275,6 @@ def multihypothesis_ehm2_meas_conditioned(R_cluster, prior_hypotheses, meas_exis
     all_tracks_idx = np.arange(R_cluster.shape[0])
     n, mp1 = R_cluster.shape
     marginals = np.zeros((n, mp1 + 1))
-    count_added = 0
     conditioned_marginals = np.empty((n, mp1 + 1))  # Needs to add nonexistence
     _0 = np.zeros((n, mp1))
     _1 = np.ones((n, 1))
@@ -317,15 +316,12 @@ def multihypothesis_ehm2_meas_conditioned(R_cluster, prior_hypotheses, meas_exis
         hypo_cond_normalizing_constants[k] = likelihood
 
         if likelihood > 0.0:
-            count_added += 1
-            assert np.isfinite(conditioned_marginals).all() and np.isfinite(likelihood)
             marginals += conditioned_marginals * likelihood * prob
             normalizing_constant_cluster += likelihood * prob
 
-    if not (marginals.sum(axis=1) > 0.0).all():
-        pass
-        # print(marginals)
-    marginals = marginals / marginals.sum(axis=1, keepdims=True)
+    assert (np.abs(marginals.sum(axis=1) - normalizing_constant_cluster) < 1e-8).all()
+    if normalizing_constant_cluster > 0.0:
+        marginals = marginals / normalizing_constant_cluster
 
     return marginals, normalizing_constant_cluster
 
@@ -367,8 +363,6 @@ class MulticlusterEfficientMarginals:
         for supercluster in self.superclusters:
             marginals_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
             t_idxs = supercluster.supercluster_t_idxs()
-            if not np.isfinite(marginals_supercluster).all() or not np.isfinite(likelihood_supercluster).all():
-                marginals_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
             marginals[t_idxs] = marginals_supercluster
             likelihood *= likelihood_supercluster
 
@@ -474,9 +468,7 @@ class ConditionalSuperclusterMarginals:
             # Since the clusters now are independent, we simply compute the conditional marginals for each cluster and appropriately insert them into the supercluster marginal, and sum
             assignment_likelihood = 1.0
             for cluster in self.conditioned_clusters:
-                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)
-                if not np.isfinite(conditioned_cluster_marginal).all() or not np.isfinite(conditioned_cluster_likelihood):
-                    conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)                    
+                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)       
                 cluster_t_idxs = cluster.t_idxs
                 if conditioned_cluster_likelihood > 0.0:
                     marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
@@ -564,8 +556,6 @@ class ConditionedCluster:
 
         # At this point we simply do normal computation??
         marginals_conditioned, likelihood_conditioned = multihypothesis_ehm2_meas_conditioned(self.R_cluster, self.prior_hypotheses, meas_existence_mapping=meas_existence_mapping, reindex_tracks=False)
-        if not np.isfinite(marginals_conditioned).all() or not np.isfinite(likelihood_conditioned):
-            marginals_conditioned, likelihood_conditioned = multihypothesis_ehm2_meas_conditioned(self.R_cluster, self.prior_hypotheses, meas_existence_mapping=meas_existence_mapping, reindex_tracks=False)
 
         output = (marginals_conditioned, likelihood_conditioned)
         # Cache for later
