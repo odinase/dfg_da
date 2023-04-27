@@ -296,16 +296,14 @@ def multihypothesis_ehm2_meas_conditioned(R_cluster, prior_hypotheses, meas_exis
                 likelihood = 0.0
             else:
                 b_probs, b_likelihood = EHM2.run_and_likelihood(validation_matrix, likelihood_matrix)
-                # b_probs, _, b_loglikelihood = exact_marginal(R_conditioned_bversion, False)
-                # b_likelihood = np.exp(b_loglikelihood)
                 JPDAprobs, likelihood = b_probs_likelihood_to_a_probs_likelihood(b_probs, b_likelihood, R_sub)
-                # a_probs, _, a_loglikelihood = exact_marginal(R_sub, False)
-                # assert np.allclose(a_probs, JPDAprobs), f"b: {JPDAprobs}\na: {a_probs}\n: cond {existing_linking_meas}"
-                # assert abs(likelihood - np.exp(a_loglikelihood)) < 1e-8, f"b: {likelihood}, a: {np.exp(a_loglikelihood)}"
-            # likelihood = np.exp(loglikelihood)
         else:
             JPDAprobs = np.zeros((0, mp1))
-            likelihood = 1.0
+            # We need to check if some measurement has to be associated. If not, we use likelihood 1. Otherwise, 0
+            if meas_existence_mapping[:, 1].any():
+                likelihood = 0.0
+            else:
+                likelihood = 1.0
 
         # We need to concatenate the JPDAprobs with all tracks and existence probs
         non_existing_tracks_idx = np.setdiff1d(all_tracks_idx, existing_tracks_idx, assume_unique=True)
