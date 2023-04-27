@@ -562,9 +562,7 @@ class MulticlusterExactEHM2(MulticlusterMarginalsComputer):
                 conditioned_marginals[existing_tracks_idx] = existing_probs
                 conditioned_marginals[non_existing_tracks_idx] =  nonexisting_probs
 
-                hypo_cond_normalization_constant = likelihood
-
-                hypo_cond_normalizing_constants[k] = hypo_cond_normalization_constant
+                hypo_cond_normalizing_constants[k] = likelihood
 
                 marginal_total += conditioned_marginals * likelihood * prob
 

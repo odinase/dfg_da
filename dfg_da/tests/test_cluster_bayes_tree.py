@@ -648,7 +648,6 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             [    3.2, -np.inf,   -0.56],
         ], order='F')
 
-
         R_LC = edmund_to_lc(R)
 
         assocLocal = np.array([
@@ -946,6 +945,64 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
+
+
+class TestConditionedRewardMatrix_bversion(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_conversion_no_conditioning(self):
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf,     1.0],
+            [0.1,     1.0,     1.0,     1.0, -np.inf],
+            [0.1,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf,     1.0],
+        ], order='F')
+
+        meas_existence_mapping = np.empty((0, 2), dtype=np.int64)
+
+        R_expected = np.array([
+            [0.0, 1.0 - 0.1, 1.0 - 0.1, 1.0 - 0.1,   -np.inf],
+            [0.0,   -np.inf, 1.0 - 0.1, 1.0 - 0.1, 1.0 - 0.1],
+            [0.0,   -np.inf, 1.0 - 0.1, 1.0 - 0.1,   -np.inf],
+            [0.0, 1.0 - 0.1,   -np.inf,   -np.inf, 1.0 - 0.1]
+        ])
+
+        R = conditioned_reward_matrix_bversion(R_LC, meas_existence_mapping=meas_existence_mapping)
+
+        self.assertSequenceEqual(R.shape, R_expected.shape)
+        self.assertTrue(np.allclose(R_expected, R))
+
+
+class TestBprobsToAprobs(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_conversion(self):
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf,     1.0],
+            [0.1,     1.0,     1.0,     1.0, -np.inf],
+            [0.1,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf,     1.0],
+        ], order='F')
+
+        meas_existence_mapping = np.empty((0, 2), dtype=np.int64)
+
+        Rb = conditioned_reward_matrix_bversion(R_LC, meas_existence_mapping=meas_existence_mapping)
+        validation_matrix_b, likelihood_matrix_b = R_LC_to_validation_likelihood_matrix(Rb)
+
+        b_probs, b_likelihood = EHM2.run_and_likelihood(validation_matrix_b, likelihood_matrix_b)
+        # b_probs, _, b_loglikelihood = exact_marginal(R_conditioned_bversion, False)
+        # b_likelihood = np.exp(b_loglikelihood)
+        JPDAprobs, likelihood = b_probs_likelihood_to_a_probs_likelihood(b_probs, b_likelihood, R_LC)
+
+        validation_matrix, likelihood_matrix = R_LC_to_validation_likelihood_matrix(R_LC)
+
+        correct_probs, correct_likelihood = EHM2.run_and_likelihood(validation_matrix, likelihood_matrix)
+
+        self.assertTrue(np.allclose(JPDAprobs, correct_probs))
+        self.assertAlmostEqual(likelihood, correct_likelihood)
+
 
 
 if __name__ == "__main__":
