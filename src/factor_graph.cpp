@@ -546,6 +546,7 @@ std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(c
 std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster) {
     gtsam::DiscreteFactorGraph dfg = dfg_from_reward_mat_hyp_prior_multicluster(R, prior_hypotheses_per_cluster);
 
+    std::cout << "Came here\n";
     const size_t num_tracks = R.rows();
     const size_t num_measurements = R.cols() - num_tracks;
 
@@ -556,6 +557,9 @@ std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayX
     double exact_normalization_constant = (*ff)({});
     
     gtsam::DiscreteMarginals dfg_marginals(dfg);
+
+    std::cout << "Came here222222\n";
+
 
     auto dks = dfg.discreteKeys();
     std::set<gtsam::DiscreteKey> all_keys(dks.begin(), dks.end());
@@ -587,6 +591,8 @@ std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayX
         meas_marginals.col(c) = dfg_marginals.marginalProbabilities(bjk);
         c += 1;
     }
+
+    std::cout << "Came hereXXXXXX\n";
 
     std::stringstream ss;
     for (const auto& thk : ths) {

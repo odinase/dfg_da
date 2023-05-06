@@ -1,5 +1,6 @@
 import dfg_da.marginals_computers as mc
 import dfg_da.prior_hypothesis as phs
+import dfg_da.cluster_bayes_tree as cbt
 import dfg_da.stats_logger as sl
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
 
@@ -62,23 +63,37 @@ def loop_func(pmbm_file):
         return
 
     mcmhlbp = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-    assocLocal = mat_data.ws["assocLocal"]    
+    assocLocal = mat_data.ws["assocLocal"].copy()
     explicit_hypothesis_enumeration_error = False
     exact_output = None
 
     try:
-        exact_output = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        start = time.time()
+        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        dur = time.time() - start
+        print(f"Exact: {dur} s")
     except ExplicitHypothesisEnumerationError:
         explicit_hypothesis_enumeration_error = True
 
+    start = time.time()
+    exact_efficient: cbt.MulticlusterEfficientMarginals = cbt.MulticlusterEfficientMarginals(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+    efficient_marginals, efficient_likelihood = exact_efficient.compute_marginals_likelihood()
+    dur = time.time() - start
+    print(f"Efficient: {dur} s")
 
-    cluster_data = sl.MulticlusterData(
-        mhlbp_output=mcmhlbp,
-        exact_output=exact_output,
-        explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
-    )
+    if not np.allclose(exact_output.exact_marginals, efficient_marginals):
+        raise ValueError(f"Incorrect marginals at {pmbm_file_path}!")
 
-    cluster_data.save_data(save_path)
+    if not np.isclose(exact_output.exact_normalization_constant, efficient_likelihood):
+        raise ValueError(f"Incorrect likelihood at {pmbm_file_path}!")
+
+    # cluster_data = sl.MulticlusterData(
+    #     mhlbp_output=mcmhlbp,
+    #     exact_output=exact_output,
+    #     explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
+    # )
+
+    # cluster_data.save_data(save_path)
 
 
 if __name__ == "__main__":
@@ -95,10 +110,10 @@ if __name__ == "__main__":
 
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    for pmbm_file in tqdm(pmbm_files[:100]):
+        loop_func(pmbm_file)
+    # with Pool() as p:
+    #     p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

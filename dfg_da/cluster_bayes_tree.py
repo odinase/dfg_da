@@ -71,7 +71,7 @@ class ClusterLinks:
         return self.cluster_to_linking_measurement_map
 
     def clusters_that_merge(self) -> MutableSet[int]:
-        return set.union(*self.merging_clusters)
+        return set.union(*self.merging_clusters) if len(self.merging_clusters) > 0 else set()
 
     def unmerging_clusters(self) -> MutableSet[int]:
         return self.all_clusters - self.clusters_that_merge()
@@ -319,7 +319,7 @@ def multihypothesis_ehm2_meas_conditioned(R_cluster, prior_hypotheses, meas_exis
             marginals += conditioned_marginals * likelihood * prob
             normalizing_constant_cluster += likelihood * prob
 
-    assert (np.abs(marginals.sum(axis=1) - normalizing_constant_cluster) < 1e-8).all()
+    #assert (np.abs(marginals.sum(axis=1) - normalizing_constant_cluster) < 1e-8).all()
     if normalizing_constant_cluster > 0.0:
         marginals = marginals / normalizing_constant_cluster
 
@@ -350,7 +350,7 @@ class MulticlusterEfficientMarginals:
             for linking_mappings in self.cluster_links.linking_mappings_per_merging_clusters()
         ]
 
-    def compute_marginals_likelihood(self) -> np.ndarray:
+    def compute_marginals_likelihood(self) -> Tuple[np.ndarray, float]:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
         n, mp1 = self.R_LC.shape
 

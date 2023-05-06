@@ -115,12 +115,12 @@ if __name__ == "__main__":
         ])
     ])
 
-    for ph in prior_hypotheses_per_cluster:
-        print(f"Tracks before: {ph.tracks()}")
-        # ph.reindex_tracks()
-        # print(f"Tracks after: {ph.tracks()}")
+    # for ph in prior_hypotheses_per_cluster:
+    #     print(f"Tracks before: {ph.tracks()}")
+    #     # ph.reindex_tracks()
+    #     # print(f"Tracks after: {ph.tracks()}")
 
-        print(f"t idxs: {ph.t_idxs()}")
+    #     print(f"t idxs: {ph.t_idxs()}")
 
     # def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     #     num_posterior_clusters = np.sum(assocLocal[1])
@@ -148,11 +148,11 @@ if __name__ == "__main__":
 
     # # output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
 
-    # exact_computer: mc.MulticlusterExact = mc.MulticlusterExact()
-    # exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
-    # np.set_printoptions(suppress=True)
-    # print(exact_output.exact_marginals)
-    # print(exact_output.compute_theta_posteriors())
+    exact_computer: mc.MulticlusterExact = mc.MulticlusterExact()
+    exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
+    np.set_printoptions(suppress=True)
+    print(exact_output.exact_marginals)
+    print(exact_output.compute_theta_posteriors())
 
 
     # # .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
@@ -170,11 +170,11 @@ if __name__ == "__main__":
 
     # print()
 
-    # track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    # print(track_marginals)
-    # print(meas_marginals)
-    # print(theta_marginals)
-    # print(exact_normalization_constant)
+    track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
+    print(track_marginals)
+    print(meas_marginals)
+    print(theta_marginals)
+    print(exact_normalization_constant)
 
     # fig, ax = plt.subplots()
 
