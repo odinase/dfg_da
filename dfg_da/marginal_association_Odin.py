@@ -1001,8 +1001,6 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
     loglikelihood = logsumexp(hyp_prob_log)  # TODO: Verify that this is ll
     # hyp_prob_log -= loglikelihood  # Normalize the probabilities
     hypProb = np.exp(hyp_prob_log - loglikelihood)
-    hyp_prob_log = hyp_prob_log[~unfeasible_hyps]
-
 
     # calculate the marginalization
     # marginal probability matrix: Rows as tracks and Columns as associations.
@@ -1010,4 +1008,7 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
 
     # calculate number of hypotheses
     # Nhyp = (hypProbLog >= -np.inf).sum()
-    return JPDAprobs, hyp_prob_log, loglikelihood
+    feasible_hyps = ~unfeasible_hyps
+    hypProb = hypProb[feasible_hyps]
+    JPDA_hyp_mat = JPDA_hyp_mat[:, feasible_hyps]
+    return JPDAprobs, (hypProb, JPDA_hyp_mat), loglikelihood
