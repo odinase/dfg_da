@@ -12,15 +12,15 @@ def conditioned_exact(R_LC, meas_existence_mapping):
     forced_meas = meas_idxs[mask==1]
     R_sub_exact = R_conditioned_bversion[forced_meas]
     b_forced_probs, (hypProb, JPDA_hyp_mat), loglikelihood = exact_marginal(R_sub_exact, False)
-    R_LC_temp = np.empty_like(R_LC)
-    for hyp, prob in zip(hypProb, JPDA_hyp_mat.T):
-        R_LC_temp[...] = R_LC
-        # Should now be able to loop over each hypothesis we used to construct
-        # Hyp should be what track a forced measurement is associated with, delete them from R_LC
-        R_LC_temp[hyp] = -np.inf
-        R_LC_temp[:, forced_meas] = -np.inf
-        R_LC[np.ix_(hyp, forced_meas)] = 0.0
-        
+    # R_LC_
+    # for hyp, prob in zip(hypProb, JPDA_hyp_mat.T):
+    #     R_LC_temp[...] = R_LC
+    #     # Should now be able to loop over each hypothesis we used to construct
+    #     # Hyp should be what track a forced measurement is associated with, delete them from R_LC
+    #     R_LC_temp[hyp] = -np.inf
+    #     R_LC_temp[:, forced_meas] = -np.inf
+    #     R_LC[np.ix_(hyp, forced_meas)] = 0.0
+
 
 if __name__ == "__main__":
     R_LC = np.array([
@@ -28,14 +28,6 @@ if __name__ == "__main__":
         [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
         [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
         [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
-        [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
-        [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
-        [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
-        [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
-        [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
-        [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-        [0.1,     1.0, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
-        [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
     ], order='F')
 
     n, mp1 = R_LC.shape
