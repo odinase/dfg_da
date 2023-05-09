@@ -108,10 +108,6 @@ if __name__ == "__main__":
         py_dfg_da.hypothesis.Hypotheses([
             py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
             py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
-        ]),
-        py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([6, 7], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([8], np.log(0.5)),
         ])
     ])
 
