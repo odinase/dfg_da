@@ -83,7 +83,7 @@ def theta_posterior_correlation_per_cluster(true_posteriors: List[np.ndarray], l
         ax.plot(lbp, true, 'o', label=f"Cluster {c+1}", alpha=0.7)
 
     x = np.linspace(0, 1, 10)
-    ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.7)
+    ax.plot(x, x, '--', label="Perfect correlation", alpha=0.7)
     ax.legend()
     ax.set_xlabel("Approximate probabilities")
     ax.set_ylabel("Exact probabilities")
