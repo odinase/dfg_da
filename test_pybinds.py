@@ -75,6 +75,34 @@ def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posterior
     save_fig(fig, "correlation_plot_test_case_1_theta_posteriors", tight_layout=True)
 
 
+def theta_posterior_correlation_per_cluster(true_posteriors: List[np.ndarray], lbp_posteriors: List[np.ndarray], ax: Optional[plt.Axes] = None):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    for c, (true, lbp) in enumerate(zip(true_posteriors, lbp_posteriors)):
+        ax.plot(lbp_posteriors, true_posteriors, 'bo', label=f"Cluster {c+1}", alpha=0.7)
+
+    x = np.linspace(0, 1, 10)
+    ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.7)
+    ax.axis('equal')
+    ax.set_xlabel("Approximate probabilities")
+    ax.set_ylabel("Exact probabilities")
+    ax.set_title("Correlation plot prior hypothesis posterior")
+
+    # Set the x and y axis ticks to range between 0 and 1
+    step = 2
+    xticks = np.arange(0, 10 + step, step) / 10.0
+    yticks = np.arange(0, 10 + step, step) / 10.0
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+
+    # Set the x and y axis tick labels to display 1 decimal place
+    ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
+    ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
+
+    save_fig(fig, "correlation_plot_per_cluster_test_case_1_theta_posteriors", tight_layout=True)
+
+
 
 def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, ax: Optional[plt.Axes] = None):
     if ax is None:
@@ -107,6 +135,38 @@ def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, ax:
     ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
 
     save_fig(fig, "correlation_plot_test_case_1_marginals", tight_layout=True)
+
+def marginals_correlation_per_cluster(exact_margs: np.ndarray, approx_margs: np.ndarray, t_idxs_per_cluster: List[np.ndarray], ax: Optional[plt.Axes] = None):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    for c, t_idxs in enumerate(t_idxs_per_cluster):
+        approx = approx_margs[t_idxs]
+        exact = exact_margs[t_idxs]
+
+        ax.plot(approx, exact, 'bo', label=f"Cluster {c+1}", alpha=0.7)
+    
+    x = np.linspace(0, 1, 10)
+    ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.7)
+
+    ax.legend()
+    ax.axis('equal')
+    ax.set_xlabel("Approximate probabilities")
+    ax.set_ylabel("Exact probabilities")
+    ax.set_title("Correlation plot association marginals")
+
+    # Set the x and y axis ticks to range between 0 and 1
+    step = 2
+    xticks = np.arange(0, 10 + step, step) / 10.0
+    yticks = np.arange(0, 10 + step, step) / 10.0
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+
+    # Set the x and y axis tick labels to display 1 decimal place
+    ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
+    ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
+
+    save_fig(fig, "correlation_plot_per_cluster_test_case_1_marginals", tight_layout=True)
 
 
 def numpy_to_latex(a):
@@ -177,8 +237,8 @@ if __name__ == "__main__":
 
     prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
         py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            py_dfg_da.hypothesis.Hypothesis([1, 2, 3], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([2, 3], np.log(0.5))
         ]),
         py_dfg_da.hypothesis.Hypotheses([
             py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
@@ -186,12 +246,17 @@ if __name__ == "__main__":
         ])
     ])
 
+    t_idxs_per_cluster = [ph.t_idxs() for ph in prior_hypotheses_per_cluster]
+
     exact_computer: mc.MulticlusterExact = mc.MulticlusterExactEHM2()
     exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
     np.set_printoptions(suppress=True)
     print(exact_output.exact_marginals)
     numpy_to_latex(exact_output.exact_marginals)
     print(numpy_array_to_latex_table(exact_output.exact_marginals))
+    print()
+    print(exact_output.exact_marginals)
+    print()
     true_theta_posteriors = exact_output.compute_theta_posteriors()
     print(true_theta_posteriors)
     print(f"{exact_output.exact_normalization_constant:.3f}")
@@ -199,9 +264,15 @@ if __name__ == "__main__":
     mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
     lbp_margs = mcmhlbp.track_association_marginals().T
     print(numpy_array_to_latex_table(lbp_margs))
+    print()
+    print(lbp_margs)
+    print()
     hp = mcmhlbp.hypotheses_marginals()
     print(hp)
     print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
 
     theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp)
+    theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp)
+
     marginals_correlation(exact_output.exact_marginals, lbp_margs)
+    marginals_correlation_per_cluster(exact_output.exact_marginals, lbp_margs, t_idxs_per_cluster)
