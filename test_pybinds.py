@@ -3,12 +3,14 @@ import py_dfg_da as pdd
 import numpy as np
 import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
+import dfg_da.stats_logger as sl
 import pickle
 import dfg_da as dd
 from typing import List, Optional
 import matplotlib.pyplot as plt
 
 from ravens_parser_parallell_multicluster import merge_clusters
+from plotting_multicluster import save_fig
 
 def make_clusters(llr):
         g = (llr > -np.inf)
@@ -53,7 +55,105 @@ def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posterior
     lbp_posteriors = np.hstack(lbp_posteriors)
 
     ax.plot(lbp_posteriors, true_posteriors, 'bx')
+    ax.plot(lbp_posteriors, lbp_posteriors, 'y--', label="Perfect correlation", alpha=0.6)
+    ax.axis('equal')
+    ax.set_xlabel("Approximate probabilities")
+    ax.set_ylabel("Exact probabilities")
+    ax.set_title("Correlation plot prior hypothesis posterior")
 
+    # Set the x and y axis ticks to range between 0 and 1
+    step = 2
+    xticks = np.arange(0, 10 + step, step) / 10.0
+    yticks = np.arange(0, 10 + step, step) / 10.0
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+
+    # Set the x and y axis tick labels to display 1 decimal place
+    ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
+    ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
+
+    save_fig(fig, "correlation_plot_test_case_1_theta_posteriors", tight_layout=True)
+
+
+
+def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, ax: Optional[plt.Axes] = None):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    exact_margs: sl.Marginals = sl.Marginals(marginals=exact_margs)
+    approx_margs: sl.Marginals = sl.Marginals(marginals=approx_margs)
+
+    ax.plot(approx_margs.misdetection_marginals, exact_margs.misdetection_marginals, 'ro', label="Misdetection", alpha=0.6)
+    ax.plot(approx_margs.detection_marginals, exact_margs.detection_marginals, 'go', label="Detection", alpha=0.6)
+    ax.plot(approx_margs.nonexistence_marginals, exact_margs.nonexistence_marginals, 'bo', label="Nonexistence", alpha=0.6)
+    ax.plot(approx_margs.nonexistence_marginals, approx_margs.nonexistence_marginals, 'y--', label="Perfect correlation", alpha=0.6)
+    
+
+    ax.legend()
+    ax.axis('equal')
+    ax.set_xlabel("Approximate probabilities")
+    ax.set_ylabel("Exact probabilities")
+    ax.set_title("Correlation plot association marginals")
+
+    # Set the x and y axis ticks to range between 0 and 1
+    step = 2
+    xticks = np.arange(0, 10 + step, step) / 10.0
+    yticks = np.arange(0, 10 + step, step) / 10.0
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+
+    # Set the x and y axis tick labels to display 1 decimal place
+    ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
+    ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
+
+    save_fig(fig, "correlation_plot_test_case_1_marginals", tight_layout=True)
+
+
+def numpy_to_latex(a):
+    m, n = a.shape
+    rows = []
+    for i in range(m):
+        row = []
+        for j in range(n):
+            if np.isfinite(a[i, j]):
+                row.append(f"{a[i, j]:.3f}")
+            elif a[i, j] == np.inf:
+                row.append(r"\infty")
+            else:
+                row.append(r"-\infty")
+        rows.append(" & ".join(row))
+    latex = "\\begin{bmatrix}\n"
+    latex += " \\\\ \n".join(rows)
+    latex += "\n\\end{bmatrix}"
+    print(latex)
+
+
+def numpy_array_to_latex_table(arr):
+    # Get the dimensions of the array
+    rows, cols = arr.shape
+    
+    # Create the first row of the table
+    table_header = [''] + [f"${i}$" for i in range(cols-1)] + ['$N$']
+    
+    # Create the body of the table
+    table_body = []
+    for i in range(rows):
+        row = ['$a^{}$'.format(i+1)]
+        for j in range(cols):
+            row.append('${:.3f}$'.format(arr[i,j]))
+        table_body.append(row)
+    
+    # Combine the header and body of the table
+    table = [table_header] + table_body
+    
+    # Convert the table to LateX code
+    latex = '\\begin{minipage}{\\linewidth}\n\\vspace{3ex}\n\\centering\n\\begin{tabular}{c|' + ' '.join(['c']*cols) + '}\n'
+    latex += ' & '.join(table_header) + ' \\\\\\midrule\n'
+    for row in table_body:
+        latex += ' & '.join(row) + ' \\\\\n'
+    latex += '\\end{tabular}\n\\vspace{3ex}\n\\end{minipage}'
+    
+    return latex
 
 
 if __name__ == "__main__":
@@ -64,31 +164,6 @@ if __name__ == "__main__":
         [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
         [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
     ], order='F')
-
-    # R = np.array([
-    #     [    3.0,     2.9,   -40.60, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.2,     2.5, -np.inf,   -40.56, -np.inf, -np.inf, -np.inf],
-    #     [    3.0,     3.2, -np.inf, -np.inf,   -30.46, -np.inf, -np.inf],
-    #     [    3.2,     3.0, -np.inf, -np.inf, -np.inf,   -50.62, -np.inf],
-    #     [    3.1,     2.4, -np.inf, -np.inf, -np.inf, -np.inf,   -40.55],
-    # ], order='F')
-
-    # R = np.array([
-    #     [    3.0,     2.9,     -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.2,     2.5, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-    #     [    3.0,     3.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-    #     [    3.2,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-    #     [    3.1,     2.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-    # ], order='F')
-
-    # R = np.array([
-    #     [    3.0, -np.inf,   -20.60, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.0, -np.inf, -np.inf,   -20.60, -np.inf, -np.inf, -np.inf],
-    #     [   -3.0,     1.2, -np.inf, -np.inf,   -20.46, -np.inf, -np.inf],
-    #     [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -25.62, -np.inf],
-    #     [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -25.55],
-    # ], order='F')
-
 
     n, mpn = R.shape
     m = mpn - n
@@ -111,211 +186,22 @@ if __name__ == "__main__":
         ])
     ])
 
-    # for ph in prior_hypotheses_per_cluster:
-    #     print(f"Tracks before: {ph.tracks()}")
-    #     # ph.reindex_tracks()
-    #     # print(f"Tracks after: {ph.tracks()}")
-
-    #     print(f"t idxs: {ph.t_idxs()}")
-
-    # def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
-    #     num_posterior_clusters = np.sum(assocLocal[1])
-    #     # First build master array
-    #     prior_hypotheses_per_cluster_posterior: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
-    #         h for k, h in enumerate(prior_hypotheses_per_cluster) if assocLocal[1, k]
-    #     ])
-    #     master_idxs = np.cumsum(assocLocal[1]) - 1
-
-    #     assert len(prior_hypotheses_per_cluster_posterior) == num_posterior_clusters
-        
-    #     for c, (master, is_master) in enumerate(assocLocal.T):
-    #         if is_master:
-    #             continue
-                
-    #         # We already have the masters, merge clusters
-    #         hs = prior_hypotheses_per_cluster[c]
-    #         prior_hypotheses_per_cluster_posterior[master_idxs[master]] = prior_hypotheses_per_cluster_posterior[master_idxs[master]].combine(hs)
-
-    #     return prior_hypotheses_per_cluster_posterior
-
-    # ppp = merge_clusters(assocLocal, prior_hypotheses_per_cluster)
-
-
-
-    # # output = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-
-    exact_computer: mc.MulticlusterExact = mc.MulticlusterExact()
+    exact_computer: mc.MulticlusterExact = mc.MulticlusterExactEHM2()
     exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
     np.set_printoptions(suppress=True)
     print(exact_output.exact_marginals)
-    print(exact_output.compute_theta_posteriors())
+    numpy_to_latex(exact_output.exact_marginals)
+    print(numpy_array_to_latex_table(exact_output.exact_marginals))
+    true_theta_posteriors = exact_output.compute_theta_posteriors()
+    print(true_theta_posteriors)
+    print(f"{exact_output.exact_normalization_constant:.3f}")
 
+    mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
+    lbp_margs = mcmhlbp.track_association_marginals().T
+    print(numpy_array_to_latex_table(lbp_margs))
+    hp = mcmhlbp.hypotheses_marginals()
+    print(hp)
+    print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
 
-    # # .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
-    # # .def("measurement_association_marginals",  &lbp::MHLBPMulticlusterOutput::measurement_association_marginals)
-    # # .def("hypotheses_marginals",  &lbp::MHLBPMulticlusterOutput::hypotheses_marginals)
-    # # .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
-    # # .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
-
-
-    # mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-    # print(mcmhlbp.track_association_marginals().T)
-    # hp = mcmhlbp.hypotheses_marginals()
-    # print(np.hstack(hp))
-    # print(mcmhlbp.bethe_pseudodual_normalization_constant())
-
-    # print()
-
-    track_marginals, meas_marginals, theta_marginals, exact_normalization_constant = pdd.factor_graph.all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    print(track_marginals)
-    print(meas_marginals)
-    print(theta_marginals)
-    print(exact_normalization_constant)
-
-    # fig, ax = plt.subplots()
-
-    # theta_posterior_correlation(exact_output.compute_theta_posteriors(), mcmhlbp.hypotheses_marginals(), ax=ax)
-    # plt.show()
-
-
-
-
-    # R_LC2 = np.log(np.array([
-    #     [0.2, 1.0]
-    # ]))
-
-    # phs: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
-    #     py_dfg_da.hypothesis.Hypotheses([
-    #         py_dfg_da.hypothesis.Hypothesis([1], np.log(0.9)),
-    #         py_dfg_da.hypothesis.Hypothesis([], np.log(0.1))
-    #     ])
-    # ])
-
-    # assocLocal = np.array([
-    #      [1],
-    #      [1]
-    # ])
-
-    # exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC2, phs, assocLocal=assocLocal)
-    # np.set_printoptions(suppress=True)
-    # print(exact_output.exact_marginals)
-    # consts = exact_output.hypo_cond_normalization_constants_per_cluster[0]
-    # print(consts / consts.sum())
-
-    # print(exact_output.compute_theta_posteriors())
-
-    # for c, ph in prior_hypotheses_per_cluster:
-    #     for k, h in enumerate(ph):
-    #         pass
-    #         # At this point we need to find all cluster 
-
-    # np.set_printoptions(suppress=True)
-    # print("LBP")
-    # print(output.track_association_marginals().T)
-    # print(output.bethe_pseudodual_normalization_constant())
-    # print(output.num_iters)
-
-    # path = "./test_cpp_pickle"
-    # with open(path, "wb") as f:
-    #     pickle.dump(output, f)
-
-    # with open(path, "rb") as f:
-    #     mhlbp_from_pickle = pickle.load(f)
-
-    # print("LBP from pickle")
-    # print(mhlbp_from_pickle.track_association_marginals().T)
-    # print(mhlbp_from_pickle.bethe_pseudodual_loglikelihood())
-    # print(mhlbp_from_pickle.bethe_pseudodual_normalization_constant())
-    # print(mhlbp_from_pickle.num_iters)
-
-    # for ph in prior_hypotheses_per_cluster:
-    #     for h in ph:
-    #         print(h.tracks())
-    #         print(h.probability())
-
-    # path = "./test_cpp_pickle"
-    # with open(path, "wb") as f:
-    #     pickle.dump(prior_hypotheses_per_cluster, f)
-
-    # with open(path, "rb") as f:
-    #     prior_hypotheses_per_cluster_from_pickle = pickle.load(f)
-    # print("Pickle")
-    # for ph in prior_hypotheses_per_cluster_from_pickle:
-    #     for h in ph:
-    #         print(h.tracks())
-    #         print(h.probability())
-
-
-    # merged_hypos = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1])
-    # exact_margs, exact_norm = py_dfg_da.hypothesis.association_marginal_posteriors_normalization_constant(R, merged_hypos)
-
-    # margs, const = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    # # print(margs.T)
-    # # print(const)
-
-    # # print("\nExact")
-    # print(exact_margs.T)
-    # print(exact_norm)
-
-
-    # R = np.array([
-    #     [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
-    #     [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-    #     [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-    #     [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-    # ], order='F')
-
-
-    # prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
-    #     py_dfg_da.hypothesis.Hypotheses([
-    #         py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
-    #         py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
-    #     ]),
-    #     py_dfg_da.hypothesis.Hypotheses([
-    #         py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
-    #         py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
-    #     ]),
-    #     py_dfg_da.hypothesis.Hypotheses([
-    #         py_dfg_da.hypothesis.Hypothesis([6], np.log(0.2)),
-    #         py_dfg_da.hypothesis.Hypothesis([7], np.log(0.8)),
-    #     ]),
-    # ])
-
-    # margs, const = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    # print("\nExact")
-    # print(margs.T)
-    # print(const)
-
-
-    # R = np.array([
-    #     [    3.0, -np.inf,  -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [    3.2, -np.inf,  -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [   -3.0,     1.2,  -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf, -np.inf],
-    #     [-np.inf,     3.0,  -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf, -np.inf],
-    #     [-np.inf,    -0.4,  -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-    #     [-np.inf, -np.inf,      1.7, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-    #     [-np.inf, -np.inf,      2.3, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
-    # ], order='F')
-
-    # prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
-    #     pdd.hypothesis.Hypotheses([
-    #         pdd.hypothesis.Hypothesis([1, 2], np.log(0.2)),
-    #         pdd.hypothesis.Hypothesis([1, 3], np.log(0.8))
-    #     ]),
-    #     pdd.hypothesis.Hypotheses([
-    #         pdd.hypothesis.Hypothesis([4], np.log(0.3)),
-    #         pdd.hypothesis.Hypothesis([5], np.log(0.7))
-    #     ]),
-    #     pdd.hypothesis.Hypotheses([
-    #         pdd.hypothesis.Hypothesis([6], np.log(0.5)),
-    #         pdd.hypothesis.Hypothesis([7], np.log(0.5))
-    #     ])
-    # ])
-
-    # margs, const = py_dfg_da.factor_graph.exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster)
-    # print("\nExact")
-    # print(margs.T)
-    # print(const)
+    theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp)
+    marginals_correlation(exact_output.exact_marginals, lbp_margs)
