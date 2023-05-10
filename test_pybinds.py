@@ -10,6 +10,7 @@ from typing import List, Optional
 import matplotlib.pyplot as plt
 
 from ravens_parser_parallell_multicluster import merge_clusters
+from cluster_data_asso import edmund_to_lc, lc_to_edmund
 from plotting_multicluster import save_fig
 
 def make_clusters(llr):
@@ -56,7 +57,6 @@ def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posterior
 
     ax.plot(lbp_posteriors, true_posteriors, 'bx')
     ax.plot(lbp_posteriors, lbp_posteriors, 'y--', label="Perfect correlation", alpha=0.6)
-    ax.axis('equal')
     ax.set_xlabel("Approximate probabilities")
     ax.set_ylabel("Exact probabilities")
     ax.set_title("Correlation plot prior hypothesis posterior")
@@ -80,11 +80,11 @@ def theta_posterior_correlation_per_cluster(true_posteriors: List[np.ndarray], l
         fig, ax = plt.subplots()
 
     for c, (true, lbp) in enumerate(zip(true_posteriors, lbp_posteriors)):
-        ax.plot(lbp_posteriors, true_posteriors, 'bo', label=f"Cluster {c+1}", alpha=0.7)
+        ax.plot(lbp, true, 'o', label=f"Cluster {c+1}", alpha=0.7)
 
     x = np.linspace(0, 1, 10)
     ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.7)
-    ax.axis('equal')
+    ax.legend()
     ax.set_xlabel("Approximate probabilities")
     ax.set_ylabel("Exact probabilities")
     ax.set_title("Correlation plot prior hypothesis posterior")
@@ -114,11 +114,12 @@ def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, ax:
     ax.plot(approx_margs.misdetection_marginals, exact_margs.misdetection_marginals, 'ro', label="Misdetection", alpha=0.6)
     ax.plot(approx_margs.detection_marginals, exact_margs.detection_marginals, 'go', label="Detection", alpha=0.6)
     ax.plot(approx_margs.nonexistence_marginals, exact_margs.nonexistence_marginals, 'bo', label="Nonexistence", alpha=0.6)
-    ax.plot(approx_margs.nonexistence_marginals, approx_margs.nonexistence_marginals, 'y--', label="Perfect correlation", alpha=0.6)
+
+    x = np.linspace(0, 1, 10)
+    ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.6)
     
 
     ax.legend()
-    ax.axis('equal')
     ax.set_xlabel("Approximate probabilities")
     ax.set_ylabel("Exact probabilities")
     ax.set_title("Correlation plot association marginals")
@@ -141,16 +142,15 @@ def marginals_correlation_per_cluster(exact_margs: np.ndarray, approx_margs: np.
         fig, ax = plt.subplots()
 
     for c, t_idxs in enumerate(t_idxs_per_cluster):
-        approx = approx_margs[t_idxs]
-        exact = exact_margs[t_idxs]
+        approx = approx_margs[t_idxs].ravel()
+        exact = exact_margs[t_idxs].ravel()
 
-        ax.plot(approx, exact, 'bo', label=f"Cluster {c+1}", alpha=0.7)
+        ax.plot(approx, exact, 'o', label=f"Cluster {c+1}", alpha=0.7)
     
     x = np.linspace(0, 1, 10)
-    ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.7)
+    ax.plot(x, x, '--', label="Perfect correlation", alpha=0.7)
 
     ax.legend()
-    ax.axis('equal')
     ax.set_xlabel("Approximate probabilities")
     ax.set_ylabel("Exact probabilities")
     ax.set_title("Correlation plot association marginals")
@@ -216,7 +216,7 @@ def numpy_array_to_latex_table(arr):
     return latex
 
 
-if __name__ == "__main__":
+def test_case_1():
     R = np.array([
         [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
         [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
@@ -237,14 +237,80 @@ if __name__ == "__main__":
 
     prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
         py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([1, 2, 3], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([2, 3], np.log(0.5))
+            py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
         ]),
         py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([4, 5], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([], np.log(0.5)),
         ])
     ])
+
+    return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+
+def test_case_2():
+        R_LC = np.array([
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
+        ], order='F')
+        R_LC[:, 0] = np.log(R_LC[:, 0])
+
+        R = np.asfortranarray(lc_to_edmund(R_LC))
+
+        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+            # Cluster 1
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([2], np.log(0.5))
+            ]),
+            # Cluster 2
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+                pdd.hypothesis.Hypothesis([4], np.log(0.5))
+            ]),
+            # Cluster 3
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([5], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([6], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([7], np.log(0.4))
+            ]),
+            # Cluster 4
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([8], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([9], np.log(0.3)),
+                pdd.hypothesis.Hypothesis([10], np.log(0.4))
+            ]),
+            # Cluster 5
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([11], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ]),
+            # Cluster 6
+            pdd.hypothesis.Hypotheses([
+                pdd.hypothesis.Hypothesis([12], np.log(0.9)),
+                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+            ])
+        ])
+
+        assocLocal = np.array([
+            [1, 1, 3, 3, 1, 6],
+            [1, 0, 1, 0, 0, 1]
+        ])
+
+        return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+
+if __name__ == "__main__":
+    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_2()
 
     t_idxs_per_cluster = [ph.t_idxs() for ph in prior_hypotheses_per_cluster]
 
