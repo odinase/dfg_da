@@ -1,11 +1,9 @@
 import numpy as np
-from cluster_bayes_tree import ClusterLinks, LinkingMappings, cartesian_product
-from marginal_association_Odin import lbp_marginal_nonexistence
-import marginals_computers as mc
+from .cluster_bayes_tree import ClusterLinks, LinkingMappings, cartesian_product
+from .marginal_association_Odin import lbp_marginal_nonexistence
+from .marginals_computers import LBPMarginalsByTotalProbBethe
 import py_dfg_da as pdd
 from typing import *
-
-
 
 
 
@@ -34,7 +32,7 @@ class MulticlusterEfficientMarginalsLBP:
             for linking_mappings in self.cluster_links.linking_mappings_per_merging_clusters()
         ]
 
-        self.lbp = mc.LBPMarginalsByTotalProbBethe()
+        self.lbp = LBPMarginalsByTotalProbBethe()
 
     def compute_marginals_likelihood(self) -> np.ndarray:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
@@ -56,12 +54,15 @@ class MulticlusterEfficientMarginalsLBP:
         for cluster in self.cluster_links.unmerging_clusters():
             prior_hypotheses = self.prior_hypotheses_per_cluster[cluster]
             t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
+            prior_hypotheses.reindex_tracks()
             R_cluster = self.R_LC[t_idxs]
             lbp_marginal_total, normalizing_constants_bethe, _ = self.lbp(R_cluster, prior_hypotheses)
             marginals[t_idxs] = lbp_marginal_total
             probs = np.array(prior_hypotheses.hypothesis_probabilites())
             likelihood *= np.sum(probs * normalizing_constants_bethe)
 
+        if not (marginals.sum(axis=1, keepdims=True) > 0).all():
+            pass
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
         return marginals, likelihood
@@ -187,7 +188,7 @@ class ConditionedCluster:
         self.actual_meas_idxs: np.ndarray = linking_mappings_mapping_mat[:, 0]
         self.reindex_meas: np.ndarray = linking_mappings_mapping_mat[:, 1]
 
-        self.lbp = mc.LBPMarginalsByTotalProbBethe()
+        self.lbp = LBPMarginalsByTotalProbBethe()
 
         # We should definitively cache results, but not sure right now the best way. Will probably be more "obvious" later
         self.cache: Dict[Tuple[int], Tuple[np.ndarray, float]] = dict()

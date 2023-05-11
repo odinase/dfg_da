@@ -137,7 +137,9 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         normalizing_constants_odin = np.empty(len(prior_hypotheses))
         normalizing_constants_lc = np.empty(len(prior_hypotheses))
     
-        for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
+        for k, ph in enumerate(prior_hypotheses):
+            tracks = np.sort(np.array(ph.tracks())).astype(int)
+            hypo_prob = ph.probability()
 
             R_sub = R_LC[tracks-1, :]
 

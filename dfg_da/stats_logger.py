@@ -467,11 +467,17 @@ class ExactStats:
 #     def from_data(cls, path):
 #         with open(path, "rb") as f:
 #             return pickle.load(f)
-        
+
+@dataclass
+class MulticlusterWilliamsBetheOutput:
+    marginals: np.ndarray
+    likelihood: float
+
 
 @dataclass
 class MulticlusterData:
     mhlbp_output: py_dfg_da.lbp.MHLBPMulticlusterOutput
+    mc_williams_output: MulticlusterWilliamsBetheOutput
     exact_output: Optional[MulticlusterExactOutput] = None
     
     explicit_hypothesis_enumeration_error: bool = False

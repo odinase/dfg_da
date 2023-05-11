@@ -751,11 +751,19 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
     # # print(np.mean(converged_stats["IoU"]))
     # print(np.mean(diverged_stats["IoU"]))
 
+@dataclass
+class BethePlotData:
+    constants: np.ndarray
+    label: str
 
-def normalization_constant_scatter_plot(bethe_normalization_constants,exact_normalization_constants):
+
+def normalization_constant_scatter_plot(approx_normalization_constants: List[BethePlotData], exact_normalization_constants: np.ndarray):
     fig, ax = plt.subplots()
     # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
-    ax.plot(bethe_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="Bethe")
+
+    for approx_consts in approx_normalization_constants:
+        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.2, label=approx_consts.label)
+
     ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
     ax.set_xlabel("Approximate normalization constant", fontsize=18)
     ax.set_ylabel("Exact normalization constant", fontsize=18)
@@ -763,7 +771,7 @@ def normalization_constant_scatter_plot(bethe_normalization_constants,exact_norm
     ax.legend(fontsize=18)
     ax.loglog()
 
-    x = bethe_normalization_constants
+    x = [l.constants.min() for l in approx_normalization_constants]
     y = exact_normalization_constants
     # Determine tick values based on data range
     data_min = min(np.min(x), np.min(y))
@@ -889,22 +897,27 @@ if __name__ == "__main__":
     # path += "_last"
     print(f"Plotting data in {path}")
     batch_intervals = make_batch_intervals(2000)
-    approx_normalization_constants = np.empty(10_000, dtype=np.float32)
+    williams_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
+    mcmhlbp_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
     exact_normalization_constants = np.empty(10_000, dtype=np.float32)
     k = 0
     for batch_start, batch_stop in tqdm(batch_intervals):
         cluster_stats_batch = load_cluster_stats_batch(path, batch_start, batch_stop)
         for (cluster_stat, _) in tqdm(cluster_stats_batch):
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
-            approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
+            mcmhlbp_approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
+            williams_approx_normalization_constants[k] = cluster_stat.mc_williams_output.likelihood
             k += 1
         
         del cluster_stats_batch
 
     num_files = k
 
-    approx_normalization_constants = approx_normalization_constants[:num_files]
+    mcmhlbp_approx_normalization_constants = BethePlotData(constants=mcmhlbp_approx_normalization_constants[:num_files], label="MCMH-LBP")
+    williams_approx_normalization_constants = BethePlotData(constants=williams_approx_normalization_constants[:num_files], label="Approx Efficient Williams")
     exact_normalization_constants = exact_normalization_constants[:num_files]
+
+    approx_normalization_constants = [mcmhlbp_approx_normalization_constants, williams_approx_normalization_constants]
 
     # print(illegal_files)
     # make_raw_error_plot(cluster_stats)

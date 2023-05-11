@@ -3,12 +3,16 @@ import dfg_da.prior_hypothesis as phs
 import dfg_da.cluster_bayes_tree as cbt
 import dfg_da.stats_logger as sl
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
+from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP
 
 import matplotlib.pyplot as plt
 from glob import glob
 from typing import List
 import numpy as np
 from tqdm import tqdm
+
+
+from copy import deepcopy
 
 from multiprocessing import Pool, Lock
 import time
@@ -68,32 +72,24 @@ def loop_func(pmbm_file):
     exact_output = None
 
     try:
-        start = time.time()
-        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
-        dur = time.time() - start
-        print(f"Exact: {dur} s")
+        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy())
     except ExplicitHypothesisEnumerationError:
         explicit_hypothesis_enumeration_error = True
 
-    start = time.time()
-    exact_efficient: cbt.MulticlusterEfficientMarginals = cbt.MulticlusterEfficientMarginals(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
-    efficient_marginals, efficient_likelihood = exact_efficient.compute_marginals_likelihood()
-    dur = time.time() - start
-    print(f"Efficient: {dur} s")
+    
+    mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+    mc_williams_marginals, mc_williams_likelihood = mc_williams.compute_marginals_likelihood()
 
-    if not np.allclose(exact_output.exact_marginals, efficient_marginals):
-        raise ValueError(f"Incorrect marginals at {pmbm_file_path}!")
+    mc_williams_output: sl.MulticlusterWilliamsBetheOutput = sl.MulticlusterWilliamsBetheOutput(marginals=mc_williams_marginals, likelihood=mc_williams_likelihood)
 
-    if not np.isclose(exact_output.exact_normalization_constant, efficient_likelihood):
-        raise ValueError(f"Incorrect likelihood at {pmbm_file_path}!")
+    cluster_data = sl.MulticlusterData(
+        mhlbp_output=mcmhlbp,
+        exact_output=exact_output,
+        mc_williams_output=mc_williams_output,
+        explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
+    )
 
-    # cluster_data = sl.MulticlusterData(
-    #     mhlbp_output=mcmhlbp,
-    #     exact_output=exact_output,
-    #     explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
-    # )
-
-    # cluster_data.save_data(save_path)
+    cluster_data.save_data(save_path)
 
 
 if __name__ == "__main__":
@@ -106,14 +102,16 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
+    pmbm_files = pmbm_files[:100]
+
     print(f"Computing {len(pmbm_files)} files...")
 
     print("Starting pool")
     start = time.time()
-    for pmbm_file in tqdm(pmbm_files[:100]):
-        loop_func(pmbm_file)
-    # with Pool() as p:
-    #     p.map(loop_func, pmbm_files)
+    # for pmbm_file in tqdm(pmbm_files[:100]):
+    #     loop_func(pmbm_file)
+    with Pool() as p:
+        p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

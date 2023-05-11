@@ -4,10 +4,12 @@ import numpy as np
 import dfg_da.marginal_association_Odin as ma
 import dfg_da.marginals_computers as mc
 import dfg_da.stats_logger as sl
+from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP
 import pickle
 import dfg_da as dd
 from typing import List, Optional
 import matplotlib.pyplot as plt
+
 
 from ravens_parser_parallell_multicluster import merge_clusters
 from cluster_data_asso import edmund_to_lc, lc_to_edmund
@@ -331,20 +333,20 @@ def test_case_3():
     prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
         pdd.hypothesis.Hypotheses([
             pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
-            # pdd.hypothesis.Hypothesis([], np.log(0.5))
+            pdd.hypothesis.Hypothesis([], np.log(0.5))
         ]),
         pdd.hypothesis.Hypotheses([
             pdd.hypothesis.Hypothesis([3, 4], np.log(0.5)),
-            # pdd.hypothesis.Hypothesis([], np.log(0.5))
+            pdd.hypothesis.Hypothesis([], np.log(0.5))
         ]),
         pdd.hypothesis.Hypotheses([
             pdd.hypothesis.Hypothesis([5, 6, 7], np.log(0.3)),
-            # pdd.hypothesis.Hypothesis([], np.log(0.3)),
+            pdd.hypothesis.Hypothesis([], np.log(0.3)),
             # pdd.hypothesis.Hypothesis([7], np.log(0.4))
         ]),
         pdd.hypothesis.Hypotheses([
             pdd.hypothesis.Hypothesis([8, 9, 10], np.log(0.3)),
-            # pdd.hypothesis.Hypothesis([], np.log(0.3)),
+            pdd.hypothesis.Hypothesis([], np.log(0.3)),
             # pdd.hypothesis.Hypothesis([10], np.log(0.4))
         ]),
         pdd.hypothesis.Hypotheses([
@@ -381,7 +383,7 @@ if __name__ == "__main__":
 
     exact_computer: mc.MulticlusterExact = mc.MulticlusterExactEHM2()
     exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
-    np.set_printoptions(suppress=True)
+    np.set_printoptions(suppress=True, linewidth=150)
     print(exact_output.exact_marginals)
     numpy_to_latex(exact_output.exact_marginals)
     print(numpy_array_to_latex_table(exact_output.exact_marginals))
@@ -401,6 +403,12 @@ if __name__ == "__main__":
     hp = mcmhlbp.hypotheses_marginals()
     print(hp)
     print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
+
+    efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal)
+    marginals, likelihood = efficient_mc_williams.compute_marginals_likelihood()
+
+    print(marginals)
+    print(likelihood)
 
     theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
     theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
