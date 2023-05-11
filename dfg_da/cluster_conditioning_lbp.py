@@ -1,7 +1,7 @@
 import numpy as np
 from .cluster_bayes_tree import ClusterLinks, LinkingMappings, cartesian_product
-from .marginal_association_Odin import lbp_marginal_nonexistence
-from .marginals_computers import LBPMarginalsByTotalProbBethe
+from .marginals_computers import LBPMarginalsByTotalProbBethe, LBPMarginalsByTotalProbPHD
+from .stats_logger import MulticlusterConditionendLBPOutput
 import py_dfg_da as pdd
 from typing import *
 
@@ -13,7 +13,7 @@ from typing import *
 # It should be initialized with a multicluster case and separate the clusters that are merged with the unaffected clusters
 # It is probably the best to do this in two stages - One that separates clusters and delegates the computation, and one that the performs that supercluster marginal computation
 class MulticlusterEfficientMarginalsLBP:
-    def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal):
+    def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal, lbp_solver = LBPMarginalsByTotalProbBethe):
         # Store input for convenience
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
@@ -27,12 +27,13 @@ class MulticlusterEfficientMarginalsLBP:
             ConditionalSuperclusterMarginals(
                 R_LC=R_LC,
                 prior_hypotheses_per_cluster=self.prior_hypotheses_per_cluster,
-                linking_mappings=linking_mappings
+                linking_mappings=linking_mappings,
+                lbp_solver=lbp_solver
             )
             for linking_mappings in self.cluster_links.linking_mappings_per_merging_clusters()
         ]
 
-        self.lbp = LBPMarginalsByTotalProbBethe()
+        self.lbp = lbp_solver
 
     def compute_marginals_likelihood(self) -> np.ndarray:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
@@ -56,16 +57,15 @@ class MulticlusterEfficientMarginalsLBP:
             t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
             prior_hypotheses.reindex_tracks()
             R_cluster = self.R_LC[t_idxs]
-            lbp_marginal_total, normalizing_constants_bethe, _ = self.lbp(R_cluster, prior_hypotheses)
+            lbp_marginal_total, likelihood = self.lbp(R_cluster, prior_hypotheses)
             marginals[t_idxs] = lbp_marginal_total
-            probs = np.array(prior_hypotheses.hypothesis_probabilites())
-            likelihood *= np.sum(probs * normalizing_constants_bethe)
 
-        if not (marginals.sum(axis=1, keepdims=True) > 0).all():
-            pass
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
-        return marginals, likelihood
+        return MulticlusterConditionendLBPOutput(
+            marginals=marginals,
+            likelihood=likelihood
+        )
 
 def print_numbers_to_chars_assignment(assignment):
     assert len(assignment) == 2
@@ -75,7 +75,7 @@ def print_numbers_to_chars_assignment(assignment):
 
 
 class ConditionalSuperclusterMarginals:
-    def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, linking_mappings: LinkingMappings):
+    def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, linking_mappings: LinkingMappings, lbp_solver = LBPMarginalsByTotalProbBethe()):
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
         self.linking_mappings = linking_mappings
@@ -102,7 +102,8 @@ class ConditionalSuperclusterMarginals:
                 cluster_idx=cluster,
                 R_cluster=R_cluster,
                 prior_hypotheses=prior_hypotheses,
-                linking_mappings_mapping_mat=linking_mappings_mapping_mat
+                linking_mappings_mapping_mat=linking_mappings_mapping_mat,
+                lbp_solver=lbp_solver
             ))
 
     def remap_linking_measurements(self, linking_mappings: LinkingMappings) -> Dict[int, int]:
@@ -176,19 +177,18 @@ class ConditionalSuperclusterMarginals:
 
 
 class ConditionedCluster:
-    def __init__(self, cluster_idx: int, R_cluster: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, linking_mappings_mapping_mat: np.ndarray):
+    def __init__(self, cluster_idx: int, R_cluster: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, linking_mappings_mapping_mat: np.ndarray, lbp_solver = LBPMarginalsByTotalProbBethe()):
         self.t_idxs = prior_hypotheses.t_idxs()
 
         self.cluster_idx = cluster_idx
         self.R_cluster: np.ndarray = R_cluster
         self.prior_hypotheses: pdd.hypothesis.Hypotheses = prior_hypotheses
         self.prior_hypotheses.reindex_tracks()
-        self.prior_hypotheses_probs: np.ndarray = np.array(self.prior_hypotheses.hypothesis_probabilites())
         self.linking_mappings_mapping_mat: np.ndarray = linking_mappings_mapping_mat
         self.actual_meas_idxs: np.ndarray = linking_mappings_mapping_mat[:, 0]
         self.reindex_meas: np.ndarray = linking_mappings_mapping_mat[:, 1]
 
-        self.lbp = LBPMarginalsByTotalProbBethe()
+        self.lbp = lbp_solver
 
         # We should definitively cache results, but not sure right now the best way. Will probably be more "obvious" later
         self.cache: Dict[Tuple[int], Tuple[np.ndarray, float]] = dict()
@@ -227,8 +227,7 @@ class ConditionedCluster:
         R_conditioned = self.conditioned_reward_matrix(assigned_to_this_cluster_mask)
 
         # At this point we simply do normal computation??
-        lbp_marginal_total, normalizing_constants_bethe, _ = self.lbp(R_conditioned, self.prior_hypotheses)
-        likelihood_conditioned = np.sum(self.prior_hypotheses_probs * normalizing_constants_bethe)
+        lbp_marginal_total, likelihood_conditioned = self.lbp(R_conditioned, self.prior_hypotheses)
 
         output = (lbp_marginal_total, likelihood_conditioned)
         # Cache for later

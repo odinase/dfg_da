@@ -76,16 +76,24 @@ def loop_func(pmbm_file):
     except ExplicitHypothesisEnumerationError:
         explicit_hypothesis_enumeration_error = True
 
+    mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
+    mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
     
-    mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-    mc_williams_marginals, mc_williams_likelihood = mc_williams.compute_marginals_likelihood()
+    mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
+    mc_phd_output = mc_phd.compute_marginals_likelihood()
 
-    mc_williams_output: sl.MulticlusterWilliamsBetheOutput = sl.MulticlusterWilliamsBetheOutput(marginals=mc_williams_marginals, likelihood=mc_williams_likelihood)
+
+    mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
+    mc_bethe_output = mc_bethe.compute_marginals_likelihood()
+
+
 
     cluster_data = sl.MulticlusterData(
         mhlbp_output=mcmhlbp,
         exact_output=exact_output,
-        mc_williams_output=mc_williams_output,
+        mc_phd_output=mc_phd_output,
+        mc_bethe_output=mc_bethe_output,
+        mc_mhlbp_output=mc_mhlbp_output,
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )
 
@@ -102,16 +110,16 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
-    pmbm_files = pmbm_files[:100]
+    pmbm_files = pmbm_files[:20]
 
     print(f"Computing {len(pmbm_files)} files...")
 
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files[:100]):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    for pmbm_file in tqdm(pmbm_files):
+        loop_func(pmbm_file)
+    # with Pool() as p:
+    #     p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

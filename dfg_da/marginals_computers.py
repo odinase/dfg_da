@@ -7,6 +7,7 @@ import py_dfg_da as pdd
 from dataclasses import dataclass
 from collections import Counter, defaultdict
 from pyehm.core import EHM2
+from cluster_data_asso import lc_to_edmund
 
 
 class MarginalsComputer(ABC):
@@ -125,7 +126,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
         return F_B_pseudo
 
-    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
         n, mp1 = R_LC.shape
         m = mp1 - 1
         all_tracks_idx = np.arange(n)
@@ -137,6 +138,8 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         normalizing_constants_odin = np.empty(len(prior_hypotheses))
         normalizing_constants_lc = np.empty(len(prior_hypotheses))
     
+        likelihood = 0.0
+
         for k, ph in enumerate(prior_hypotheses):
             tracks = np.sort(np.array(ph.tracks())).astype(int)
             hypo_prob = ph.probability()
@@ -169,6 +172,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             normalizing_constants_odin[k] = normalizing_constant
             normalizing_constants_lc[k] = np.exp(bethe_log_lc)
 
+            likelihood += normalizing_constant * hypo_prob
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
 
@@ -177,7 +181,73 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
 
-        return lbp_marginal_total, normalizing_constants_odin, normalizing_constants_lc
+        return lbp_marginal_total, likelihood
+
+
+
+class LBPMarginalsByTotalProbPHD(MarginalsComputer):
+    def PHD_normalizing_constant_approximation(self, R_sub: np.ndarray) -> float:
+        loglikelihoods = R_sub[:, 1:]
+        gated_measurements = np.any(np.isfinite(loglikelihoods), axis=0)
+        loglikelihoods = loglikelihoods[:, gated_measurements]
+        
+        mu = (1 - np.exp(R_sub[:, 0])).sum()
+        normalizing_constant = np.exp(-mu) * (np.exp(loglikelihoods).sum(0) + 1).prod()
+
+        return normalizing_constant
+
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+        n, mp1 = R_LC.shape
+        m = mp1 - 1
+        all_tracks_idx = np.arange(n)
+        
+        lbp_marginal_total = np.zeros((n, m + 1 + 1))
+
+        conditioned_marginals = np.empty((n, m + 2))
+
+        normalizing_constants_odin = np.empty(len(prior_hypotheses))
+        normalizing_constants_lc = np.empty(len(prior_hypotheses))
+    
+        likelihood = 0.0
+
+        for k, ph in enumerate(prior_hypotheses):
+            tracks = np.sort(np.array(ph.tracks())).astype(int)
+            hypo_prob = ph.probability()
+
+            R_sub = R_LC[tracks-1, :]
+
+            if len(tracks) > 0:
+                lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                phd_constant = self.PHD_normalizing_constant_approximation(R_sub)
+            else:
+                # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
+                lbp_probs = np.empty((0, R_LC.shape[1]))
+                phd_constant = 1.0
+                bethe_log_lc = 0.0
+            
+            # We need to concatenate the JPDAprobs with all tracks and existence probs
+            existing_tracks_idx = tracks - 1
+            non_existing_tracks_idx = np.delete(all_tracks_idx, existing_tracks_idx)
+
+            existing_probs = np.hstack((lbp_probs, np.zeros((lbp_probs.shape[0], 1))))
+            nonexisting_probs = np.hstack((np.zeros((len(non_existing_tracks_idx), m + 1)), np.ones((len(non_existing_tracks_idx), 1))))
+
+            conditioned_marginals[existing_tracks_idx] = existing_probs
+            conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
+
+            normalizing_constant = phd_constant
+            normalizing_constants_odin[k] = normalizing_constant
+            normalizing_constants_lc[k] = np.exp(bethe_log_lc)
+
+            lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
+            likelihood += normalizing_constant * hypo_prob
+
+        lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
+
+        assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
+        assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
+
+        return lbp_marginal_total, likelihood
 
 
 
@@ -220,6 +290,22 @@ class ExactMarginals(MarginalsComputer):
         assert ((0 <= marginal_total) & (marginal_total <= 1.0)).all()
 
         return marginal_total, (normalizing_constants,)
+
+
+class LBPMarginalsFullAssociationCPP(MarginalsComputer):
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, float]:
+# MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters = 300);
+
+    # py::class_<lbp::MHLBPSingleClusterOutput>(lbp, "MHLBPSingleClusterOutput")
+    # .def("track_association_marginals",  &lbp::MHLBPSingleClusterOutput::track_association_marginals)
+    # .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_loglikelihood)
+    # .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_normalization_constant);
+        R = np.asfortranarray(lc_to_edmund(R_LC))
+        lbp_single_cluster_output = pdd.lbp.lbp_single_cluster(R, prior_hypotheses)
+        marginals = lbp_single_cluster_output.track_association_marginals().T
+        likelihood = lbp_single_cluster_output.bethe_pseudodual_normalization_constant()
+
+        return marginals, likelihood
 
 
 class LBPMarginalsFullAssociation(MarginalsComputer):
