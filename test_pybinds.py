@@ -48,7 +48,7 @@ def make_clusters(llr):
         # return pr_a, pr_new
 
 
-def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posteriors: List[np.ndarray], ax: Optional[plt.Axes] = None):
+def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posteriors: List[np.ndarray], path: str, ax: Optional[plt.Axes] = None):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -72,10 +72,10 @@ def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posterior
     ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
     ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
 
-    save_fig(fig, "correlation_plot_test_case_1_theta_posteriors", tight_layout=True)
+    save_fig(fig, "correlation_plot_theta_posteriors", path=path, tight_layout=True)
 
 
-def theta_posterior_correlation_per_cluster(true_posteriors: List[np.ndarray], lbp_posteriors: List[np.ndarray], ax: Optional[plt.Axes] = None):
+def theta_posterior_correlation_per_cluster(true_posteriors: List[np.ndarray], lbp_posteriors: List[np.ndarray], path: str, ax: Optional[plt.Axes] = None):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -100,11 +100,11 @@ def theta_posterior_correlation_per_cluster(true_posteriors: List[np.ndarray], l
     ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
     ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
 
-    save_fig(fig, "correlation_plot_per_cluster_test_case_1_theta_posteriors", tight_layout=True)
+    save_fig(fig, "correlation_plot_per_cluster_theta_posteriors", path=path, tight_layout=True)
 
 
 
-def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, ax: Optional[plt.Axes] = None):
+def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, path: str, ax: Optional[plt.Axes] = None):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -135,9 +135,9 @@ def marginals_correlation(exact_margs: np.ndarray, approx_margs: np.ndarray, ax:
     ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
     ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
 
-    save_fig(fig, "correlation_plot_test_case_1_marginals", tight_layout=True)
+    save_fig(fig, "correlation_plot_marginals", path=path, tight_layout=True)
 
-def marginals_correlation_per_cluster(exact_margs: np.ndarray, approx_margs: np.ndarray, t_idxs_per_cluster: List[np.ndarray], ax: Optional[plt.Axes] = None):
+def marginals_correlation_per_cluster(exact_margs: np.ndarray, approx_margs: np.ndarray, t_idxs_per_cluster: List[np.ndarray], path: str, ax: Optional[plt.Axes] = None):
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -166,7 +166,7 @@ def marginals_correlation_per_cluster(exact_margs: np.ndarray, approx_margs: np.
     ax.set_xticklabels([f"{tick:.1f}" for tick in xticks])
     ax.set_yticklabels([f"{tick:.1f}" for tick in yticks])
 
-    save_fig(fig, "correlation_plot_per_cluster_test_case_1_marginals", tight_layout=True)
+    save_fig(fig, "correlation_plot_per_cluster_marginals", path=path, tight_layout=True)
 
 
 def numpy_to_latex(a):
@@ -249,68 +249,133 @@ def test_case_1():
     return R, R_LC, prior_hypotheses_per_cluster, assocLocal
 
 def test_case_2():
-        R_LC = np.array([
-            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-            [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
-            [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
-            [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
-            [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
-            [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
-            [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
-            [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
-            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-            [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
-            [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
-        ], order='F')
-        R_LC[:, 0] = np.log(R_LC[:, 0])
+    R_LC = np.array([
+        [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
+    ], order='F')
+    R_LC[:, 0] = np.log(R_LC[:, 0])
 
-        R = np.asfortranarray(lc_to_edmund(R_LC))
+    R = np.asfortranarray(lc_to_edmund(R_LC))
 
-        prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
-            # Cluster 1
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([1], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([2], np.log(0.5))
-            ]),
-            # Cluster 2
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([3], np.log(0.5)),
-                pdd.hypothesis.Hypothesis([4], np.log(0.5))
-            ]),
-            # Cluster 3
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([5], np.log(0.3)),
-                pdd.hypothesis.Hypothesis([6], np.log(0.3)),
-                pdd.hypothesis.Hypothesis([7], np.log(0.4))
-            ]),
-            # Cluster 4
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([8], np.log(0.3)),
-                pdd.hypothesis.Hypothesis([9], np.log(0.3)),
-                pdd.hypothesis.Hypothesis([10], np.log(0.4))
-            ]),
-            # Cluster 5
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([11], np.log(0.9)),
-                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
-            ]),
-            # Cluster 6
-            pdd.hypothesis.Hypotheses([
-                pdd.hypothesis.Hypothesis([12], np.log(0.9)),
-                pdd.hypothesis.Hypothesis([  ], np.log(0.1))
-            ])
+    prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+        # Cluster 1
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([1], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([2], np.log(0.5))
+        ]),
+        # Cluster 2
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([3], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([4], np.log(0.5))
+        ]),
+        # Cluster 3
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([5], np.log(0.3)),
+            pdd.hypothesis.Hypothesis([6], np.log(0.3)),
+            pdd.hypothesis.Hypothesis([7], np.log(0.4))
+        ]),
+        # Cluster 4
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([8], np.log(0.3)),
+            pdd.hypothesis.Hypothesis([9], np.log(0.3)),
+            pdd.hypothesis.Hypothesis([10], np.log(0.4))
+        ]),
+        # Cluster 5
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([11], np.log(0.9)),
+            pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+        ]),
+        # Cluster 6
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([12], np.log(0.9)),
+            pdd.hypothesis.Hypothesis([  ], np.log(0.1))
         ])
+    ])
 
-        assocLocal = np.array([
-            [1, 1, 3, 3, 1, 6],
-            [1, 0, 1, 0, 0, 1]
+    assocLocal = np.array([
+        [1, 1, 3, 3, 1, 6],
+        [1, 0, 1, 0, 0, 1]
+    ])
+
+    return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+
+
+def test_case_3():
+    R_LC = np.array([
+        [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1,     1.0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1,     1.0,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf,     1.0, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf,     1.0, -np.inf, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf,     1.0,     1.0, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf,     1.0, -np.inf, -np.inf],
+        [0.1, -np.inf, -np.inf,     1.0,     1.0,     1.0, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf],
+        [0.1,     1.0, -np.inf, -np.inf, -np.inf,     1.0, -np.inf],
+        [0.1, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,     1.0],
+    ], order='F')
+
+    R = np.asfortranarray(lc_to_edmund(R_LC))
+
+    prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([], np.log(0.5))
+        ]),
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([3, 4], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([], np.log(0.5))
+        ]),
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([5, 6, 7], np.log(0.3)),
+            # pdd.hypothesis.Hypothesis([], np.log(0.3)),
+            # pdd.hypothesis.Hypothesis([7], np.log(0.4))
+        ]),
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([8, 9, 10], np.log(0.3)),
+            # pdd.hypothesis.Hypothesis([], np.log(0.3)),
+            # pdd.hypothesis.Hypothesis([10], np.log(0.4))
+        ]),
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([11], np.log(0.9)),
+            # pdd.hypothesis.Hypothesis([  ], np.log(0.1))
+        ]),
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([12], np.log(0.9)),
+            # pdd.hypothesis.Hypothesis([  ], np.log(0.1))
         ])
+    ])
 
-        return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+    assocLocal = np.array([
+        [1, 1, 1, 1, 1, 6],
+        [1, 0, 0, 0, 0, 1]
+    ])
+
+    correct_mapping = {
+        1: { 0, 1, 4 },
+        3: { 2, 3 },
+        4: { 2, 3 },
+        5: { 3, 4 }
+    }
+
+    return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+
 
 if __name__ == "__main__":
-    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_2()
+    from plotting_multicluster import FIGURES_PATH
+    path = FIGURES_PATH + "/test_case3"
+    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_3()
 
     t_idxs_per_cluster = [ph.t_idxs() for ph in prior_hypotheses_per_cluster]
 
@@ -337,8 +402,8 @@ if __name__ == "__main__":
     print(hp)
     print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
 
-    theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp)
-    theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp)
+    theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
+    theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
 
-    marginals_correlation(exact_output.exact_marginals, lbp_margs)
-    marginals_correlation_per_cluster(exact_output.exact_marginals, lbp_margs, t_idxs_per_cluster)
+    marginals_correlation(exact_output.exact_marginals, lbp_margs, path=path)
+    marginals_correlation_per_cluster(exact_output.exact_marginals, lbp_margs, t_idxs_per_cluster, path=path)

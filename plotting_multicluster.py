@@ -30,24 +30,23 @@ from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
 FIGURES_PATH = "./figures"
 
-def save_fig_to_pdf(fig, fig_name, tight_layout=True):
+def save_fig_to_pdf(fig, fig_name, *, path=FIGURES_PATH, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
-    print(f"Saved {FIGURES_PATH}/{fig_name}.pdf")
+    fig.savefig(f"{path}/{fig_name}.pdf", bbox_inches='tight')
+    print(f"Saved {path}/{fig_name}.pdf")
 
 
-def save_fig_to_png(fig, fig_name, tight_layout=True):
+def save_fig_to_png(fig, fig_name, *, path=FIGURES_PATH, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight', dpi=600)
-    print(f"Saved {FIGURES_PATH}/{fig_name}.png")
+    fig.savefig(f"{path}/{fig_name}.png", bbox_inches='tight', dpi=600)
+    print(f"Saved {path}/{fig_name}.png")
 
 
-def save_fig(fig, fig_name, tight_layout=True):
-    save_fig_to_pdf(fig, fig_name, tight_layout=tight_layout)
-    save_fig_to_png(fig, fig_name, tight_layout=tight_layout)
-
+def save_fig(fig, fig_name, *, path=FIGURES_PATH, tight_layout=True):
+    save_fig_to_pdf(fig, fig_name, path=path, tight_layout=tight_layout)
+    save_fig_to_png(fig, fig_name, path=path, tight_layout=tight_layout)
 
 
 def cluster_file_to_mat_file(cluster_file):

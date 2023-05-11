@@ -1,6 +1,12 @@
 import numpy as np
-from cluster_bayes_tree import ClusterLinks
+from cluster_bayes_tree import ClusterLinks, LinkingMappings, cartesian_product
 from marginal_association_Odin import lbp_marginal_nonexistence
+import marginals_computers as mc
+import py_dfg_da as pdd
+from typing import *
+
+
+
 
 
 
@@ -8,7 +14,7 @@ from marginal_association_Odin import lbp_marginal_nonexistence
 # We use ClusterLinks above to find the measurements that are linked to other clusters
 # It should be initialized with a multicluster case and separate the clusters that are merged with the unaffected clusters
 # It is probably the best to do this in two stages - One that separates clusters and delegates the computation, and one that the performs that supercluster marginal computation
-class MulticlusterEfficientMarginals:
+class MulticlusterEfficientMarginalsLBP:
     def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal):
         # Store input for convenience
         self.R_LC = R_LC
@@ -27,6 +33,8 @@ class MulticlusterEfficientMarginals:
             )
             for linking_mappings in self.cluster_links.linking_mappings_per_merging_clusters()
         ]
+
+        self.lbp = mc.LBPMarginalsByTotalProbBethe()
 
     def compute_marginals_likelihood(self) -> np.ndarray:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
@@ -49,9 +57,10 @@ class MulticlusterEfficientMarginals:
             prior_hypotheses = self.prior_hypotheses_per_cluster[cluster]
             t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
             R_cluster = self.R_LC[t_idxs]
-            marginals_unmerged, likelihood_unmerged = multihypothesis_ehm2(R_cluster, prior_hypotheses)
-            marginals[t_idxs] = marginals_unmerged
-            likelihood *= likelihood_unmerged
+            lbp_marginal_total, normalizing_constants_bethe, _ = self.lbp(R_cluster, prior_hypotheses)
+            marginals[t_idxs] = lbp_marginal_total
+            probs = np.array(prior_hypotheses.hypothesis_probabilites())
+            likelihood *= np.sum(probs * normalizing_constants_bethe)
 
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
@@ -173,9 +182,12 @@ class ConditionedCluster:
         self.R_cluster: np.ndarray = R_cluster
         self.prior_hypotheses: pdd.hypothesis.Hypotheses = prior_hypotheses
         self.prior_hypotheses.reindex_tracks()
+        self.prior_hypotheses_probs: np.ndarray = np.array(self.prior_hypotheses.hypothesis_probabilites())
         self.linking_mappings_mapping_mat: np.ndarray = linking_mappings_mapping_mat
         self.actual_meas_idxs: np.ndarray = linking_mappings_mapping_mat[:, 0]
         self.reindex_meas: np.ndarray = linking_mappings_mapping_mat[:, 1]
+
+        self.lbp = mc.LBPMarginalsByTotalProbBethe()
 
         # We should definitively cache results, but not sure right now the best way. Will probably be more "obvious" later
         self.cache: Dict[Tuple[int], Tuple[np.ndarray, float]] = dict()
@@ -189,25 +201,6 @@ class ConditionedCluster:
 
         return R_conditioned
     
-
-    def conditioned_reward_matrix_bversion(self, assigned_to_this_cluster_mask) -> np.ndarray:
-        R = self.R_cluster.copy()
-        n, mp1 = R.shape
-        m = mp1 - 1
-
-        # Get global index of measurements that need to be fixed to associating to a track
-        existing_linking_meas = self.actual_meas_idxs[assigned_to_this_cluster_mask]
-
-        # First, normalize by misdetections. Can probably be done only once when initializing, but we do it here for now
-        R[:, 1:] -= R[:, [0]]
-
-        # Make b-version of matrix - Number of measurements that can be associated to a track or new track
-        R_conditioned_bversion = np.empty((m, n + 1))
-        R_conditioned_bversion[:, 0] = 0.0  # log(1) = 0
-
-        R_conditioned_bversion[:, existing_linking_meas - 1] = -np.inf  # log(0) = -inf, 0 probability of new track
-
-        return R_conditioned_bversion
 
     def parse_meas_assign_to_cluster_meas_and_assign_mask(self, measurement_assignments: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # Should parse the assignment, which is over the assignment of all linking measurements in the supercluster,
@@ -230,12 +223,13 @@ class ConditionedCluster:
         if meas_exist_tuple in self.cache:
             return self.cache[meas_exist_tuple]
 
-        meas_existence_mapping = np.vstack((self.actual_meas_idxs, assigned_to_this_cluster_mask)).T
+        R_conditioned = self.conditioned_reward_matrix(assigned_to_this_cluster_mask)
 
         # At this point we simply do normal computation??
-        marginals_conditioned, likelihood_conditioned = multihypothesis_ehm2_meas_conditioned(self.R_cluster, self.prior_hypotheses, meas_existence_mapping=meas_existence_mapping, reindex_tracks=False)
+        lbp_marginal_total, normalizing_constants_bethe, _ = self.lbp(R_conditioned, self.prior_hypotheses)
+        likelihood_conditioned = np.sum(self.prior_hypotheses_probs * normalizing_constants_bethe)
 
-        output = (marginals_conditioned, likelihood_conditioned)
+        output = (lbp_marginal_total, likelihood_conditioned)
         # Cache for later
         self.cache[meas_exist_tuple] = output
 
