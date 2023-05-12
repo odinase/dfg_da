@@ -135,8 +135,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
         conditioned_marginals = np.empty((n, m + 2))
 
-        normalizing_constants_odin = np.empty(len(prior_hypotheses))
-        normalizing_constants_lc = np.empty(len(prior_hypotheses))
+        normalizing_constants = np.empty(len(prior_hypotheses))
     
         likelihood = 0.0
 
@@ -145,18 +144,14 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             hypo_prob = ph.probability()
 
             R_sub = R_LC[tracks-1, :]
+            # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
+            lbp_probs = np.empty((0, R_LC.shape[1]))
+            bethe_loglikelihood = 0
 
             if len(tracks) > 0:
                 lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
                 F_b_psuedo = self.bethe_constant(w_nmd, mu, nu)
-                bethe_log_odin = -F_b_psuedo
-            else:
-                # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
-                lbp_probs = np.empty((0, R_LC.shape[1]))
-                it_from_lbp = 0
-                converged = True
-                bethe_log_lc = 0
-                bethe_log_odin = 0
+                bethe_loglikelihood = -F_b_psuedo
             
             # We need to concatenate the JPDAprobs with all tracks and existence probs
             existing_tracks_idx = tracks - 1
@@ -168,9 +163,8 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             conditioned_marginals[existing_tracks_idx] = existing_probs
             conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
-            normalizing_constant = np.exp(bethe_log_odin) # self.bethe_constant(mu, nu, w_nmd)
-            normalizing_constants_odin[k] = normalizing_constant
-            normalizing_constants_lc[k] = np.exp(bethe_log_lc)
+            normalizing_constant = np.exp(bethe_loglikelihood) # self.bethe_constant(mu, nu, w_nmd)
+            normalizing_constants[k] = normalizing_constant
 
             likelihood += normalizing_constant * hypo_prob
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
@@ -205,8 +199,7 @@ class LBPMarginalsByTotalProbPHD(MarginalsComputer):
 
         conditioned_marginals = np.empty((n, m + 2))
 
-        normalizing_constants_odin = np.empty(len(prior_hypotheses))
-        normalizing_constants_lc = np.empty(len(prior_hypotheses))
+        normalizing_constants = np.empty(len(prior_hypotheses))
     
         likelihood = 0.0
 
@@ -215,15 +208,12 @@ class LBPMarginalsByTotalProbPHD(MarginalsComputer):
             hypo_prob = ph.probability()
 
             R_sub = R_LC[tracks-1, :]
+            lbp_probs = np.empty((0, R_LC.shape[1]))
+            phd_constant = 1.0
 
             if len(tracks) > 0:
                 lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
                 phd_constant = self.PHD_normalizing_constant_approximation(R_sub)
-            else:
-                # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
-                lbp_probs = np.empty((0, R_LC.shape[1]))
-                phd_constant = 1.0
-                bethe_log_lc = 0.0
             
             # We need to concatenate the JPDAprobs with all tracks and existence probs
             existing_tracks_idx = tracks - 1
@@ -236,8 +226,7 @@ class LBPMarginalsByTotalProbPHD(MarginalsComputer):
             conditioned_marginals[non_existing_tracks_idx] = nonexisting_probs
 
             normalizing_constant = phd_constant
-            normalizing_constants_odin[k] = normalizing_constant
-            normalizing_constants_lc[k] = np.exp(bethe_log_lc)
+            normalizing_constants[k] = normalizing_constant
 
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
             likelihood += normalizing_constant * hypo_prob

@@ -76,23 +76,26 @@ def loop_func(pmbm_file):
     except ExplicitHypothesisEnumerationError:
         explicit_hypothesis_enumeration_error = True
 
-    # mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
-    # mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
+    print(exact_output.exact_normalization_constant)
+
+    mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
+    mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
     
     
     mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
     mc_phd_output = mc_phd.compute_marginals_likelihood()
+    print(mc_phd_output.likelihood)
 
-    # mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_phd.cluster_links)
-    # mc_bethe_output = mc_bethe.compute_marginals_likelihood()
+    mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_phd.cluster_links)
+    mc_bethe_output = mc_bethe.compute_marginals_likelihood()
 
 
     cluster_data = sl.MulticlusterData(
         mhlbp_output=mcmhlbp,
         exact_output=exact_output,
         mc_phd_output=mc_phd_output,
-        mc_bethe_output=None,#mc_bethe_output,
-        mc_mhlbp_output=None,#mc_mhlbp,
+        mc_bethe_output=mc_bethe_output,
+        mc_mhlbp_output=mc_mhlbp_output,
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )
 
@@ -115,10 +118,10 @@ if __name__ == "__main__":
 
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    for pmbm_file in tqdm(pmbm_files):
+        loop_func(pmbm_file)
+    # with Pool() as p:
+    #     p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

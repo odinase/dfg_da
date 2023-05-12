@@ -909,15 +909,16 @@ if __name__ == "__main__":
         cluster_stats_batch = load_cluster_stats_batch(path, batch_start, batch_stop)
         for (cluster_stat, _) in tqdm(cluster_stats_batch):
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
-            # mcmhlbp_approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
-            # williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
-            # mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
+            mcmhlbp_approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
+            williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
+            mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
             phd_approx_normalization_constants[k] = cluster_stat.mc_phd_output.likelihood
             k += 1
         
         del cluster_stats_batch
 
     num_files = k
+
 
     mcmhlbp_approx_normalization_constants = BethePlotData(constants=mcmhlbp_approx_normalization_constants[:num_files], label="MCMH-LBP")
     williams_approx_normalization_constants = BethePlotData(constants=williams_approx_normalization_constants[:num_files], label="Approx Efficient Bethe")
@@ -926,8 +927,10 @@ if __name__ == "__main__":
 
     exact_normalization_constants = exact_normalization_constants[:num_files]
 
+    # williams_approx_normalization_constants.constants = williams_approx_normalization_constants.constants * exact_normalization_constants.min()/williams_approx_normalization_constants.constants.min()
+
     approx_normalization_constants = [mcmhlbp_approx_normalization_constants, williams_approx_normalization_constants, phd_approx_normalization_constants, mc_eff_mhlbp_approx_normalization_constants]
-    approx_normalization_constants = [phd_approx_normalization_constants]
+    # approx_normalization_constants = [phd_approx_normalization_constants]
 
     # print(illegal_files)
     # make_raw_error_plot(cluster_stats)

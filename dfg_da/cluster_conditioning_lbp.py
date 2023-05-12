@@ -13,7 +13,7 @@ from typing import *
 # It should be initialized with a multicluster case and separate the clusters that are merged with the unaffected clusters
 # It is probably the best to do this in two stages - One that separates clusters and delegates the computation, and one that the performs that supercluster marginal computation
 class MulticlusterEfficientMarginalsLBP:
-    def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal, lbp_solver = LBPMarginalsByTotalProbBethe, cluster_links: Optional[ClusterLinks] = None):
+    def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal, lbp_solver, cluster_links: Optional[ClusterLinks] = None):
         # Store input for convenience
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
@@ -60,8 +60,9 @@ class MulticlusterEfficientMarginalsLBP:
             t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
             prior_hypotheses.reindex_tracks()
             R_cluster = self.R_LC[t_idxs]
-            lbp_marginal_total, likelihood = self.lbp(R_cluster, prior_hypotheses)
+            lbp_marginal_total, lbp_likelihood = self.lbp(R_cluster, prior_hypotheses)
             marginals[t_idxs] = lbp_marginal_total
+            likelihood *= lbp_likelihood
 
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
@@ -78,7 +79,7 @@ def print_numbers_to_chars_assignment(assignment):
 
 
 class ConditionalSuperclusterMarginals:
-    def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, linking_mappings: LinkingMappings, lbp_solver = LBPMarginalsByTotalProbBethe()):
+    def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, linking_mappings: LinkingMappings, lbp_solver):
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
         self.linking_mappings = linking_mappings
