@@ -157,7 +157,7 @@ namespace dfg_da
                 std::move(w_0),
                 std::move(t2h),
                 std::move(t2h_not),
-                std::move(phi));
+                std::move(Eigen::ArrayXd{phi}));
         }
 
         Eigen::ArrayXXd MHLBPMulticlusterOutput::track_association_marginals() const
@@ -199,7 +199,7 @@ namespace dfg_da
                     rho_prods = (d.t2h.colwise() * rho_c + d.t2h_not).colwise().prod().transpose();
                     Eigen::ArrayXd hypo_probs = d.phi() * rho_prods;
                     hypo_probs /= hypo_probs.sum();
-                    return std::move(hypo_probs);
+                    return hypo_probs;
                 });
 
             return marginals;

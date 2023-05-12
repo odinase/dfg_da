@@ -3,7 +3,7 @@ import dfg_da.prior_hypothesis as phs
 import dfg_da.cluster_bayes_tree as cbt
 import dfg_da.stats_logger as sl
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
-from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP
+from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP, MulticlusterConditionendLBPOutput
 
 import matplotlib.pyplot as plt
 from glob import glob
@@ -72,28 +72,27 @@ def loop_func(pmbm_file):
     exact_output = None
 
     try:
-        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy())
+        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
     except ExplicitHypothesisEnumerationError:
         explicit_hypothesis_enumeration_error = True
 
-    mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
-    mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
+    # mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
+    # mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
     
-    mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
+    
+    mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
     mc_phd_output = mc_phd.compute_marginals_likelihood()
 
-
-    mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
-    mc_bethe_output = mc_bethe.compute_marginals_likelihood()
-
+    # mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_phd.cluster_links)
+    # mc_bethe_output = mc_bethe.compute_marginals_likelihood()
 
 
     cluster_data = sl.MulticlusterData(
         mhlbp_output=mcmhlbp,
         exact_output=exact_output,
         mc_phd_output=mc_phd_output,
-        mc_bethe_output=mc_bethe_output,
-        mc_mhlbp_output=mc_mhlbp_output,
+        mc_bethe_output=None,#mc_bethe_output,
+        mc_mhlbp_output=None,#mc_mhlbp,
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )
 
@@ -110,16 +109,16 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
-    pmbm_files = pmbm_files[:20]
+    pmbm_files = pmbm_files[:10]
 
     print(f"Computing {len(pmbm_files)} files...")
 
     print("Starting pool")
     start = time.time()
-    for pmbm_file in tqdm(pmbm_files):
-        loop_func(pmbm_file)
-    # with Pool() as p:
-    #     p.map(loop_func, pmbm_files)
+    # for pmbm_file in tqdm(pmbm_files):
+    #     loop_func(pmbm_file)
+    with Pool() as p:
+        p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

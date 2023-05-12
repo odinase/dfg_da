@@ -13,14 +13,17 @@ from typing import *
 # It should be initialized with a multicluster case and separate the clusters that are merged with the unaffected clusters
 # It is probably the best to do this in two stages - One that separates clusters and delegates the computation, and one that the performs that supercluster marginal computation
 class MulticlusterEfficientMarginalsLBP:
-    def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal, lbp_solver = LBPMarginalsByTotalProbBethe):
+    def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal, lbp_solver = LBPMarginalsByTotalProbBethe, cluster_links: Optional[ClusterLinks] = None):
         # Store input for convenience
         self.R_LC = R_LC
         self.prior_hypotheses_per_cluster = prior_hypotheses_per_cluster
         self.assocLocal = assocLocal
 
         # Compute linking measurements and superclusters
-        self.cluster_links = ClusterLinks(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal)
+        if cluster_links is not None:
+            self.cluster_links = cluster_links
+        else:
+            self.cluster_links = ClusterLinks(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal)
 
         # Make superclusters
         self.superclusters = [
@@ -35,7 +38,7 @@ class MulticlusterEfficientMarginalsLBP:
 
         self.lbp = lbp_solver
 
-    def compute_marginals_likelihood(self) -> np.ndarray:
+    def compute_marginals_likelihood(self) -> MulticlusterConditionendLBPOutput:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
         n, mp1 = self.R_LC.shape
 

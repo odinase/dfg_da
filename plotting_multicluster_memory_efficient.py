@@ -762,27 +762,27 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
     # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
 
     for approx_consts in approx_normalization_constants:
-        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.2, label=approx_consts.label)
+        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.4, label=approx_consts.label, ms=10)
 
     ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
     ax.set_xlabel("Approximate normalization constant", fontsize=18)
     ax.set_ylabel("Exact normalization constant", fontsize=18)
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=18)
+    ax.legend(fontsize=14)
     ax.loglog()
 
-    x = [l.constants.min() for l in approx_normalization_constants]
-    y = exact_normalization_constants
+    # x = [l.constants.min() for l in approx_normalization_constants]
+    # y = exact_normalization_constants
     # Determine tick values based on data range
-    data_min = min(np.min(x), np.min(y))
-    data_max = max(np.max(x), np.max(y))
-    ticks = np.logspace(np.floor(np.log10(data_min)), np.ceil(np.log10(data_max)), 5)
+    # data_min = min(np.min(x), np.min(y))
+    # data_max = max(np.max(x), np.max(y))
+    # ticks = np.logspace(np.floor(np.log10(data_min)), np.ceil(np.log10(data_max)), 5)
 
-    # Set equal tick labels on both axes
-    ax.set_xticks(ticks)
-    ax.set_yticks(ticks)
-    ax.set_xticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
-    ax.set_yticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
+    # # Set equal tick labels on both axes
+    # ax.set_xticks(ticks)
+    # ax.set_yticks(ticks)
+    # ax.set_xticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
+    # ax.set_yticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
     
 
     save_fig(fig, "normalization_constant")
@@ -909,9 +909,9 @@ if __name__ == "__main__":
         cluster_stats_batch = load_cluster_stats_batch(path, batch_start, batch_stop)
         for (cluster_stat, _) in tqdm(cluster_stats_batch):
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
-            mcmhlbp_approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
-            williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
-            mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
+            # mcmhlbp_approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
+            # williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
+            # mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
             phd_approx_normalization_constants[k] = cluster_stat.mc_phd_output.likelihood
             k += 1
         
@@ -927,6 +927,7 @@ if __name__ == "__main__":
     exact_normalization_constants = exact_normalization_constants[:num_files]
 
     approx_normalization_constants = [mcmhlbp_approx_normalization_constants, williams_approx_normalization_constants, phd_approx_normalization_constants, mc_eff_mhlbp_approx_normalization_constants]
+    approx_normalization_constants = [phd_approx_normalization_constants]
 
     # print(illegal_files)
     # make_raw_error_plot(cluster_stats)

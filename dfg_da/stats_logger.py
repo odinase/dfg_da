@@ -476,10 +476,10 @@ class MulticlusterConditionendLBPOutput:
 
 @dataclass
 class MulticlusterData:
-    mhlbp_output: py_dfg_da.lbp.MHLBPMulticlusterOutput
-    mc_bethe_output: MulticlusterConditionendLBPOutput
-    mc_phd_output: MulticlusterConditionendLBPOutput
-    mc_mhlbp_output: MulticlusterConditionendLBPOutput
+    mhlbp_output: Optional[py_dfg_da.lbp.MHLBPMulticlusterOutput] = None
+    mc_bethe_output: Optional[MulticlusterConditionendLBPOutput] = None
+    mc_phd_output: Optional[MulticlusterConditionendLBPOutput] = None
+    mc_mhlbp_output: Optional[MulticlusterConditionendLBPOutput] = None
     exact_output: Optional[MulticlusterExactOutput] = None
     
     explicit_hypothesis_enumeration_error: bool = False

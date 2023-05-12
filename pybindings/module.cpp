@@ -284,6 +284,15 @@ PYBIND11_MODULE(py_dfg_da, m) {
     lbp.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 10'000);
 
     py::class_<lbp::MHLBPSingleClusterOutput>(lbp, "MHLBPSingleClusterOutput")
+    .def_readonly("mu", &lbp::MHLBPSingleClusterOutput::mu)
+    .def_readonly("nu", &lbp::MHLBPSingleClusterOutput::nu)
+    .def_readonly("rho", &lbp::MHLBPSingleClusterOutput::rho)
+    .def_readonly("sigma", &lbp::MHLBPSingleClusterOutput::sigma)
+    .def_readonly("w_nmd", &lbp::MHLBPSingleClusterOutput::w_nmd)
+    .def_readonly("w_0", &lbp::MHLBPSingleClusterOutput::w_0)
+    .def_readonly("t2h", &lbp::MHLBPSingleClusterOutput::t2h)
+    .def_readonly("t2h_not", &lbp::MHLBPSingleClusterOutput::t2h_not)
+    .def_readonly("phi", &lbp::MHLBPSingleClusterOutput::phi)
     .def("track_association_marginals",  &lbp::MHLBPSingleClusterOutput::track_association_marginals)
     .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_loglikelihood)
     .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_normalization_constant);

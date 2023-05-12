@@ -293,6 +293,87 @@ class ExactMarginals(MarginalsComputer):
 
 
 class LBPMarginalsFullAssociationCPP(MarginalsComputer):
+    def bethe_loglikelihood_cpp(self, lbp_single_cluster_output: pdd.lbp.MHLBPSingleClusterOutput) -> float:
+        n, m = lbp_single_cluster_output.w_nmd.shape
+
+        w_nmd = lbp_single_cluster_output.w_nmd
+        w_0 = lbp_single_cluster_output.w_0
+        mu = lbp_single_cluster_output.mu
+        nu = lbp_single_cluster_output.nu
+        rho = lbp_single_cluster_output.rho
+        sigma = lbp_single_cluster_output.sigma
+        phi = lbp_single_cluster_output.phi
+
+        t2h = lbp_single_cluster_output.t2h
+        t2h_not = lbp_single_cluster_output.t2h_not
+
+        rho_prods = (t2h.T * rho + t2h_not.T).prod(1)
+
+        phi_rho_prods = phi * rho_prods
+
+        Z_theta = phi_rho_prods.sum()
+
+        w_times_msg_sum = (w_nmd * nu).sum(1)
+
+        Z_t = w_0 + w_times_msg_sum + sigma
+
+        Z_j = 1.0 + mu.sum(0)
+
+        Z_tth = ((w_0 + w_times_msg_sum) / rho) * (phi_rho_prods * t2h).sum(1) + (phi_rho_prods * t2h_not).sum(1)
+
+        Z_tj = (1.0 + (mu.sum(axis=0, keepdims=True) - mu)) * ((w_0[:,None] + (w_times_msg_sum[:,None] - (w_nmd * nu))) + sigma[:,None]) + w_nmd
+
+        F = (
+            (n-1)*np.log(Z_theta)
+            + m*np.log(Z_t).sum()
+            + (n-1)*np.log(Z_j).sum()
+            - np.log(Z_tth).sum()
+            - np.log(Z_tj).sum()
+        )
+
+        return -F
+
+    def bethe_loglikelihood(self, w_nmd, w_0, mu, nu, rho, sigma, phi, t2h, t2h_not) -> float:
+        n, m = w_nmd.shape
+
+        w_nmd = w_nmd
+        mu = mu
+        nu = nu
+        w_0 = w_0.ravel()
+        rho = rho
+        sigma = sigma
+        phi = phi
+
+        t2h = t2h
+        t2h_not = t2h_not
+
+        rho_prods = (t2h.T * rho + t2h_not.T).prod(1)
+
+        phi_rho_prods = phi * rho_prods
+
+        Z_theta = phi_rho_prods.sum()
+
+        w_times_msg_sum = (w_nmd * nu).sum(1)
+
+        Z_t = w_0 + w_times_msg_sum + sigma
+
+        Z_j = 1.0 + mu.sum(0)
+
+        Z_tth = ((w_0 + w_times_msg_sum) / rho) * (phi_rho_prods * t2h).sum(1) + (phi_rho_prods * t2h_not).sum(1)
+
+        Z_tj = (1.0 + (mu.sum(axis=0, keepdims=True) - mu)) * ((w_0[:,None] + (w_times_msg_sum[:,None] - (w_nmd * nu))) + sigma[:,None]) + w_nmd
+
+        F = (
+            (n-1)*np.log(Z_theta)
+            + m*np.log(Z_t).sum()
+            + (n-1)*np.log(Z_j).sum()
+            - np.log(Z_tth).sum()
+            - np.log(Z_tj).sum()
+        )
+
+        return -F
+    
+
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, float]:
 # MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters = 300);
 
@@ -300,10 +381,17 @@ class LBPMarginalsFullAssociationCPP(MarginalsComputer):
     # .def("track_association_marginals",  &lbp::MHLBPSingleClusterOutput::track_association_marginals)
     # .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_loglikelihood)
     # .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_normalization_constant);
-        R = np.asfortranarray(lc_to_edmund(R_LC))
-        lbp_single_cluster_output = pdd.lbp.lbp_single_cluster(R, prior_hypotheses)
-        marginals = lbp_single_cluster_output.track_association_marginals().T
-        likelihood = lbp_single_cluster_output.bethe_pseudodual_normalization_constant()
+        # R = np.asfortranarray(lc_to_edmund(R_LC))
+        # lbp_single_cluster_output: pdd.lbp.MHLBPSingleClusterOutput = pdd.lbp.lbp_single_cluster(R, prior_hypotheses, max_num_iters = 10_000)
+        w_nmd, w_0, mu, nu, rho, sigma, phi, t2h_idx, t2noth_idx, marginals = lbp_marginal_nonexistence(R_LC, prior_hypotheses, max_iter=10_000)
+        # bethe_loglikelihood_cpp = self.bethe_loglikelihood_cpp(lbp_single_cluster_output)
+        bethe_loglikelihood = self.bethe_loglikelihood(w_nmd, w_0, mu, nu, rho, sigma, phi, t2h_idx, t2noth_idx)
+        likelihood = np.exp(bethe_loglikelihood)
+        # cpp_bethe_loglikelihood = lbp_single_cluster_output.bethe_pseudodual_loglikelihood()
+        # assert abs(bethe_loglikelihood - cpp_bethe_loglikelihood) < 1e-4
+        # assert abs(bethe_loglikelihood_cpp - bethe_loglikelihood) < 1e-4
+        # marginals = lbp_single_cluster_output.track_association_marginals().T
+        # likelihood = lbp_single_cluster_output.bethe_pseudodual_normalization_constant()
 
         return marginals, likelihood
 
