@@ -374,6 +374,7 @@ def test_case_3():
     return R, R_LC, prior_hypotheses_per_cluster, assocLocal
 
 
+
 if __name__ == "__main__":
     from plotting_multicluster import FIGURES_PATH
     path = FIGURES_PATH + "/test_case3"
@@ -404,11 +405,29 @@ if __name__ == "__main__":
     print(hp)
     print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
 
-    efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal)
-    marginals, likelihood = efficient_mc_williams.compute_marginals_likelihood()
+    print("Efficient Bethe!")
+    efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
+    efficient_mc_williams_output: sl.MulticlusterConditionendLBPOutput = efficient_mc_williams.compute_marginals_likelihood()
 
-    print(marginals)
-    print(likelihood)
+    print(efficient_mc_williams_output.marginals)
+    print(efficient_mc_williams_output.likelihood)
+    print(efficient_mc_williams_output.theta_posteriors)
+
+    print("Efficient PHD!")
+    efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
+    efficient_mc_williams_output: sl.MulticlusterConditionendLBPOutput = efficient_mc_williams.compute_marginals_likelihood()
+
+    print(efficient_mc_williams_output.marginals)
+    print(efficient_mc_williams_output.likelihood)
+    print(efficient_mc_williams_output.theta_posteriors)
+
+    print("Efficient MHLBP!")
+    efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
+    efficient_mc_williams_output: sl.MulticlusterConditionendLBPOutput = efficient_mc_williams.compute_marginals_likelihood()
+
+    print(efficient_mc_williams_output.marginals)
+    print(efficient_mc_williams_output.likelihood)
+    print(efficient_mc_williams_output.theta_posteriors)
 
     theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
     theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)

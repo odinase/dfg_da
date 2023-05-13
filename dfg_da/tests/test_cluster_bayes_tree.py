@@ -596,7 +596,7 @@ class TestMHEHM2(unittest.TestCase):
             ])
         ])
 
-        margs, l = multihypothesis_ehm2(R_LC, prior_hypotheses_per_cluster[0])
+        margs, _, l = multihypothesis_ehm2(R_LC, prior_hypotheses_per_cluster[0])
 
         correct = MulticlusterExactEHM2()
         correct_out = correct.compute_marginals(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
@@ -629,7 +629,7 @@ class TestMHEHM2(unittest.TestCase):
             ])
         ])
 
-        margs, l = multihypothesis_ehm2(R_LC, prior_hypotheses_per_cluster[0])
+        margs, _, l = multihypothesis_ehm2(R_LC, prior_hypotheses_per_cluster[0])
 
         correct = MulticlusterExactEHM2()
         correct_out = correct.compute_marginals(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
@@ -676,7 +676,12 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             assocLocal=assocLocal
         )
 
-        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+        efficient_marginals, efficient_theta_posteriors, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        exact_theta_posteriors = exact_output.compute_theta_posteriors()
+        for cluster, theta_posterior in efficient_theta_posteriors.items():
+            self.assertTrue(np.allclose(theta_posterior, exact_theta_posteriors[cluster]))
+
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -721,7 +726,11 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             assocLocal=assocLocal
         )
 
-        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+        efficient_marginals, efficient_theta_posteriors, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        exact_theta_posteriors = exact_output.compute_theta_posteriors()
+        for cluster, theta_posterior in efficient_theta_posteriors.items():
+            self.assertTrue(np.allclose(theta_posterior, exact_theta_posteriors[cluster]))
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -788,7 +797,12 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             assocLocal=assocLocal
         )
 
-        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+        efficient_marginals, efficient_theta_posteriors, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        exact_theta_posteriors = exact_output.compute_theta_posteriors()
+        for cluster, theta_posterior in efficient_theta_posteriors.items():
+            self.assertTrue(np.allclose(theta_posterior, exact_theta_posteriors[cluster]))
+
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -856,7 +870,12 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             assocLocal=assocLocal
         )
 
-        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+        efficient_marginals, efficient_theta_posteriors, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        exact_theta_posteriors = exact_output.compute_theta_posteriors()
+        for cluster, theta_posterior in efficient_theta_posteriors.items():
+            self.assertTrue(np.allclose(theta_posterior, exact_theta_posteriors[cluster]))
+
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))
@@ -901,7 +920,11 @@ class TestMulticlusterEfficientMarginals(unittest.TestCase):
             assocLocal=assocLocal
         )
 
-        efficient_marginals, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+        efficient_marginals, efficient_theta_posteriors, efficient_likelihood = efficient_cluster.compute_marginals_likelihood()
+
+        exact_theta_posteriors = exact_output.compute_theta_posteriors()
+        for cluster, theta_posterior in efficient_theta_posteriors.items():
+            self.assertTrue(np.allclose(theta_posterior, exact_theta_posteriors[cluster]))
 
         self.assertAlmostEqual(efficient_likelihood, exact_output.exact_normalization_constant)
         self.assertTrue(np.allclose(exact_output.exact_marginals, efficient_marginals))

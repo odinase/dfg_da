@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from dfg_da.marginal_association_Odin import exact_marginal
 import dfg_da.marginals_computers as mc
 from scipy.special import binom
+from collections import defaultdict
 
 
 def test_case():
@@ -220,9 +221,13 @@ def multihypothesis_ehm2(R_cluster, prior_hypotheses, reindex_tracks: bool = Tru
 
         normalizing_constant_cluster += likelihood * prob
 
+    prior_theta_probs = np.array(prior_hypotheses.hypothesis_probabilites())
+    conditioned_theta_posterior = prior_theta_probs * hypo_cond_normalizing_constants
+    conditioned_theta_posterior = conditioned_theta_posterior / conditioned_theta_posterior.sum()
+
     marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
-    return marginals, normalizing_constant_cluster
+    return marginals, conditioned_theta_posterior, normalizing_constant_cluster
 
 
 def conditioned_reward_matrix_bversion(R_cluster, meas_existence_mapping) -> np.ndarray:
@@ -319,11 +324,15 @@ def multihypothesis_ehm2_meas_conditioned(R_cluster, prior_hypotheses, meas_exis
             marginals += conditioned_marginals * likelihood * prob
             normalizing_constant_cluster += likelihood * prob
 
+    prior_theta_probs = np.array(prior_hypotheses.hypothesis_probabilites())
+    conditioned_theta_posterior = prior_theta_probs * hypo_cond_normalizing_constants
+    conditioned_theta_posterior = conditioned_theta_posterior / conditioned_theta_posterior.sum()
+
     #assert (np.abs(marginals.sum(axis=1) - normalizing_constant_cluster) < 1e-8).all()
     if normalizing_constant_cluster > 0.0:
         marginals = marginals / normalizing_constant_cluster
 
-    return marginals, normalizing_constant_cluster
+    return marginals, conditioned_theta_posterior, normalizing_constant_cluster
 
 
 # We can now construct the components of the "tree" (with depth 1 lol).
@@ -355,29 +364,32 @@ class MulticlusterEfficientMarginals:
         n, mp1 = self.R_LC.shape
 
         marginals = np.empty((n, mp1 + 1))
+        theta_posteriors = dict()
         self._0 = np.zeros((n, mp1))
         self._1 = np.ones((n, 1))
 
         likelihood = 1.0
         # Collect supercluster marginals
         for supercluster in self.superclusters:
-            marginals_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
+            marginals_supercluster, theta_posteriors_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
             t_idxs = supercluster.supercluster_t_idxs()
             marginals[t_idxs] = marginals_supercluster
             likelihood *= likelihood_supercluster
+            theta_posteriors.update(theta_posteriors_supercluster)
 
         # Unmerging clusters just do total marginals over hypotheses
         for cluster in self.cluster_links.unmerging_clusters():
             prior_hypotheses = self.prior_hypotheses_per_cluster[cluster]
             t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
             R_cluster = self.R_LC[t_idxs]
-            marginals_unmerged, likelihood_unmerged = multihypothesis_ehm2(R_cluster, prior_hypotheses)
+            marginals_unmerged, theta_posterior_cluster, likelihood_unmerged = multihypothesis_ehm2(R_cluster, prior_hypotheses)
             marginals[t_idxs] = marginals_unmerged
             likelihood *= likelihood_unmerged
+            theta_posteriors[cluster] = theta_posterior_cluster
 
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
-        return marginals, likelihood
+        return marginals, theta_posteriors, likelihood
 
 def print_numbers_to_chars_assignment(assignment):
     assert len(assignment) == 2
@@ -453,6 +465,8 @@ class ConditionalSuperclusterMarginals:
         marginals = np.empty((n , mp1 + 1))
         marginals[t_idxs] = 0.0
 
+        theta_posteriors = defaultdict(lambda: 0)
+        theta_posteriors_term = defaultdict(lambda: 0)
         # It is at this point we need to loop over all ways to assign the linking measurements, multiply the clusters conditioned marginals together
         # (since they're independent) and sum up
 
@@ -468,11 +482,12 @@ class ConditionalSuperclusterMarginals:
             # Since the clusters now are independent, we simply compute the conditional marginals for each cluster and appropriately insert them into the supercluster marginal, and sum
             assignment_likelihood = 1.0
             for cluster in self.conditioned_clusters:
-                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)       
+                conditioned_cluster_marginal, conditioned_theta_posterior, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)
                 cluster_t_idxs = cluster.t_idxs
                 if conditioned_cluster_likelihood > 0.0:
                     marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
                     assignment_likelihood *= conditioned_cluster_likelihood
+                    theta_posteriors_term[cluster.cluster_idx] = conditioned_theta_posterior
                 else:
                     assignment_likelihood = 0.0
                     break
@@ -480,11 +495,15 @@ class ConditionalSuperclusterMarginals:
             if assignment_likelihood > 0.0:
                 marginals += marginal_term*assignment_likelihood
                 likelihood += assignment_likelihood
+                for c, p in theta_posteriors_term.items():
+                    theta_posteriors[c] += p * assignment_likelihood
 
         marginals: np.ndarray = marginals[t_idxs]
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
+        for c, p in theta_posteriors.items():
+            theta_posteriors[c] = p / p.sum()
 
-        return marginals, likelihood
+        return marginals, theta_posteriors, likelihood
 
 
 class ConditionedCluster:
@@ -555,9 +574,9 @@ class ConditionedCluster:
         meas_existence_mapping = np.vstack((self.actual_meas_idxs, assigned_to_this_cluster_mask)).T
 
         # At this point we simply do normal computation??
-        marginals_conditioned, likelihood_conditioned = multihypothesis_ehm2_meas_conditioned(self.R_cluster, self.prior_hypotheses, meas_existence_mapping=meas_existence_mapping, reindex_tracks=False)
+        marginals_conditioned, conditioned_theta_posterior, likelihood_conditioned = multihypothesis_ehm2_meas_conditioned(self.R_cluster, self.prior_hypotheses, meas_existence_mapping=meas_existence_mapping, reindex_tracks=False)
 
-        output = (marginals_conditioned, likelihood_conditioned)
+        output = (marginals_conditioned, conditioned_theta_posterior, likelihood_conditioned)
         # Cache for later
         self.cache[meas_exist_tuple] = output
 

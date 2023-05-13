@@ -472,6 +472,7 @@ class ExactStats:
 class MulticlusterConditionendLBPOutput:
     marginals: np.ndarray
     likelihood: float
+    theta_posteriors: Optional[Dict[int, np.ndarray]] = None
 
 
 @dataclass

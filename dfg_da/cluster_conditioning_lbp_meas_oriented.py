@@ -4,7 +4,14 @@ from .marginals_computers import LBPMarginalsByTotalProbBethe, LBPMarginalsByTot
 from .stats_logger import MulticlusterConditionendLBPOutput
 import py_dfg_da as pdd
 from typing import *
-from collections import defaultdict
+
+
+
+
+def mhlbp_meas_oriented():
+    pass
+
+
 
 
 
@@ -12,7 +19,7 @@ from collections import defaultdict
 # We use ClusterLinks above to find the measurements that are linked to other clusters
 # It should be initialized with a multicluster case and separate the clusters that are merged with the unaffected clusters
 # It is probably the best to do this in two stages - One that separates clusters and delegates the computation, and one that the performs that supercluster marginal computation
-class MulticlusterEfficientMarginalsLBP:
+class MulticlusterEfficientMarginalsMeasOrientedLBP:
     def __init__(self, R_LC, prior_hypotheses_per_cluster, assocLocal, lbp_solver, cluster_links: Optional[ClusterLinks] = None):
         # Store input for convenience
         self.R_LC = R_LC
@@ -43,36 +50,32 @@ class MulticlusterEfficientMarginalsLBP:
         n, mp1 = self.R_LC.shape
 
         marginals = np.empty((n, mp1 + 1))
-        theta_posteriors = dict()
         self._0 = np.zeros((n, mp1))
         self._1 = np.ones((n, 1))
 
         likelihood = 1.0
         # Collect supercluster marginals
         for supercluster in self.superclusters:
-            marginals_supercluster, theta_posteriors_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
+            marginals_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
             t_idxs = supercluster.supercluster_t_idxs()
             marginals[t_idxs] = marginals_supercluster
             likelihood *= likelihood_supercluster
-            theta_posteriors.update(theta_posteriors_supercluster)
 
         # Unmerging clusters just do total marginals over hypotheses
         for cluster in self.cluster_links.unmerging_clusters():
             prior_hypotheses = self.prior_hypotheses_per_cluster[cluster]
             t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
-            R_cluster = self.R_LC[t_idxs]
             prior_hypotheses.reindex_tracks()
-            marginals_unmerged, theta_posterior_cluster, likelihood_unmerged = self.lbp(R_cluster, prior_hypotheses)
-            marginals[t_idxs] = marginals_unmerged
-            likelihood *= likelihood_unmerged
-            theta_posteriors[cluster] = theta_posterior_cluster
+            R_cluster = self.R_LC[t_idxs]
+            lbp_marginal_total, lbp_likelihood = self.lbp(R_cluster, prior_hypotheses)
+            marginals[t_idxs] = lbp_marginal_total
+            likelihood *= lbp_likelihood
 
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
         return MulticlusterConditionendLBPOutput(
             marginals=marginals,
-            likelihood=likelihood,
-            theta_posteriors=theta_posteriors
+            likelihood=likelihood
         )
 
 def print_numbers_to_chars_assignment(assignment):
@@ -96,7 +99,7 @@ class ConditionalSuperclusterMarginals:
         # Before we construct the conditional clusters we need to remap the measurement idxs that exist to a more useful "array indexing index"
         self.lm2arr_idx = self.remap_linking_measurements(self.linking_mappings)
 
-        self.conditioned_clusters: List[ConditionedCluster] = []
+        self.conditioned_clusters: List[ConditionedClusterMeasOriented] = []
         for cluster, linking_measurements in linking_mappings.cluster_to_linking_measurements.items():
             prior_hypotheses = prior_hypotheses_per_cluster[cluster]
             t_idxs = prior_hypotheses.t_idxs()
@@ -106,7 +109,7 @@ class ConditionalSuperclusterMarginals:
             # The actual measurement idxs are used for conditioning the reward matrix, while the reindex index is used to look up the assignment mask
             # Each row has first element the actual idx while the second is the reindexed index
             linking_mappings_mapping_mat = np.array(tuple((lm, self.lm2arr_idx[lm]) for lm in linking_measurements))
-            self.conditioned_clusters.append(ConditionedCluster(
+            self.conditioned_clusters.append(ConditionedClusterMeasOriented(
                 cluster_idx=cluster,
                 R_cluster=R_cluster,
                 prior_hypotheses=prior_hypotheses,
@@ -150,8 +153,6 @@ class ConditionalSuperclusterMarginals:
         marginals = np.empty((n , mp1 + 1))
         marginals[t_idxs] = 0.0
 
-        theta_posteriors = defaultdict(lambda: 0)
-        theta_posteriors_term = defaultdict(lambda: 0)
         # It is at this point we need to loop over all ways to assign the linking measurements, multiply the clusters conditioned marginals together
         # (since they're independent) and sum up
 
@@ -167,12 +168,11 @@ class ConditionalSuperclusterMarginals:
             # Since the clusters now are independent, we simply compute the conditional marginals for each cluster and appropriately insert them into the supercluster marginal, and sum
             assignment_likelihood = 1.0
             for cluster in self.conditioned_clusters:
-                conditioned_cluster_marginal, conditioned_theta_posterior, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)
+                conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)       
                 cluster_t_idxs = cluster.t_idxs
                 if conditioned_cluster_likelihood > 0.0:
                     marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
                     assignment_likelihood *= conditioned_cluster_likelihood
-                    theta_posteriors_term[cluster.cluster_idx] = conditioned_theta_posterior
                 else:
                     assignment_likelihood = 0.0
                     break
@@ -180,18 +180,14 @@ class ConditionalSuperclusterMarginals:
             if assignment_likelihood > 0.0:
                 marginals += marginal_term*assignment_likelihood
                 likelihood += assignment_likelihood
-                for c, p in theta_posteriors_term.items():
-                    theta_posteriors[c] += p * assignment_likelihood
 
         marginals: np.ndarray = marginals[t_idxs]
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
-        for c, p in theta_posteriors.items():
-            theta_posteriors[c] = p / p.sum()
 
-        return marginals, theta_posteriors, likelihood
+        return marginals, likelihood
 
 
-class ConditionedCluster:
+class ConditionedClusterMeasOriented:
     def __init__(self, cluster_idx: int, R_cluster: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, linking_mappings_mapping_mat: np.ndarray, lbp_solver = LBPMarginalsByTotalProbBethe()):
         self.t_idxs = prior_hypotheses.t_idxs()
 
@@ -208,15 +204,25 @@ class ConditionedCluster:
         # We should definitively cache results, but not sure right now the best way. Will probably be more "obvious" later
         self.cache: Dict[Tuple[int], Tuple[np.ndarray, float]] = dict()
 
-    def conditioned_reward_matrix(self, assigned_to_this_cluster_mask) -> np.ndarray:
-        R_conditioned = self.R_cluster.copy()
- 
-        nonexisting_linking_meas = self.actual_meas_idxs[~assigned_to_this_cluster_mask]
-        # Since column 0 is misdetection and meas idx >= 1, we can access the conditioned matrix directly with nonexisting_linking_meas
-        R_conditioned[:, nonexisting_linking_meas] = -np.inf
 
-        return R_conditioned
-    
+    def conditioned_reward_matrix_bversion(self, assigned_to_this_cluster_mask) -> np.ndarray:
+        R = self.R_cluster.copy()
+        n, mp1 = R.shape
+        m = mp1 - 1
+
+        # Get global index of measurements that need to be fixed to associating to a track
+        existing_linking_meas = self.actual_meas_idxs[assigned_to_this_cluster_mask]
+
+        # First, normalize by misdetections. Can probably be done only once when initializing, but we do it here for now
+        R[:, 1:] -= R[:, [0]]
+
+        # Make b-version of matrix - Number of measurements that can be associated to a track or new track
+        R_conditioned_bversion = np.empty((m, n + 1))
+        R_conditioned_bversion[:, 0] = 0.0  # log(1) = 0
+
+        R_conditioned_bversion[:, existing_linking_meas - 1] = -np.inf  # log(0) = -inf, 0 probability of new track
+
+        return R_conditioned_bversion
 
     def parse_meas_assign_to_cluster_meas_and_assign_mask(self, measurement_assignments: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # Should parse the assignment, which is over the assignment of all linking measurements in the supercluster,
@@ -239,12 +245,12 @@ class ConditionedCluster:
         if meas_exist_tuple in self.cache:
             return self.cache[meas_exist_tuple]
 
-        R_conditioned = self.conditioned_reward_matrix(assigned_to_this_cluster_mask)
+        meas_existence_mapping = np.vstack((self.actual_meas_idxs, assigned_to_this_cluster_mask)).T
 
         # At this point we simply do normal computation??
-        lbp_marginal_total, conditioned_theta_posterior, likelihood_conditioned = self.lbp(R_conditioned, self.prior_hypotheses)
+        marginals_conditioned, likelihood_conditioned = multihypothesis_ehm2_meas_conditioned(self.R_cluster, self.prior_hypotheses, meas_existence_mapping=meas_existence_mapping, reindex_tracks=False)
 
-        output = (lbp_marginal_total, conditioned_theta_posterior, likelihood_conditioned)
+        output = (marginals_conditioned, likelihood_conditioned)
         # Cache for later
         self.cache[meas_exist_tuple] = output
 

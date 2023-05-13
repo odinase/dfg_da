@@ -134,6 +134,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         lbp_marginal_total = np.zeros((n, m + 1 + 1))
 
         conditioned_marginals = np.empty((n, m + 2))
+        conditioned_theta_posterior = np.empty(len(prior_hypotheses))
 
         normalizing_constants = np.empty(len(prior_hypotheses))
     
@@ -165,17 +166,19 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
             normalizing_constant = np.exp(bethe_loglikelihood) # self.bethe_constant(mu, nu, w_nmd)
             normalizing_constants[k] = normalizing_constant
+            conditioned_theta_posterior[k] = hypo_prob * normalizing_constant
 
             likelihood += normalizing_constant * hypo_prob
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
 
+        conditioned_theta_posterior = conditioned_theta_posterior / conditioned_theta_posterior.sum()
         lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
 
         assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
 
-        return lbp_marginal_total, likelihood
+        return lbp_marginal_total, conditioned_theta_posterior, likelihood
 
 
 
@@ -198,6 +201,7 @@ class LBPMarginalsByTotalProbPHD(MarginalsComputer):
         lbp_marginal_total = np.zeros((n, m + 1 + 1))
 
         conditioned_marginals = np.empty((n, m + 2))
+        conditioned_theta_posterior = np.empty(len(prior_hypotheses))
 
         normalizing_constants = np.empty(len(prior_hypotheses))
     
@@ -231,12 +235,15 @@ class LBPMarginalsByTotalProbPHD(MarginalsComputer):
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
             likelihood += normalizing_constant * hypo_prob
 
+            conditioned_theta_posterior[k] = hypo_prob * normalizing_constant
+
+        conditioned_theta_posterior = conditioned_theta_posterior / conditioned_theta_posterior.sum()
         lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
 
         assert (np.abs(lbp_marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= lbp_marginal_total) & (lbp_marginal_total <= 1.0)).all()
 
-        return lbp_marginal_total, likelihood
+        return lbp_marginal_total, conditioned_theta_posterior, likelihood
 
 
 
@@ -281,7 +288,7 @@ class ExactMarginals(MarginalsComputer):
         return marginal_total, (normalizing_constants,)
 
 
-class LBPMarginalsFullAssociationCPP(MarginalsComputer):
+class LBPMarginalsFullAssociation(MarginalsComputer):
     def bethe_loglikelihood_cpp(self, lbp_single_cluster_output: pdd.lbp.MHLBPSingleClusterOutput) -> float:
         n, m = lbp_single_cluster_output.w_nmd.shape
 
@@ -362,8 +369,13 @@ class LBPMarginalsFullAssociationCPP(MarginalsComputer):
 
         return -F
     
+    def theta_posteriors(self, phi, rho, t2h_idx, t2noth_idx) -> np.ndarray:
+        rho_prods = (t2h_idx.T * rho + t2noth_idx.T).prod(1)
+        p = rho_prods * phi
+        p = p / p.sum()
+        return p
 
-    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, float]:
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, np.ndarray, float]:
 # MHLBPSingleClusterOutput lbp_single_cluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const hypothesis::Hypotheses &prior_hypotheses, size_t max_num_iters = 300);
 
     # py::class_<lbp::MHLBPSingleClusterOutput>(lbp, "MHLBPSingleClusterOutput")
@@ -376,25 +388,25 @@ class LBPMarginalsFullAssociationCPP(MarginalsComputer):
         # bethe_loglikelihood_cpp = self.bethe_loglikelihood_cpp(lbp_single_cluster_output)
         bethe_loglikelihood = self.bethe_loglikelihood(w_nmd, w_0, mu, nu, rho, sigma, phi, t2h_idx, t2noth_idx)
         likelihood = np.exp(bethe_loglikelihood)
+        conditioned_theta_posteriors = self.theta_posteriors(phi, rho, t2h_idx, t2noth_idx)
         # cpp_bethe_loglikelihood = lbp_single_cluster_output.bethe_pseudodual_loglikelihood()
         # assert abs(bethe_loglikelihood - cpp_bethe_loglikelihood) < 1e-4
         # assert abs(bethe_loglikelihood_cpp - bethe_loglikelihood) < 1e-4
         # marginals = lbp_single_cluster_output.track_association_marginals().T
         # likelihood = lbp_single_cluster_output.bethe_pseudodual_normalization_constant()
 
-        return marginals, likelihood
+        return marginals, conditioned_theta_posteriors, likelihood
 
 
-class LBPMarginalsFullAssociation(MarginalsComputer):
-    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
-        out = lbp_marginal_nonexistence(R_LC, prior_hypotheses, **kwargs)
-        asso_prob = out[0]
-        it, msg_it, converged = out[1:4]
-        if len(out[4:]) > 0:
-            extra = out[4:]
-        else:
-            extra = ()
-        return (asso_prob, (it, msg_it, converged)) + extra
+class LBPMarginalsFullAssociationCPP(MarginalsComputer):
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, np.ndarray, float]:
+        R = np.asfortranarray(lc_to_edmund(R_LC))
+        lbp_single_cluster_output: pdd.lbp.MHLBPSingleClusterOutput = pdd.lbp.lbp_single_cluster(R, prior_hypotheses, max_num_iters = 1000)
+        conditioned_theta_posteriors = lbp_single_cluster_output.hypotheses_marginal()
+        marginals = lbp_single_cluster_output.track_association_marginals().T
+        likelihood = lbp_single_cluster_output.bethe_pseudodual_normalization_constant()
+
+        return marginals, conditioned_theta_posteriors, likelihood
 
 
 class LBPMarginalsFullAssociationAlternative(MarginalsComputer):
@@ -623,7 +635,7 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
                 existing_tracks_idx = (np.array(hypothesis.tracks()) - 1).astype(int)
                 if existing_tracks_idx.shape[0] > 0:
                     R_sub = R_LC[existing_tracks_idx, :]
-                    JPDAprobs, hyp_prob_log, loglikelihood = exact_marginal(R_sub, False)
+                    JPDAprobs, (hypoProbs, JPDAhypmat), loglikelihood = exact_marginal(R_sub, False)
                 else:
                     JPDAprobs = np.empty((0, m + 1))
                     hyp_prob_log = np.empty((0,))
@@ -644,7 +656,7 @@ class MulticlusterExact(MulticlusterMarginalsComputer):
 
                 marginal_total += conditioned_marginals * np.exp(loglikelihood + log_prob)
 
-                normalizing_constant_cluster += np.sum(np.exp(hyp_prob_log + log_prob))
+                normalizing_constant_cluster += np.exp(loglikelihood + log_prob)
 
 
             normalization_constants_per_cluster[c] = normalizing_constant_cluster

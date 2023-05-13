@@ -294,6 +294,8 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def_readonly("t2h_not", &lbp::MHLBPSingleClusterOutput::t2h_not)
     .def_readonly("phi", &lbp::MHLBPSingleClusterOutput::phi)
     .def("track_association_marginals",  &lbp::MHLBPSingleClusterOutput::track_association_marginals)
+    .def("measurement_association_marginals",  &lbp::MHLBPSingleClusterOutput::measurement_association_marginals)
+    .def("hypotheses_marginal",  &lbp::MHLBPSingleClusterOutput::hypotheses_marginal)
     .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_loglikelihood)
     .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_normalization_constant);
     // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
