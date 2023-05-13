@@ -69,10 +69,14 @@ class MulticlusterEfficientMarginalsLBP:
 
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
+        theta_posteriors_list = [None]*len(theta_posteriors)
+        for prior_c in theta_posteriors:
+            theta_posteriors_list[prior_c] = theta_posteriors[prior_c] / theta_posteriors[prior_c].sum()
+
         return MulticlusterConditionendLBPOutput(
             marginals=marginals,
             likelihood=likelihood,
-            theta_posteriors=theta_posteriors
+            theta_posteriors=theta_posteriors_list
         )
 
 def print_numbers_to_chars_assignment(assignment):
