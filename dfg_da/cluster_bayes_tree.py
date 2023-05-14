@@ -521,34 +521,6 @@ class ConditionedCluster:
         # We should definitively cache results, but not sure right now the best way. Will probably be more "obvious" later
         self.cache: Dict[Tuple[int], Tuple[np.ndarray, float]] = dict()
 
-    def conditioned_reward_matrix(self, assigned_to_this_cluster_mask) -> np.ndarray:
-        R_conditioned = self.R_cluster.copy()
- 
-        nonexisting_linking_meas = self.actual_meas_idxs[~assigned_to_this_cluster_mask]
-        # Since column 0 is misdetection and meas idx >= 1, we can access the conditioned matrix directly with nonexisting_linking_meas
-        R_conditioned[:, nonexisting_linking_meas] = -np.inf
-
-        return R_conditioned
-    
-
-    def conditioned_reward_matrix_bversion(self, assigned_to_this_cluster_mask) -> np.ndarray:
-        R = self.R_cluster.copy()
-        n, mp1 = R.shape
-        m = mp1 - 1
-
-        # Get global index of measurements that need to be fixed to associating to a track
-        existing_linking_meas = self.actual_meas_idxs[assigned_to_this_cluster_mask]
-
-        # First, normalize by misdetections. Can probably be done only once when initializing, but we do it here for now
-        R[:, 1:] -= R[:, [0]]
-
-        # Make b-version of matrix - Number of measurements that can be associated to a track or new track
-        R_conditioned_bversion = np.empty((m, n + 1))
-        R_conditioned_bversion[:, 0] = 0.0  # log(1) = 0
-
-        R_conditioned_bversion[:, existing_linking_meas - 1] = -np.inf  # log(0) = -inf, 0 probability of new track
-
-        return R_conditioned_bversion
 
     def parse_meas_assign_to_cluster_meas_and_assign_mask(self, measurement_assignments: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # Should parse the assignment, which is over the assignment of all linking measurements in the supercluster,

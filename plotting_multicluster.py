@@ -901,7 +901,7 @@ if __name__ == "__main__":
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    # make_heatmap_correlation(cluster_stats)
+    make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
     normalization_constant_scatter_plot(cluster_stats)

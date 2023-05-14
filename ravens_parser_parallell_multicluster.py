@@ -110,16 +110,16 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
-    pmbm_files = pmbm_files[:10]
+    # pmbm_files = pmbm_files[:10]
 
     print(f"Computing {len(pmbm_files)} files...")
 
     print("Starting pool")
     start = time.time()
-    for pmbm_file in tqdm(pmbm_files):
-        loop_func(pmbm_file)
-    # with Pool() as p:
-    #     p.map(loop_func, pmbm_files)
+    # for pmbm_file in tqdm(pmbm_files):
+    #     loop_func(pmbm_file)
+    with Pool() as p:
+        p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

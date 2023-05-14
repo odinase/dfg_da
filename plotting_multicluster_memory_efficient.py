@@ -180,50 +180,39 @@ def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterDa
     save_fig(fig, "sf_conditioned", tight_layout=False)
 
 
-def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
+def make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors):
 
-    lbp_errors, williams_errors, williams_exact_errors = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
+    williams_approx_theta_posteriors = np.hstack(williams_approx_theta_posteriors)
+    phd_approx_theta_posteriors = np.hstack(phd_approx_theta_posteriors)
+    mc_eff_mhlbp_theta_posteriors = np.hstack(mc_eff_mhlbp_theta_posteriors)
+    mcmhlbp_theta_posteriors = np.hstack(mcmhlbp_theta_posteriors)
+    exact_theta_posteriors = np.hstack(exact_theta_posteriors)
 
-    # p = 0.1
-    # lbp_errors_sample = np.random.choice(lbp_errors.raw_errors, int(p*len(lbp_errors.raw_errors)), replace=False)
-    # williams_errors_sample = np.random.choice(williams_errors.raw_errors, int(p*len(williams_errors.raw_errors)), replace=False)
-    # williams_errors_exact_sample = np.random.choice(williams_exact_errors.raw_errors, int(p*len(williams_exact_errors.raw_errors)), replace=False)
-
-    mh_lbp_label = "Multihypothesis LBP"
-    williams_label = "Hypothesis-conditioned LBP with PHD approximation"
-    williams_exact_label = "Hypothesis-conditioned LBP with exact normalization constant"
-
-    # fig, ax = plt.subplots()
-
-    # ax.plot(lbp_errors_sample, 'bo', label=mh_lbp_label, ms=2, alpha=0.2)
-    # ax.axhline(lbp_errors.raw_errors.mean(), color="blue")
-    # ax.plot(williams_errors_sample, 'go', label=williams_label, ms=2, alpha=0.2)
-    # ax.axhline(williams_errors.raw_errors.mean(), color="green")
-
-    # leg = ax.legend(frameon = True)
-    # frame = leg.get_frame()
-    # frame.set_facecolor('white')
-    # frame.set_edgecolor('black')
-    # for lh in leg.legendHandles: 
-    #     lh.set_alpha(1)
-
-    # ax.set_title("Scatter plot over signed error for MH-LBP")
-
+    approximate_data: List[Tuple[sl.Marginals, str]] = [
+        (williams_approx_theta_posteriors, "Approximate Efficient Bethe"),
+        (phd_approx_theta_posteriors, "Approximate Efficient PHD"),
+        (mc_eff_mhlbp_theta_posteriors, "MCMH-LBP"),
+        (mcmhlbp_theta_posteriors, "Efficient MHLBP")
+    ]
+    
+    alphas = np.ones(4) / 4.0
+    alphas[-1] = 1 - alphas[:-1].sum() # Ensure it sums to one
+    
     bins = 100
     hist_figsize = (10, 7)
 
     fig2, ax2 = plt.subplots(figsize=hist_figsize)
 
-    x = williams_errors.raw_errors
-    ax2.hist(x, bins=bins, label=williams_label, alpha=0.33)
+    for (data, label), alpha in zip(approximate_data, alphas):
+        err = exact_theta_posteriors - data
+        ax2.hist(err, bins=bins, label=label, alpha=alpha)
 
-    x = lbp_errors.raw_errors
-    ax2.hist(x, bins=bins, label=mh_lbp_label, alpha=0.33)
 
-    x = williams_exact_errors.raw_errors
-    ax2.hist(x, bins=bins, label=williams_exact_label, alpha=0.34)
-
-    ax2.set_title("Histogram over signed marginal errors", fontsize=20)
+    ax2.set_title("Histogram over signed hypotheses posterior errors, exact - approximate", fontsize=20)
     ax2.semilogy()
     ax2.legend(fontsize=10)
     ax2.tick_params(axis='both', which='major', labelsize=18)
@@ -241,7 +230,7 @@ def make_raw_error_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
 
 
     # save_fig_to_pdf(fig, "signed_error")
-    save_fig(fig2, "signed_error_histogram")
+    save_fig(fig2, "signed_error_histogram_hypotheses_posterior")
     # save_fig_to_pdf(fig3, "signed_error_histogram_exact")
 
     # cluster_stats_lbp_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if cluster_stat.lbp_stats.converged]
@@ -471,7 +460,7 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
         df_approx = pd.DataFrame({
             approx_name: np.around(X_lbp.ravel(), decimals=3),
             "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
-            "hist": heatmap_lbp.ravel()
+            "hist": heatmap_lbp.T.ravel()
         })
         df_approx = df_approx.pivot(index="Exact marginals", columns=approx_name, values="hist")
         dfs.append(df_approx)
@@ -484,40 +473,18 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
     if not isinstance(ax, np.ndarray):
         ax = np.array([ax])
     num_ticks = 5
-    depth_list = np.linspace(0, 1, num_ticks)
-    # the index of the position of yticks
-    # yticks = np.arange(0, num_bins, num_bins // num_ticks)
-    # xticks = yticks
-    # # # the content of labels of these yticks
-    # yticklabes = np.linspace()
-    # xticklabes = yticklabes
     for k, (axx, df) in enumerate(zip(ax.ravel(), dfs)):
-        # sns.heatmap(df, square=True, cmap="Reds", ax=axx)
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
 
-        # axx.set_xticks(xticks)
-        # axx.set_yticks(yticks)
         axx.tick_params(axis='both', which='major', labelsize=16)
         axx.tick_params(axis='both', which='minor', labelsize=16)
         cbar = axx.collections[0].colorbar
         axx.set_ylabel(df.index.name, fontsize=18)
         axx.set_xlabel(df.columns.name, fontsize=16)
-        # here set the labelsize by 20
         cbar.ax.tick_params(labelsize=18)
         axx.invert_yaxis()
         if k < nrows - 1:
             axx.tick_params(bottom=False)
-
-    # params = {
-    #         # 'legend.fontsize': 'x-large',
-    #         # 'figure.figsize': (15, 5),
-    #         # 'axes.labelsize': 30,
-    #         # 'axes.titlesize':'x-large',
-    #         # 'xtick.labelsize':'x-large',
-    #         # 'ytick.labelsize':'x-large'
-    #         }
-    # plt.rcParams.update(params)
-
 
     save_fig(fig, "heatmap_correlation")
 
@@ -543,7 +510,7 @@ def make_heatmap_correlation_theta(
         (mc_eff_mhlbp_marginals, "Efficient MHLBP")
     ]
 
-    num_bins = 200
+    num_bins = 100
     xedges = np.linspace(0, 1, num_bins)
     yedges = xedges
     bins = (xedges, yedges)
@@ -557,7 +524,7 @@ def make_heatmap_correlation_theta(
         df_approx = pd.DataFrame({
             approx_name: np.around(X_lbp.ravel(), decimals=3),
             "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
-            "hist": heatmap_lbp.ravel()
+            "hist": heatmap_lbp.T.ravel()
         })
         df_approx = df_approx.pivot(index="Exact marginals", columns=approx_name, values="hist")
         dfs.append(df_approx)
@@ -1036,7 +1003,7 @@ if __name__ == "__main__":
 
 
     k = 0
-    for batch_start, batch_stop in tqdm(batch_intervals[:2]):
+    for batch_start, batch_stop in tqdm(batch_intervals):
         cluster_stats_batch = load_cluster_stats_batch(path, batch_start, batch_stop)
         for (cluster_stat, _) in tqdm(cluster_stats_batch):
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
@@ -1053,8 +1020,8 @@ if __name__ == "__main__":
 
             williams_approx_theta_posteriors.append(np.hstack(cluster_stat.mc_bethe_output.theta_posteriors))
             phd_approx_theta_posteriors.append(np.hstack(cluster_stat.mc_phd_output.theta_posteriors))
-            mc_eff_mhlbp_theta_posteriors.append(np.hstack(cluster_stat.mhlbp_output.hypotheses_marginals()))
-            mcmhlbp_theta_posteriors.append(np.hstack(cluster_stat.mc_mhlbp_output.theta_posteriors))
+            mcmhlbp_theta_posteriors.append(np.hstack(cluster_stat.mhlbp_output.hypotheses_marginals()))
+            mc_eff_mhlbp_theta_posteriors.append(np.hstack(cluster_stat.mc_mhlbp_output.theta_posteriors))
             exact_theta_posteriors.append(np.hstack(cluster_stat.exact_output.compute_theta_posteriors()))
 
             k += 1
@@ -1095,6 +1062,13 @@ if __name__ == "__main__":
     )
     make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
     
+    make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors
+    )
+
     # print(illegal_files)
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
