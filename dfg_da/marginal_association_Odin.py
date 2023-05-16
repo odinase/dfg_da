@@ -194,7 +194,8 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
     if n == 0 or m == 0:
         return np.zeros((n, mp1)), np.ones(m)
 
-    llr = llr - llr[:, [0]]
+    # llr = llr - llr[:, [0]]
+    w_0 = np.exp(llr[:, [0]])
     w_nmd = np.exp(llr[:, 1:])
 
     w_star = np.max(w_nmd.sum(axis=1))
@@ -207,7 +208,7 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
     # note parenthesis for underflow problems
 
     # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
-    a2b_msg = w_nmd / (1 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd))
+    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd))
     b2a_msg = 1 / (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
     while conv_val >= stop_crit and it < max_iter:
@@ -218,7 +219,7 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
             w_times_msg = w_nmd * b2a_msg
             # note parenthesis for underflow problems
             a2b_msg = w_nmd / \
-                (1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg))
+                (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg))
 
             if k == iter_per_check - 1:
                 prevb2a = np.copy(b2a_msg)
@@ -240,11 +241,10 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
             conv_val = alpha * (d + stop_crit)
 
     prob = np.empty(llr.shape)
-    w_times_msg = w_nmd * b2a_msg
-    s = 1 + w_times_msg.sum(axis=1, keepdims=True)
-    # NOTE(odin): Change nominator to misdetection for misdetection and add extra row with one for for nonexistence?
-    prob[:, 1:] = w_times_msg / s
-    prob[:, [0]] = 1 / s
+    # w_times_msg = w_nmd * b2a_msg
+    prob[:, [0]] = w_0
+    prob[:, 1:] = w_nmd * b2a_msg
+    prob = prob / prob.sum(1, keepdims=True)
 
     log_Z = bethe_loglikelihood_single_cluster(w_nmd=w_nmd, b2a_msg=b2a_msg, a2b_msg=a2b_msg)
     
