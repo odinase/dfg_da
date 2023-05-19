@@ -148,14 +148,14 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     return out
 
 
-def bethe_loglikelihood_single_cluster(w_nmd: np.ndarray, b2a_msg: np.ndarray, a2b_msg: np.ndarray):
+def bethe_loglikelihood_single_cluster(w_nmd: np.ndarray, b2a_msg: np.ndarray, a2b_msg: np.ndarray, w_0: np.ndarray):
     n, m = w_nmd.shape
 
     w_times_msg: np.ndarray = w_nmd * b2a_msg
 
-    Z_t: np.ndarray = 1.0 + w_times_msg.sum(axis=1)
+    Z_t: np.ndarray = w_0.ravel() + w_times_msg.sum(axis=1)
     Z_j: np.ndarray = 1.0 + a2b_msg.sum(axis=0)
-    Z_tj: np.ndarray = (1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)) * (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg)) + w_nmd
+    Z_tj: np.ndarray = (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)) * (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg)) + w_nmd
 
     F = (m - 1) * np.log(Z_t).sum() + (n - 1) * np.log(Z_j).sum() - np.log(Z_tj).sum()
 
@@ -246,7 +246,7 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
     prob[:, 1:] = w_nmd * b2a_msg
     prob = prob / prob.sum(1, keepdims=True)
 
-    log_Z = bethe_loglikelihood_single_cluster(w_nmd=w_nmd, b2a_msg=b2a_msg, a2b_msg=a2b_msg)
+    log_Z = bethe_loglikelihood_single_cluster(w_nmd=w_nmd, b2a_msg=b2a_msg, a2b_msg=a2b_msg, w_0=w_0)
     
     return prob, log_Z
 

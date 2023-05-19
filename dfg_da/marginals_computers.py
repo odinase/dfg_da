@@ -171,7 +171,6 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             likelihood += normalizing_constant * hypo_prob
             lbp_marginal_total += conditioned_marginals * normalizing_constant * hypo_prob
 
-
         conditioned_theta_posterior = conditioned_theta_posterior / conditioned_theta_posterior.sum()
         lbp_marginal_total = lbp_marginal_total / lbp_marginal_total.sum(axis=1, keepdims=True)
 

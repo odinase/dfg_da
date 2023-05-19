@@ -20,6 +20,7 @@ from pathlib import Path
 
 import py_dfg_da
 
+
 OUTPUT_PATH_BASE = "./ravens_output_multicluster"
 PMBM_DATA_PATH = "./data/pmbm_output_files"
 
@@ -48,6 +49,9 @@ def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
 
 
 def loop_func(pmbm_file):
+    import warnings
+    warnings.simplefilter("error")
+
     mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file, use_cpp=True)
 
     R = np.asfortranarray(mat_data.reward_matrix_edmund)
@@ -72,32 +76,43 @@ def loop_func(pmbm_file):
     exact_output = None
 
     try:
-        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-    except ExplicitHypothesisEnumerationError:
-        explicit_hypothesis_enumeration_error = True
+        try:
+            exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+        except ExplicitHypothesisEnumerationError:
+            explicit_hypothesis_enumeration_error = True
+    except RuntimeWarning:
+        print(f"Overflow exact file {pmbm_file}")
+
+    try:
+        mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
+        mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
+        
+    except RuntimeWarning:
+        print(f"Overflow at Full asso file {pmbm_file}")
+
+    try:
+        mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
+        mc_phd_output = mc_phd.compute_marginals_likelihood()
+    except RuntimeWarning:
+        print(f"Overflow at PHD  file {pmbm_file}")
+
+    try:
+        mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_phd.cluster_links)
+        mc_bethe_output = mc_bethe.compute_marginals_likelihood()
+    except RuntimeWarning:
+        print(f"Overflow at Total bethe file {pmbm_file}")
 
 
-    mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
-    mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
-    
-    
-    mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
-    mc_phd_output = mc_phd.compute_marginals_likelihood()
+    # cluster_data = sl.MulticlusterData(
+    #     mhlbp_output=mcmhlbp,
+    #     exact_output=exact_output,
+    #     mc_phd_output=mc_phd_output,
+    #     mc_bethe_output=mc_bethe_output,
+    #     mc_mhlbp_output=mc_mhlbp_output,
+    #     explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
+    # )
 
-    mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_phd.cluster_links)
-    mc_bethe_output = mc_bethe.compute_marginals_likelihood()
-
-
-    cluster_data = sl.MulticlusterData(
-        mhlbp_output=mcmhlbp,
-        exact_output=exact_output,
-        mc_phd_output=mc_phd_output,
-        mc_bethe_output=mc_bethe_output,
-        mc_mhlbp_output=mc_mhlbp_output,
-        explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
-    )
-
-    cluster_data.save_data(save_path)
+    # cluster_data.save_data(save_path)
 
 
 if __name__ == "__main__":
@@ -110,7 +125,8 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
-    # pmbm_files = pmbm_files[:10]
+    pmbm_files = pmbm_files[:100]
+    # pmbm_files = ["./data/pmbm_output_files/priorLikelihood_iMC10k100.mat"]
 
     print(f"Computing {len(pmbm_files)} files...")
 

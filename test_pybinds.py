@@ -406,18 +406,18 @@ if __name__ == "__main__":
     print(hp)
     print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
 
-    # lbp_meas_cond = MulticlusterEfficientMarginalsLBPBethe(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-    # marginals, theta_posteriors, likelihood = lbp_meas_cond.compute_marginals_likelihood()
+    lbp_meas_cond = MulticlusterEfficientMarginalsLBPBethe(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+    marginals, theta_posteriors, likelihood = lbp_meas_cond.compute_marginals_likelihood()
 
-    # print(marginals, theta_posteriors, likelihood)
+    print(marginals, theta_posteriors, likelihood)
 
-    print("Efficient Bethe!")
-    efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
-    efficient_mc_williams_output: sl.MulticlusterConditionendLBPOutput = efficient_mc_williams.compute_marginals_likelihood()
+    # print("Efficient Bethe!")
+    # efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
+    # efficient_mc_williams_output: sl.MulticlusterConditionendLBPOutput = efficient_mc_williams.compute_marginals_likelihood()
 
-    print(efficient_mc_williams_output.marginals)
-    print(efficient_mc_williams_output.likelihood)
-    print(efficient_mc_williams_output.theta_posteriors)
+    # print(efficient_mc_williams_output.marginals)
+    # print(efficient_mc_williams_output.likelihood)
+    # print(efficient_mc_williams_output.theta_posteriors)
 
     # print("Efficient PHD!")
     # efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD())
