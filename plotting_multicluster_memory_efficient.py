@@ -752,8 +752,8 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
     for k, (ax, error, title) in enumerate(zip(axes, errors, titles)):
         ax.set_title(title, fontsize=20)
         steps = np.linspace(1.0, 0.0, len(error))
-        first_nonzero = np.where(error > 0)[0][0]
-        first_val = error[first_nonzero]
+        # first_nonzero = np.where(error > 0)[0][0]
+        first_val = 1e-6#error[first_nonzero]
         idxs = subsample(np.log10(error), 1e-10, first_val=np.log10(first_val)) # Use -5 as first val since we are logarithmic
         print(f"Subsampling {title} for {label} reduced data to {len(idxs)/len(error)*100.0:.3f}%")
         error = error[idxs]

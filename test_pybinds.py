@@ -59,7 +59,8 @@ def theta_posterior_correlation(true_posteriors: List[np.ndarray], lbp_posterior
     lbp_posteriors = np.hstack(lbp_posteriors)
 
     ax.plot(lbp_posteriors, true_posteriors, 'bx')
-    ax.plot(lbp_posteriors, lbp_posteriors, 'y--', label="Perfect correlation", alpha=0.6)
+    x = np.linspace(0, 1, 10)
+    ax.plot(x, x, 'y--', label="Perfect correlation", alpha=0.6)
     ax.set_xlabel("Approximate probabilities")
     ax.set_ylabel("Exact probabilities")
     ax.set_title("Correlation plot prior hypothesis posterior")
@@ -241,11 +242,43 @@ def test_case_1():
     prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
         py_dfg_da.hypothesis.Hypotheses([
             py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            py_dfg_da.hypothesis.Hypothesis([3], np.log(0.5))
         ]),
         py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([4, 5], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
+        ])
+    ])
+
+    return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+
+def test_case_1_5():
+    R = np.array([
+        [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+        [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+        [   -3.0, -np.inf, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        [    1.0,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    ], order='F')
+
+    n, mpn = R.shape
+    m = mpn - n
+
+    R_LC = np.hstack((np.diag(R[:, m:])[:,None], R[:,:m]))
+
+    assocLocal = np.array([
+        [1, 1],
+        [1, 0]
+    ])
+
+    prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
+        py_dfg_da.hypothesis.Hypotheses([
+            py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([3], np.log(0.5))
+        ]),
+        py_dfg_da.hypothesis.Hypotheses([
+            py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
         ])
     ])
 
@@ -376,40 +409,87 @@ def test_case_3():
 
 
 
+def test_case_4():
+    R_LC = np.array([
+        [-0.55,     1.0, -np.inf, -np.inf],
+        [-0.55,     1.0, -np.inf, -np.inf],
+        [-0.0055,     1.0,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+        [-0.0055, -np.inf,     100.0, 120.0],
+    ], order='F')
+    # R_LC[:, 0] = np.log(R_LC[:, 0])
+
+    R = np.asfortranarray(lc_to_edmund(R_LC))
+
+    prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+        # Cluster 1
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
+        ]),
+        # Cluster 2
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([4], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([6, 7, 8, 9, 10], np.log(0.5))
+            # pdd.hypothesis.Hypothesis([4, 5, 6], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([5, 6, 7], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([6, 7, 8], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([7, 8, 9], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([8, 9, 10], np.log(0.5))
+        ])
+    ])
+
+    assocLocal = np.array([
+        [1, 1],
+        [1, 0]
+    ])
+
+    return R, R_LC, prior_hypotheses_per_cluster, assocLocal
+
+
+
 if __name__ == "__main__":
     from plotting_multicluster import FIGURES_PATH
-    path = FIGURES_PATH + "/test_case3"
-    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_3()
+    path = FIGURES_PATH + "/test_case4"
+    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_4()
+    should_save_figs = True
+
+    numpy_to_latex(R_LC)
 
     t_idxs_per_cluster = [ph.t_idxs() for ph in prior_hypotheses_per_cluster]
 
     exact_computer: mc.MulticlusterExact = mc.MulticlusterExactEHM2()
     exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal)
     np.set_printoptions(suppress=True, linewidth=150)
-    print(exact_output.exact_marginals)
-    numpy_to_latex(exact_output.exact_marginals)
+    print("EXACT\n")
+    print(f"marignals:\n{exact_output.exact_marginals}")
+    # numpy_to_latex(exact_output.exact_marginals)
     print(numpy_array_to_latex_table(exact_output.exact_marginals))
     print()
-    print(exact_output.exact_marginals)
-    print()
     true_theta_posteriors = exact_output.compute_theta_posteriors()
-    print(true_theta_posteriors)
-    print(f"{exact_output.exact_normalization_constant:.3f}")
+    print(f"theta posteriors:\n{true_theta_posteriors}")
+    print(f"Normalization constant:\n{exact_output.exact_normalization_constant:.3f}")
 
     mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
     lbp_margs = mcmhlbp.track_association_marginals().T
+    print("\nLBP\n")
+    print(f"Marginals:\n{lbp_margs}")
     print(numpy_array_to_latex_table(lbp_margs))
     print()
-    print(lbp_margs)
-    print()
     hp = mcmhlbp.hypotheses_marginals()
-    print(hp)
-    print(f"{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}")
+    print(f"theta posteriors:\n{hp}")
+    print(f"Normalization constant:\n{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}\nRatio: {mcmhlbp.bethe_pseudodual_normalization_constant() / exact_output.exact_normalization_constant}")
 
     lbp_meas_cond = MulticlusterEfficientMarginalsLBPBethe(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-    marginals, theta_posteriors, likelihood = lbp_meas_cond.compute_marginals_likelihood()
+    # marginals, theta_posteriors, likelihood = lbp_meas_cond.compute_marginals_likelihood()
 
-    print(marginals, theta_posteriors, likelihood)
+    # print(marginals, theta_posteriors, likelihood)
 
     # print("Efficient Bethe!")
     # efficient_mc_williams = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
@@ -435,9 +515,15 @@ if __name__ == "__main__":
     # print(efficient_mc_williams_output.likelihood)
     # print(efficient_mc_williams_output.theta_posteriors)
 
-    # theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
-    # theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
+    if should_save_figs:
+        import os
 
-    # marginals_correlation(exact_output.exact_marginals, lbp_margs, path=path)
-    # marginals_correlation_per_cluster(exact_output.exact_marginals, lbp_margs, t_idxs_per_cluster, path=path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        theta_posterior_correlation(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
+        theta_posterior_correlation_per_cluster(true_posteriors=true_theta_posteriors, lbp_posteriors=hp, path=path)
+
+        marginals_correlation(exact_output.exact_marginals, lbp_margs, path=path)
+        marginals_correlation_per_cluster(exact_output.exact_marginals, lbp_margs, t_idxs_per_cluster, path=path)
 
