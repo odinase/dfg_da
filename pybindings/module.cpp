@@ -228,6 +228,54 @@ PYBIND11_MODULE(py_dfg_da, m) {
         }
     ));
 
+        // struct MHLBPMulticlusterConvergenceResults {
+        //     const size_t total_number_iterations;
+        //     const size_t bethe_pseudodual_iterations;
+        //     const double bethe_pseudodual_error;
+        //     const size_t msg_norm_iterations;
+        //     const size_t msg_norm_error;
+    py::class_<lbp::MHLBPMulticlusterConvergenceResults>(lbp, "MHLBPMulticlusterConvergenceResults")
+    .def_readonly("total_number_iterations", &lbp::MHLBPMulticlusterConvergenceResults::total_number_iterations)
+    .def_readonly("bethe_pseudodual_iterations", &lbp::MHLBPMulticlusterConvergenceResults::bethe_pseudodual_iterations)
+    .def_readonly("bethe_pseudodual_error", &lbp::MHLBPMulticlusterConvergenceResults::bethe_pseudodual_error)
+    .def_readonly("bethe_pseudodual_tol", &lbp::MHLBPMulticlusterConvergenceResults::bethe_pseudodual_tol)
+    .def_readonly("msg_norm_iterations", &lbp::MHLBPMulticlusterConvergenceResults::msg_norm_iterations)
+    .def_readonly("msg_norm_error", &lbp::MHLBPMulticlusterConvergenceResults::msg_norm_error)
+    .def_readonly("msg_norm_tol", &lbp::MHLBPMulticlusterConvergenceResults::msg_norm_tol)
+    .def(py::pickle(
+        [](const lbp::MHLBPMulticlusterConvergenceResults &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple(
+                p.total_number_iterations,
+                p.bethe_pseudodual_iterations,
+                p.bethe_pseudodual_error,
+                p.bethe_pseudodual_tol,
+                p.msg_norm_iterations,
+                p.msg_norm_error,
+                p.msg_norm_tol
+            );
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 7)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            lbp::MHLBPMulticlusterConvergenceResults p(
+                t[0].cast<size_t>(),
+                t[1].cast<size_t>(),
+                t[2].cast<double>(),
+                t[3].cast<double>(),
+                t[4].cast<size_t>(),
+                t[5].cast<double>(),
+                t[6].cast<double>()
+            );
+
+            return p;
+        }
+    ));
+
+
+
 
     py::class_<lbp::MHLBPMulticlusterOutput>(lbp, "MHLBPMulticlusterOutput")
     .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
@@ -242,7 +290,7 @@ PYBIND11_MODULE(py_dfg_da, m) {
     .def_readonly("w_nmd", &lbp::MHLBPMulticlusterOutput::w_nmd)
     .def_readonly("w_0", &lbp::MHLBPMulticlusterOutput::w_0)
     .def_readonly("cluster_data", &lbp::MHLBPMulticlusterOutput::cluster_data)
-    .def_readonly("num_iters", &lbp::MHLBPMulticlusterOutput::num_iters)
+    .def_readonly("convergence_results", &lbp::MHLBPMulticlusterOutput::convergence_results)
     .def_readonly("num_tracks", &lbp::MHLBPMulticlusterOutput::num_tracks)
     .def_readonly("num_measurements", &lbp::MHLBPMulticlusterOutput::num_measurements)
     .def_readonly("num_clusters", &lbp::MHLBPMulticlusterOutput::num_clusters)
@@ -257,7 +305,7 @@ PYBIND11_MODULE(py_dfg_da, m) {
                 p.w_nmd,
                 p.w_0,
                 p.cluster_data,
-                p.num_iters
+                p.convergence_results
             );
         },
         [](py::tuple t) { // __setstate__
@@ -273,7 +321,7 @@ PYBIND11_MODULE(py_dfg_da, m) {
                 t[4].cast<Eigen::ArrayXXd>(),
                 t[5].cast<Eigen::ArrayXd>(),
                 t[6].cast<std::vector<lbp::ClusterData>>(),
-                t[7].cast<size_t>()
+                t[7].cast<lbp::MHLBPMulticlusterConvergenceResults>()
             );
 
             return p;

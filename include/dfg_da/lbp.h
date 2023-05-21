@@ -99,6 +99,33 @@ namespace dfg_da
             }
         };
 
+        struct MHLBPMulticlusterConvergenceResults {
+            const size_t total_number_iterations;
+            const size_t bethe_pseudodual_iterations;
+            const double bethe_pseudodual_error;
+            const double bethe_pseudodual_tol;
+            const size_t msg_norm_iterations;
+            const double msg_norm_error;
+            const double msg_norm_tol;
+
+            MHLBPMulticlusterConvergenceResults(
+                size_t total_number_iterations,
+                size_t bethe_pseudodual_iterations,
+                double bethe_pseudodual_error,
+                const double bethe_pseudodual_tol,
+                size_t msg_norm_iterations,
+                double msg_norm_error,
+                const double msg_norm_tol
+            ) : 
+            total_number_iterations(total_number_iterations),
+            bethe_pseudodual_iterations(bethe_pseudodual_iterations),
+            bethe_pseudodual_error(bethe_pseudodual_error),
+            bethe_pseudodual_tol(bethe_pseudodual_tol),
+            msg_norm_iterations(msg_norm_iterations),
+            msg_norm_error(msg_norm_error),
+            msg_norm_tol(msg_norm_tol) {}
+        };
+
         struct MHLBPMulticlusterOutput
         {
         public:
@@ -109,10 +136,10 @@ namespace dfg_da
             const Eigen::ArrayXXd w_nmd;
             const Eigen::ArrayXd w_0;
             const std::vector<ClusterData> cluster_data;
+            const MHLBPMulticlusterConvergenceResults convergence_results;
             const size_t num_tracks;
             const size_t num_measurements;
             const size_t num_clusters;
-            const size_t num_iters;
 
             MHLBPMulticlusterOutput(
                 Eigen::ArrayXXd &&mu_,
@@ -122,7 +149,7 @@ namespace dfg_da
                 Eigen::ArrayXXd &&w_nmd_,
                 Eigen::ArrayXd &&w_0_,
                 std::vector<ClusterData> &&cluster_data_,
-                size_t num_iters_)
+                MHLBPMulticlusterConvergenceResults convergence_results_)
                 : mu(std::move(mu_)),
                   nu(std::move(nu_)),
                   rho(std::move(rho_)),
@@ -130,7 +157,7 @@ namespace dfg_da
                   w_nmd(std::move(w_nmd_)),
                   w_0(std::move(w_0_)),
                   cluster_data(std::move(cluster_data_)),
-                  num_iters(num_iters_),
+                  convergence_results(convergence_results_),
                   num_tracks(w_nmd.rows()),
                   num_measurements(w_nmd.cols()),
                   num_clusters(cluster_data.size()) {}
@@ -143,7 +170,7 @@ namespace dfg_da
                 const Eigen::ArrayXXd &w_nmd_,
                 const Eigen::ArrayXd &w_0_,
                 const std::vector<ClusterData> &cluster_data_,
-                size_t num_iters_)
+                MHLBPMulticlusterConvergenceResults convergence_results_)
                 : mu(mu_),
                   nu(nu_),
                   rho(rho_),
@@ -151,7 +178,7 @@ namespace dfg_da
                   w_nmd(w_nmd_),
                   w_0(w_0_),
                   cluster_data(cluster_data_),
-                  num_iters(num_iters_),
+                  convergence_results(convergence_results_),
                   num_tracks(w_nmd.rows()),
                   num_measurements(w_nmd.cols()),
                   num_clusters(cluster_data.size()) {}

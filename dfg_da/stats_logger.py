@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import loadmat
-from typing import Dict, Any, List, TypeVar, FrozenSet, Optional
+from typing import Dict, Any, List, TypeVar, FrozenSet, Optional, Union
 from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
@@ -473,11 +473,21 @@ class MulticlusterConditionendLBPOutput:
     marginals: np.ndarray
     likelihood: float
     theta_posteriors: Optional[Dict[int, np.ndarray]] = None
+    raised_warning: bool = False
+
+
+@dataclass(frozen=True)
+class MulticlusterApproximateOutput:
+    full_output: Union[MulticlusterConditionendLBPOutput, py_dfg_da.lbp.MHLBPMulticlusterOutput]
+    approx_marginals: np.ndarray
+    approx_normalization_constant: float
+    approx_theta_posteriors: List[np.ndarray]
+    runtime: float
 
 
 @dataclass
 class MulticlusterData:
-    mhlbp_output: Optional[py_dfg_da.lbp.MHLBPMulticlusterOutput] = None
+    mcmhlbp_output: Optional[MulticlusterApproximateOutput] = None
     mc_bethe_output: Optional[MulticlusterConditionendLBPOutput] = None
     mc_phd_output: Optional[MulticlusterConditionendLBPOutput] = None
     mc_mhlbp_output: Optional[MulticlusterConditionendLBPOutput] = None

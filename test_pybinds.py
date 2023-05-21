@@ -221,12 +221,19 @@ def numpy_array_to_latex_table(arr):
 
 
 def test_case_1():
+    # R = np.array([
+    #     [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+    #     [   3.0, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+    #     [   -np.inf,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+    #     [ -np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+    #     [  -0.4, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    # ], order='F')
     R = np.array([
-        [    3.0, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
-        [    3.2, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
-        [   -3.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
-        [-np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
-        [-np.inf,    -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+        [    3.0, 3.0,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+        [    3.0, 3.0, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+        [   1.2,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [ 3.0,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        [  -0.4, -0.4, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
     ], order='F')
 
     n, mpn = R.shape
@@ -241,11 +248,11 @@ def test_case_1():
 
     prior_hypotheses_per_cluster: py_dfg_da.hypothesis.HypothesesList = py_dfg_da.hypothesis.HypothesesList([
         py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([1, 2], np.log(0.5)),
-            py_dfg_da.hypothesis.Hypothesis([3], np.log(0.5))
+            py_dfg_da.hypothesis.Hypothesis([1, 2, 3], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5))
         ]),
         py_dfg_da.hypothesis.Hypotheses([
-            py_dfg_da.hypothesis.Hypothesis([4], np.log(0.5)),
+            py_dfg_da.hypothesis.Hypothesis([], np.log(0.5)),
             py_dfg_da.hypothesis.Hypothesis([5], np.log(0.5)),
         ])
     ])
@@ -411,16 +418,16 @@ def test_case_3():
 
 def test_case_4():
     R_LC = np.array([
-        [-0.55,     1.0, -np.inf, -np.inf],
-        [-0.55,     1.0, -np.inf, -np.inf],
-        [-0.0055,     1.0,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
-        [-0.0055, -np.inf,     100.0, 120.0],
+        [-5.5,     1.0, -np.inf, -np.inf],
+        [-5.5,     1.0, -np.inf, -np.inf],
+        [-5.5,     1.0,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
+        [-5.5, -np.inf,     1.0, 1.20],
     ], order='F')
     # R_LC[:, 0] = np.log(R_LC[:, 0])
 
@@ -429,14 +436,16 @@ def test_case_4():
     prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
         # Cluster 1
         pdd.hypothesis.Hypotheses([
-            pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
-            pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
+            pdd.hypothesis.Hypothesis([], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
         ]),
         # Cluster 2
         pdd.hypothesis.Hypotheses([
-            pdd.hypothesis.Hypothesis([4], np.log(0.5)),
-            pdd.hypothesis.Hypothesis([5], np.log(0.5)),
-            pdd.hypothesis.Hypothesis([6, 7, 8, 9, 10], np.log(0.5))
+            # pdd.hypothesis.Hypothesis([4], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([5], np.log(0.5)),
+            # pdd.hypothesis.Hypothesis([6, 7, 8, 9, 10], np.log(0.5))
+            pdd.hypothesis.Hypothesis([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], np.log(0.5))
             # pdd.hypothesis.Hypothesis([4, 5, 6], np.log(0.5)),
             # pdd.hypothesis.Hypothesis([5, 6, 7], np.log(0.5)),
             # pdd.hypothesis.Hypothesis([6, 7, 8], np.log(0.5)),
@@ -456,8 +465,8 @@ def test_case_4():
 
 if __name__ == "__main__":
     from plotting_multicluster import FIGURES_PATH
-    path = FIGURES_PATH + "/test_case4"
-    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_4()
+    path = FIGURES_PATH + "/test_case1"
+    R, R_LC, prior_hypotheses_per_cluster, assocLocal = test_case_1()
     should_save_figs = True
 
     numpy_to_latex(R_LC)
@@ -474,7 +483,7 @@ if __name__ == "__main__":
     print()
     true_theta_posteriors = exact_output.compute_theta_posteriors()
     print(f"theta posteriors:\n{true_theta_posteriors}")
-    print(f"Normalization constant:\n{exact_output.exact_normalization_constant:.3f}")
+    print(f"Normalization constant:\n{exact_output.exact_normalization_constant}")
 
     mcmhlbp: pdd.lbp.MHLBPMulticlusterOutput = pdd.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
     lbp_margs = mcmhlbp.track_association_marginals().T
@@ -484,9 +493,9 @@ if __name__ == "__main__":
     print()
     hp = mcmhlbp.hypotheses_marginals()
     print(f"theta posteriors:\n{hp}")
-    print(f"Normalization constant:\n{mcmhlbp.bethe_pseudodual_normalization_constant():.3f}\nRatio: {mcmhlbp.bethe_pseudodual_normalization_constant() / exact_output.exact_normalization_constant}")
+    print(f"Normalization constant:\n{mcmhlbp.bethe_pseudodual_normalization_constant()}\nRatio: {mcmhlbp.bethe_pseudodual_normalization_constant() / exact_output.exact_normalization_constant}")
 
-    lbp_meas_cond = MulticlusterEfficientMarginalsLBPBethe(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+    # lbp_meas_cond = MulticlusterEfficientMarginalsLBPBethe(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
     # marginals, theta_posteriors, likelihood = lbp_meas_cond.compute_marginals_likelihood()
 
     # print(marginals, theta_posteriors, likelihood)

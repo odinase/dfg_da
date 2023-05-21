@@ -445,6 +445,9 @@ namespace dfg_da
             }
 
             size_t iter = 0;
+            size_t bethe_iter = 0;
+            size_t msg_norm_iter = 0;
+
             Eigen::ArrayXXd w_times_msg(n, m);
 
             double prev_b = bethe_pseudodual_normalization_constant(
@@ -465,7 +468,13 @@ namespace dfg_da
             double err_bethe = std::numeric_limits<double>::infinity();
             double err_msg = std::numeric_limits<double>::infinity();
 
-            while (iter < max_num_iters && err_bethe > tol_b && err_msg > tol_msg)
+            bool bethe_converged = false;
+            bool msg_norm_converged = false;
+
+            double bethe_error_converged = std::numeric_limits<double>::infinity();
+            double msg_error_converged = std::numeric_limits<double>::infinity();
+
+            while (iter < max_num_iters && !(bethe_converged || msg_norm_converged))
             {
                 w_times_msg = w_nmd * nu;
 
@@ -497,6 +506,19 @@ namespace dfg_da
                 err_msg = message_norm(nu, prev_nu);
                 prev_nu = nu;
                 prev_b = b;
+
+                if (err_bethe <= tol_b) {
+                    bethe_converged = true;
+                    bethe_error_converged = err_bethe;
+                } else {
+                    bethe_iter += 1;
+                }
+                if (err_msg <= tol_msg) {
+                    msg_norm_converged = true;
+                    msg_error_converged = err_msg;
+                } else {
+                    msg_norm_iter += 1;
+                }
             }
 
             return MHLBPMulticlusterOutput(
@@ -507,7 +529,23 @@ namespace dfg_da
                 std::move(w_nmd),
                 std::move(w_0),
                 std::move(cluster_data),
-                iter);
+                MHLBPMulticlusterConvergenceResults{
+                    // size_t total_number_iterations,
+                    iter,
+                    // size_t bethe_pseudodual_iterations,
+                    bethe_iter,
+                    // double bethe_pseudodual_error,
+                    bethe_error_converged,
+                    // const double bethe_pseudodual_tol,
+                    tol_b,
+                    // size_t msg_norm_iterations,
+                    msg_norm_iter,
+                    // double msg_norm_error,
+                    msg_error_converged,
+                    // const double msg_norm_tol
+                    tol_msg
+                }
+            );
         }
 
     } // namespace lbp

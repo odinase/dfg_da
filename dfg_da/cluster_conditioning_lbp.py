@@ -6,7 +6,7 @@ import py_dfg_da as pdd
 from typing import *
 from collections import defaultdict
 
-
+import warnings
 
 # We can now construct the components of the "tree" (with depth 1 lol).
 # We use ClusterLinks above to find the measurements that are linked to other clusters
@@ -48,35 +48,43 @@ class MulticlusterEfficientMarginalsLBP:
         self._1 = np.ones((n, 1))
 
         likelihood = 1.0
+        runtime_warning = False
         # Collect supercluster marginals
-        for supercluster in self.superclusters:
-            marginals_supercluster, theta_posteriors_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
-            t_idxs = supercluster.supercluster_t_idxs()
-            marginals[t_idxs] = marginals_supercluster
-            likelihood *= likelihood_supercluster
-            theta_posteriors.update(theta_posteriors_supercluster)
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            for supercluster in self.superclusters:
+                marginals_supercluster, theta_posteriors_supercluster, likelihood_supercluster = supercluster.compute_marginals_likelihood()
+                t_idxs = supercluster.supercluster_t_idxs()
+                marginals[t_idxs] = marginals_supercluster
+                likelihood *= likelihood_supercluster
+                theta_posteriors.update(theta_posteriors_supercluster)
 
-        # Unmerging clusters just do total marginals over hypotheses
-        for cluster in self.cluster_links.unmerging_clusters():
-            prior_hypotheses = self.prior_hypotheses_per_cluster[cluster]
-            t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
-            R_cluster = self.R_LC[t_idxs]
-            prior_hypotheses.reindex_tracks()
-            marginals_unmerged, theta_posterior_cluster, likelihood_unmerged = self.lbp(R_cluster, prior_hypotheses)
-            marginals[t_idxs] = marginals_unmerged
-            likelihood *= likelihood_unmerged
-            theta_posteriors[cluster] = theta_posterior_cluster
+            # Unmerging clusters just do total marginals over hypotheses
+            for cluster in self.cluster_links.unmerging_clusters():
+                prior_hypotheses = self.prior_hypotheses_per_cluster[cluster]
+                t_idxs = np.sort(np.fromiter(prior_hypotheses.tracks(), dtype=int)) - 1
+                R_cluster = self.R_LC[t_idxs]
+                prior_hypotheses.reindex_tracks()
+                marginals_unmerged, theta_posterior_cluster, likelihood_unmerged = self.lbp(R_cluster, prior_hypotheses)
+                marginals[t_idxs] = marginals_unmerged
+                likelihood *= likelihood_unmerged
+                theta_posteriors[cluster] = theta_posterior_cluster
 
-        marginals = marginals / marginals.sum(axis=1, keepdims=True)
+            marginals = marginals / marginals.sum(axis=1, keepdims=True)
 
-        theta_posteriors_list = [None]*len(theta_posteriors)
-        for prior_c in theta_posteriors:
-            theta_posteriors_list[prior_c] = theta_posteriors[prior_c] / theta_posteriors[prior_c].sum()
+            theta_posteriors_list = [None]*len(theta_posteriors)
+            for prior_c in theta_posteriors:
+                theta_posteriors_list[prior_c] = theta_posteriors[prior_c] / theta_posteriors[prior_c].sum()
+
+            if caught_warnings:
+                for warning in caught_warnings:
+                    if issubclass(warning.category, RuntimeWarning):
+                        runtime_warning = True
 
         return MulticlusterConditionendLBPOutput(
             marginals=marginals,
             likelihood=likelihood,
-            theta_posteriors=theta_posteriors_list
+            theta_posteriors=theta_posteriors_list,
+            raised_warning=runtime_warning
         )
 
 def print_numbers_to_chars_assignment(assignment):

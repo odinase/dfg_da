@@ -544,9 +544,10 @@ class MulticlusterMarginalsComputer(ABC):
     @abstractmethod
     def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
         return None
-    
 
-@dataclass(frozen=True)
+
+
+@dataclass
 class MulticlusterExactOutput:
     exact_marginals: np.ndarray
     hypo_cond_normalization_constants_per_cluster: List[np.ndarray]
@@ -558,7 +559,9 @@ class MulticlusterExactOutput:
         """
         Given the method in 'map_prior_to_posteriors' in ClusterHypothesesPosterior, we should be able to compute all we need by looping over each prior cluster and then each hypothesis, collect the necessary hypothesis-conditioned likelihoods and then normalize in the end.
         """
-
+        if hasattr(self, 'my_theta_posteriors'):
+            return self.my_theta_posteriors
+        
         # From LC
         # merged hypotese: theta = (theta_1, …, theta_n), med vekter w^theta = prod_{i=1}^n w_i^{theta_i}
         # p((theta_1, …, theta_n) | Z) propto w^h * exp(JPDA_loglikelihood), fra merged cluster JPDA
@@ -595,7 +598,8 @@ class MulticlusterExactOutput:
         for prior_c in theta_posterior_marginals:
             theta_posteriors[prior_c] = theta_posterior_marginals[prior_c] / theta_posterior_marginals[prior_c].sum()
 
-        return theta_posteriors 
+        self.my_theta_posteriors = theta_posteriors
+        return theta_posteriors
 
 
 class MulticlusterExact(MulticlusterMarginalsComputer):

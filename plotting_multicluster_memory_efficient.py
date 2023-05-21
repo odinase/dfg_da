@@ -911,10 +911,9 @@ def load_cluster_stats_batch(path: str, batch_start: int, batch_stop: int):
 
     load_dirs = list(load_dirs)
     load_dirs = load_dirs[batch_start:batch_stop]
-    num_files = len(load_dirs)
 
     cluster_stats: List[Tuple[MulticlusterData, Path]] = []
-    for cluster_file in tqdm(load_dirs, total=num_files):
+    for cluster_file in load_dirs:
         if cluster_file.name != "empty_cluster":
             try:
                 cluster_stats.append(
@@ -987,6 +986,8 @@ if __name__ == "__main__":
 
     exact_normalization_constants = np.empty(10_000, dtype=np.float32)
 
+    num_iters = np.empty(10_000, dtype=np.uint64)
+
 
     williams_approx_marginals = []
     phd_approx_marginals = []
@@ -1002,27 +1003,47 @@ if __name__ == "__main__":
     exact_theta_posteriors = []
 
 
+    mcmhlbp_runtimes = np.empty(10_000, dtype=np.float32)
+    exact_runtimes = np.empty(10_000, dtype=np.float32)
+
+    mcmhlbp_iters = np.empty((10_000, 2), dtype=np.float32)
+
     k = 0
     for batch_start, batch_stop in tqdm(batch_intervals):
         cluster_stats_batch = load_cluster_stats_batch(path, batch_start, batch_stop)
         for (cluster_stat, _) in tqdm(cluster_stats_batch):
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
-            mcmhlbp_approx_normalization_constants[k] = cluster_stat.mhlbp_output.bethe_pseudodual_normalization_constant()
+            mcmhlbp_approx_normalization_constants[k] = cluster_stat.mcmhlbp_output.approx_normalization_constant
             williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
             mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
             phd_approx_normalization_constants[k] = cluster_stat.mc_phd_output.likelihood
 
+            num_iters[k] = cluster_stat.mcmhlbp_output.full_output.convergence_results.total_number_iterations
+
             williams_approx_marginals.append(sl.Marginals(cluster_stat.mc_bethe_output.marginals))
             phd_approx_marginals.append(sl.Marginals(cluster_stat.mc_phd_output.marginals))
-            mcmhlbp_marginals.append(sl.Marginals(cluster_stat.mhlbp_output.track_association_marginals().T))
+            mcmhlbp_marginals.append(sl.Marginals(cluster_stat.mcmhlbp_output.approx_marginals))
             mc_eff_mhlbp_marginals.append(sl.Marginals(cluster_stat.mc_mhlbp_output.marginals))
             exact_marginals.append(sl.Marginals(cluster_stat.exact_output.exact_marginals))
 
             williams_approx_theta_posteriors.append(np.hstack(cluster_stat.mc_bethe_output.theta_posteriors))
             phd_approx_theta_posteriors.append(np.hstack(cluster_stat.mc_phd_output.theta_posteriors))
-            mcmhlbp_theta_posteriors.append(np.hstack(cluster_stat.mhlbp_output.hypotheses_marginals()))
+            mcmhlbp_theta_posteriors.append(np.hstack(cluster_stat.mcmhlbp_output.approx_theta_posteriors))
             mc_eff_mhlbp_theta_posteriors.append(np.hstack(cluster_stat.mc_mhlbp_output.theta_posteriors))
             exact_theta_posteriors.append(np.hstack(cluster_stat.exact_output.compute_theta_posteriors()))
+
+            mcmhlbp_runtimes[k] = cluster_stat.mcmhlbp_output.runtime
+            exact_runtimes[k] = cluster_stat.exact_output.runtime
+
+            mcmhlbp_iters[k, 0] = cluster_stat.mcmhlbp_output.full_output.convergence_results.bethe_pseudodual_iterations
+            mcmhlbp_iters[k, 1] = cluster_stat.mcmhlbp_output.full_output.convergence_results.msg_norm_iterations
+
+            if (
+                cluster_stat.mc_bethe_output.raised_warning or
+                cluster_stat.mc_mhlbp_output.raised_warning or
+                cluster_stat.mc_phd_output.raised_warning
+            ):
+                print("Found raised warning!")
 
             k += 1
         
@@ -1038,6 +1059,12 @@ if __name__ == "__main__":
 
     exact_normalization_constants = exact_normalization_constants[:num_files]
 
+    num_iters = num_iters[:num_files]
+    mcmhlbp_runtimes = mcmhlbp_runtimes[:num_files]
+    exact_runtimes = exact_runtimes[:num_files]
+
+    mcmhlbp_iters = mcmhlbp_iters[:num_files]
+
     # williams_approx_normalization_constants.constants = williams_approx_normalization_constants.constants * exact_normalization_constants.min()/williams_approx_normalization_constants.constants.min()
 
     approx_normalization_constants = [mcmhlbp_approx_normalization_constants, williams_approx_normalization_constants, phd_approx_normalization_constants, mc_eff_mhlbp_approx_normalization_constants]
@@ -1051,23 +1078,44 @@ if __name__ == "__main__":
         mcmhlbp_theta_posteriors,
     ]
 
-    normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
-    make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
-    make_heatmap_correlation_theta(
-        williams_approx_theta_posteriors,
-        phd_approx_theta_posteriors,
-        mc_eff_mhlbp_theta_posteriors,
-        mcmhlbp_theta_posteriors,
-        exact_theta_posteriors
-    )
-    make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
+    # normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
+    # make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
+    # make_heatmap_correlation_theta(
+    #     williams_approx_theta_posteriors,
+    #     phd_approx_theta_posteriors,
+    #     mc_eff_mhlbp_theta_posteriors,
+    #     mcmhlbp_theta_posteriors,
+    #     exact_theta_posteriors
+    # )
+    # make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
     
-    make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
-        phd_approx_theta_posteriors,
-        mc_eff_mhlbp_theta_posteriors,
-        mcmhlbp_theta_posteriors,
-        exact_theta_posteriors
-    )
+    # make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+    #     phd_approx_theta_posteriors,
+    #     mc_eff_mhlbp_theta_posteriors,
+    #     mcmhlbp_theta_posteriors,
+    #     exact_theta_posteriors
+    # )
+
+    fig, ax = plt.subplots()
+
+    # print(f"MCMH-LBP runtime average: {mcmhlbp_runtimes.mean()}\u00B1{mcmhlbp_runtimes.std()} s\nMax: {mcmhlbp_runtimes.max()} s\nMin: {mcmhlbp_runtimes.min()} s")
+    # print(f"Exact runtime average: {exact_runtimes.mean()}\u00B1{exact_runtimes.std()} s\nMax: {exact_runtimes.max()} s\nMin: {exact_runtimes.min()} s")
+    # ax.plot(mcmhlbp_runtimes, "*--", label="MCMH-LBP runtime")
+    # ax.plot(exact_runtimes, "o--", label="Exact runtime")
+    # ax.semilogy()
+
+    ax.plot(mcmhlbp_iters[:,0], "--", label="Bethe iters")
+    ax.plot(mcmhlbp_iters[:,1], "--", label="Msg norm iters")
+    failed_converge = np.where(mcmhlbp_iters[:,0] == 10_000)[0]
+    if len(failed_converge) > 0:
+        ax.plot(mcmhlbp_iters[failed_converge,0], "x")
+
+    ax.semilogy()
+
+    ax.legend()
+
+    plt.show()
+
 
     # print(illegal_files)
     # make_raw_error_plot(cluster_stats)
