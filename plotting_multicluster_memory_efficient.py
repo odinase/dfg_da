@@ -33,15 +33,15 @@ FIGURES_PATH = "./figures"
 def save_fig_to_pdf(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
-    print(f"Saved {FIGURES_PATH}/{fig_name}.pdf")
+    fig.savefig(f"{FIGURES_PATH}/results/{fig_name}.pdf", bbox_inches='tight')
+    print(f"Saved {FIGURES_PATH}/results/{fig_name}.pdf")
 
 
 def save_fig_to_png(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight', dpi=600)
-    print(f"Saved {FIGURES_PATH}/{fig_name}.png")
+    fig.savefig(f"{FIGURES_PATH}/results/{fig_name}.png", bbox_inches='tight', dpi=600)
+    print(f"Saved {FIGURES_PATH}/results/{fig_name}.png")
 
 
 def save_fig(fig, fig_name, tight_layout=True):
@@ -866,6 +866,55 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
 
     save_fig(fig, "normalization_constant")
 
+
+
+def plot_iterations(bethe_msg_norm_iters: np.ndarray, bethe_msg_norm_errors: np.ndarray):
+    assert bethe_msg_norm_iters.shape[0] == 2, f"Needs to be (2, N), is now {bethe_msg_norm_iters.shape}"
+
+    fig, ax = plt.subplots()
+
+    ax.plot(bethe_msg_norm_iters[0], "g--", label="Bethe iters")
+    ax.plot(bethe_msg_norm_iters[1], "b--", label="Message norm iters")
+
+    ax.semilogy()
+    ax.set_xlabel("Timestep")
+    ax.set_ylabel("Number of iterations")
+
+    ax.legend()
+
+    save_fig(fig, "iterations_mcmhlbp")
+
+    failed_converge = (bethe_msg_norm_iters == 10_000).any(0)
+    number_of_failed_convergences = failed_converge.sum()
+    if number_of_failed_convergences > 0:
+        fig2, ax2 = plt.subplots()
+        ax2.plot(bethe_msg_norm_iters[0, failed_converge], "g--", label="Bethe iters")
+        ax2.plot(bethe_msg_norm_iters[1, failed_converge], "b--", label="Message norm iters")
+        ax2.set_xlabel("Timestep")
+        ax2.set_ylabel("Number of iterations")
+        ax2.set_title(f"Number of failed convergence cases: {number_of_failed_convergences}")
+
+        save_fig(fig2, "failed_convergence_iterations")
+        
+
+
+def overestimated_bethe(bethe_constants: np.ndarray, exact_constants: np.ndarray):
+    large_bethe = bethe_constants > exact_constants
+    
+    bethe_constants = bethe_constants[large_bethe]
+    exact_constants = exact_constants[large_bethe]
+    
+    fig, ax = plt.subplots()
+
+    relative_largeness = ((bethe_constants - exact_constants) / exact_constants)*100.0
+
+    ax.hist(relative_largeness)
+    ax.set_title(f"Number of overestimated Bethe: {large_bethe.sum()}")
+
+    save_fig(fig, "overestimated_bethe")
+
+
+
 def print_raw_error_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
     lbp_errors, williams_errors, williams_errors_exact = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
 
@@ -1078,25 +1127,27 @@ if __name__ == "__main__":
         mcmhlbp_theta_posteriors,
     ]
 
-    # normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
-    # make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
-    # make_heatmap_correlation_theta(
-    #     williams_approx_theta_posteriors,
-    #     phd_approx_theta_posteriors,
-    #     mc_eff_mhlbp_theta_posteriors,
-    #     mcmhlbp_theta_posteriors,
-    #     exact_theta_posteriors
-    # )
-    # make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
+    normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
+    make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
+    make_heatmap_correlation_theta(
+        williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors
+    )
+    make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
     
-    # make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
-    #     phd_approx_theta_posteriors,
-    #     mc_eff_mhlbp_theta_posteriors,
-    #     mcmhlbp_theta_posteriors,
-    #     exact_theta_posteriors
-    # )
+    make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors
+    )
 
-    fig, ax = plt.subplots()
+    plot_iterations(mcmhlbp_iters.T)
+
+    # fig, ax = plt.subplots()
 
     # print(f"MCMH-LBP runtime average: {mcmhlbp_runtimes.mean()}\u00B1{mcmhlbp_runtimes.std()} s\nMax: {mcmhlbp_runtimes.max()} s\nMin: {mcmhlbp_runtimes.min()} s")
     # print(f"Exact runtime average: {exact_runtimes.mean()}\u00B1{exact_runtimes.std()} s\nMax: {exact_runtimes.max()} s\nMin: {exact_runtimes.min()} s")
@@ -1104,17 +1155,17 @@ if __name__ == "__main__":
     # ax.plot(exact_runtimes, "o--", label="Exact runtime")
     # ax.semilogy()
 
-    ax.plot(mcmhlbp_iters[:,0], "--", label="Bethe iters")
-    ax.plot(mcmhlbp_iters[:,1], "--", label="Msg norm iters")
-    failed_converge = np.where(mcmhlbp_iters[:,0] == 10_000)[0]
-    if len(failed_converge) > 0:
-        ax.plot(mcmhlbp_iters[failed_converge,0], "x")
+    # ax.plot(mcmhlbp_iters[:,0], "--", label="Bethe iters")
+    # ax.plot(mcmhlbp_iters[:,1], "--", label="Msg norm iters")
+    # failed_converge = np.where(mcmhlbp_iters[:,0] == 10_000)[0]
+    # if len(failed_converge) > 0:
+    #     ax.plot(mcmhlbp_iters[failed_converge,0], "x")
 
-    ax.semilogy()
+    # ax.semilogy()
 
-    ax.legend()
+    # ax.legend()
 
-    plt.show()
+    # plt.show()
 
 
     # print(illegal_files)
