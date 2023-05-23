@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from copy import deepcopy
 
-from multiprocessing import Pool, Lock
+from multiprocessing import Pool
 import time
 from pathlib import Path
 
