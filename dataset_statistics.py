@@ -39,7 +39,9 @@ from dataclasses import dataclass
 @dataclass
 class MerginingClustersStats:
     numbers_of_prior_hypotheses_apriori: List[np.ndarray]
+    numbers_of_competing_tracks_per_meas_apriori: List[np.ndarray]
     numbers_of_prior_hypotheses_aposteriori: np.ndarray
+    numbers_of_competing_tracks_per_meas_aposteriori: List[np.ndarray]
     number_of_superclusters: int
     number_of_linking_measurements: List[np.ndarray]
     number_of_clusters_merging: np.ndarray
@@ -60,7 +62,7 @@ def loop_func(pmbm_file):
     mat_file: sl.MatFileParser = sl.MatFileParser(mat_file_path, use_cpp=True)
     R_LC = mat_file.reward_matrix_lc
     prior_hypotheses_per_cluster = mat_file.prior_hypotheses_per_cluster
-    assocLocal = mat_file.ws["assocLocal"]
+    assocLocal = mat_file.ws["assocLocal"].copy()
         # def __init__(self, R_LC: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList, assocLocal: np.ndarray):
     cluster_links = cbt.ClusterLinks(R_LC=R_LC, prior_hypotheses_per_cluster=prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
 
@@ -96,8 +98,13 @@ def loop_func(pmbm_file):
     numbers_of_prior_hypotheses_aposteriori = []
     number_of_superclusters = len(cluster_links.merging_clusters)
     number_of_linking_measurements = []
+    numbers_of_competing_tracks_per_meas_apriori: List[np.ndarray] = []
+    numbers_of_competing_tracks_per_meas_aposteriori: List[np.ndarray] = []
+
 
     number_of_clusters_merging = np.empty(number_of_superclusters, dtype=int)
+
+    # We know that the lowest cluster number conventionally is the master in a cluster merge
 
     c2lms = cluster_links.cluster_to_linking_meas()
     for k, clusters in enumerate(cluster_links.merging_clusters):
@@ -106,6 +113,15 @@ def loop_func(pmbm_file):
         numbers_of_prior_hypotheses_aposteriori.append(np.prod(num_hypos_prior_cluster))
         number_of_linking_measurements.append(np.array([len(c2lms[c]) for c in clusters]))
         number_of_clusters_merging[k] = len(clusters)
+
+        master = min(clusters)
+        post_idx = assocLocal[1, master].sum() - 1
+        ph_supercluster = prior_hypotheses_per_cluster_posterior[post_idx]
+        assert len(ph_supercluster) == np.prod(num_hypos_prior_cluster) # Should always be equal if logic is correct
+        for h in ph_supercluster:
+            # TODO(odin): fix here
+            pass
+
 
     # @dataclass
     # class MerginingClustersStats:
@@ -189,7 +205,8 @@ def histogram_number_prior_clusters_in_supercluster(results: List[ScenarioStats]
 
     fig, ax = plt.subplots()
 
-    ax.hist(num_clusters_merging)
+    bin_edges = ax.hist(num_clusters_merging)[1]
+    ax.set_xticks(bin_edges[:-1])
     ax.set_xlabel("Number of prior clusters in supercluster")
 
     save_fig(fig, "histogram_clusters_merging")
