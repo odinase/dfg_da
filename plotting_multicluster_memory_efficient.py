@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import seaborn as sns
 sns.set_theme(style="ticks")
 import asyncio
+from multicluster_analysis import result_path_to_mat_file_string
 
 
 from dfg_da.stats_logger import MarginalsErrors, Marginals, ClusterData, MulticlusterData
@@ -837,7 +838,7 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
 # plt.hexbin(x, y, gridsize=20, cmap='Blues', alpha=0.8)
 
     for approx_consts in approx_normalization_constants:
-        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.2, label=approx_consts.label)
+        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.05, label=approx_consts.label)
         # hb = ax.hexbin(approx_consts.constants, exact_normalization_constants, alpha=0.2, label=approx_consts.label)
 
     # cbar = fig.colorbar(hb)
@@ -847,7 +848,10 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
     ax.set_xlabel("Approximate normalization constant", fontsize=18)
     ax.set_ylabel("Exact normalization constant", fontsize=18)
     ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=14)
+    leg = ax.legend(fontsize=14)
+    for lh in leg.legendHandles: 
+        lh.set_alpha(1)
+
     ax.loglog()
 
     x = np.array([(l.constants.min(), l.constants.max()) for l in approx_normalization_constants])
@@ -870,29 +874,40 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
 
 def plot_iterations(bethe_msg_norm_iters: np.ndarray, bethe_msg_norm_errors: np.ndarray):
     assert bethe_msg_norm_iters.shape[0] == 2, f"Needs to be (2, N), is now {bethe_msg_norm_iters.shape}"
+    assert bethe_msg_norm_errors.shape[0] == 2, f"Needs to be (2, N), is now {bethe_msg_norm_iters.shape}"
 
-    fig, ax = plt.subplots()
+    fig, axes = plt.subplots(figsize=(12, 8), nrows=2)
 
-    ax.plot(bethe_msg_norm_iters[0], "g--", label="Bethe iters")
-    ax.plot(bethe_msg_norm_iters[1], "b--", label="Message norm iters")
+    axes[0].plot(bethe_msg_norm_iters[0], "g", alpha=0.7, label="Bethe iters")
+    axes[0].plot(bethe_msg_norm_iters[1], "b", alpha=0.7, label="Message norm iters")
 
-    ax.semilogy()
-    ax.set_xlabel("Timestep")
-    ax.set_ylabel("Number of iterations")
+    axes[0].semilogy()
+    axes[0].set_xlabel("Timestep")
+    axes[0].set_ylabel("Number of iterations")
 
-    ax.legend()
+    axes[0].legend()
 
-    save_fig(fig, "iterations_mcmhlbp")
+    axes[1].plot(bethe_msg_norm_errors[0], "g", alpha=0.7, label="Bethe error at convergence")
+    axes[1].plot(bethe_msg_norm_errors[1], "b", alpha=0.7, label="Message norm error at convergence")
+
+    axes[1].set_xlabel("Timestep")
+    axes[1].set_ylabel("Error")
+
+    axes[1].legend()
+
+
+    save_fig(fig, "iterations_errrs_mcmhlbp")
 
     failed_converge = (bethe_msg_norm_iters == 10_000).any(0)
     number_of_failed_convergences = failed_converge.sum()
     if number_of_failed_convergences > 0:
         fig2, ax2 = plt.subplots()
-        ax2.plot(bethe_msg_norm_iters[0, failed_converge], "g--", label="Bethe iters")
-        ax2.plot(bethe_msg_norm_iters[1, failed_converge], "b--", label="Message norm iters")
+        ax2.plot(bethe_msg_norm_iters[0, failed_converge], "g", label="Bethe iters")
+        ax2.plot(bethe_msg_norm_iters[1, failed_converge], "b", label="Message norm iters")
         ax2.set_xlabel("Timestep")
         ax2.set_ylabel("Number of iterations")
         ax2.set_title(f"Number of failed convergence cases: {number_of_failed_convergences}")
+        print(f"Errors at failed convergence: {bethe_msg_norm_errors[:, failed_converge]}")
 
         save_fig(fig2, "failed_convergence_iterations")
         
@@ -955,14 +970,11 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
     return cluster_stats
 
 
-def load_cluster_stats_batch(path: str, batch_start: int, batch_stop: int):
-    load_dirs = Path(path).glob("**/*")
-
-    load_dirs = list(load_dirs)
-    load_dirs = load_dirs[batch_start:batch_stop]
+def load_cluster_stats_batch(load_dirs: List[str], batch_start: int, batch_stop: int):
+    load_dirs_batch = load_dirs[batch_start:batch_stop]
 
     cluster_stats: List[Tuple[MulticlusterData, Path]] = []
-    for cluster_file in load_dirs:
+    for cluster_file in load_dirs_batch:
         if cluster_file.name != "empty_cluster":
             try:
                 cluster_stats.append(
@@ -1012,7 +1024,7 @@ def make_batch_intervals(batch_size: int):
     batch_intervals = []
     while stop <= 10_000:
         batch_intervals.append((start, stop))
-        start = stop + 1
+        start = stop
         stop = start + batch_size
 
     stop = batch_intervals[-1][-1]
@@ -1025,9 +1037,9 @@ def make_batch_intervals(batch_size: int):
 
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
-    # path += " (5th copy)"
+    path += " (7th copy)"
     print(f"Plotting data in {path}")
-    batch_intervals = make_batch_intervals(2000)
+    batch_intervals = make_batch_intervals(500)
     williams_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
     phd_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
     mc_eff_mhlbp_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
@@ -1051,23 +1063,36 @@ if __name__ == "__main__":
     mcmhlbp_theta_posteriors = []
     exact_theta_posteriors = []
 
+    larger_bethe_constant = []
 
     mcmhlbp_runtimes = np.empty(10_000, dtype=np.float32)
     exact_runtimes = np.empty(10_000, dtype=np.float32)
 
     mcmhlbp_iters = np.empty((10_000, 2), dtype=np.float32)
+    mcmhlbp_errors = np.empty((10_000, 2), dtype=np.float32)
+
+    load_dirs = Path(path).glob("**/*")
+    load_dirs = sorted(list(load_dirs))
 
     k = 0
     for batch_start, batch_stop in tqdm(batch_intervals):
-        cluster_stats_batch = load_cluster_stats_batch(path, batch_start, batch_stop)
-        for (cluster_stat, _) in tqdm(cluster_stats_batch):
+        cluster_stats_batch = load_cluster_stats_batch(load_dirs, batch_start, batch_stop)
+        for (cluster_stat, cluster_path) in tqdm(cluster_stats_batch):
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
             mcmhlbp_approx_normalization_constants[k] = cluster_stat.mcmhlbp_output.approx_normalization_constant
             williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
             mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
             phd_approx_normalization_constants[k] = cluster_stat.mc_phd_output.likelihood
 
+            if cluster_stat.mcmhlbp_output.approx_normalization_constant > cluster_stat.exact_output.exact_normalization_constant:
+                path = result_path_to_mat_file_string(cluster_path)
+                print(f"File {path} contains too large Bethe!")
+                larger_bethe_constant.append((cluster_stat, cluster_path))
+
             num_iters[k] = cluster_stat.mcmhlbp_output.full_output.convergence_results.total_number_iterations
+            if cluster_stat.mcmhlbp_output.full_output.convergence_results.total_number_iterations == 10_000:
+                path = result_path_to_mat_file_string(cluster_path)
+                print(f"Did not converge in file {path}")
 
             williams_approx_marginals.append(sl.Marginals(cluster_stat.mc_bethe_output.marginals))
             phd_approx_marginals.append(sl.Marginals(cluster_stat.mc_phd_output.marginals))
@@ -1087,6 +1112,9 @@ if __name__ == "__main__":
             mcmhlbp_iters[k, 0] = cluster_stat.mcmhlbp_output.full_output.convergence_results.bethe_pseudodual_iterations
             mcmhlbp_iters[k, 1] = cluster_stat.mcmhlbp_output.full_output.convergence_results.msg_norm_iterations
 
+            mcmhlbp_errors[k, 0] = cluster_stat.mcmhlbp_output.full_output.convergence_results.bethe_pseudodual_error
+            mcmhlbp_errors[k, 1] = cluster_stat.mcmhlbp_output.full_output.convergence_results.msg_norm_error
+
             if (
                 cluster_stat.mc_bethe_output.raised_warning or
                 cluster_stat.mc_mhlbp_output.raised_warning or
@@ -1100,6 +1128,9 @@ if __name__ == "__main__":
 
     num_files = k
 
+    print(f"Num cases not converged: {(num_iters == 10_000).sum()}")
+    print(f"Num cases too large Bethe: {len(larger_bethe_constant)}")
+    print(f"Num files read: {num_files}")
 
     mcmhlbp_approx_normalization_constants = BethePlotData(constants=mcmhlbp_approx_normalization_constants[:num_files], label="MCMH-LBP")
     williams_approx_normalization_constants = BethePlotData(constants=williams_approx_normalization_constants[:num_files], label="Approx Efficient Bethe")
@@ -1113,12 +1144,16 @@ if __name__ == "__main__":
     exact_runtimes = exact_runtimes[:num_files]
 
     mcmhlbp_iters = mcmhlbp_iters[:num_files]
+    mcmhlbp_errors = mcmhlbp_errors[:num_files]
 
     # williams_approx_normalization_constants.constants = williams_approx_normalization_constants.constants * exact_normalization_constants.min()/williams_approx_normalization_constants.constants.min()
 
-    approx_normalization_constants = [mcmhlbp_approx_normalization_constants, williams_approx_normalization_constants, phd_approx_normalization_constants, mc_eff_mhlbp_approx_normalization_constants]
-    approx_normalization_constants = approx_normalization_constants[::-1]
-    # approx_normalization_constants = [phd_approx_normalization_constants]
+    approx_normalization_constants = [
+        phd_approx_normalization_constants,
+        mc_eff_mhlbp_approx_normalization_constants,
+        williams_approx_normalization_constants,
+        mcmhlbp_approx_normalization_constants,
+    ]
 
     approx_hypotheses_posteriors = [
         williams_approx_theta_posteriors,
@@ -1145,7 +1180,7 @@ if __name__ == "__main__":
         exact_theta_posteriors
     )
 
-    plot_iterations(mcmhlbp_iters.T)
+    plot_iterations(mcmhlbp_iters.T, mcmhlbp_errors.T)
 
     # fig, ax = plt.subplots()
 

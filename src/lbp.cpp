@@ -474,7 +474,7 @@ namespace dfg_da
             double bethe_error_converged = std::numeric_limits<double>::infinity();
             double msg_error_converged = std::numeric_limits<double>::infinity();
 
-            while (iter < max_num_iters && !(bethe_converged || msg_norm_converged))
+            while (iter < max_num_iters && !(bethe_converged && msg_norm_converged))
             {
                 w_times_msg = w_nmd * nu;
 
@@ -507,18 +507,24 @@ namespace dfg_da
                 prev_nu = nu;
                 prev_b = b;
 
-                if (err_bethe <= tol_b) {
+                if (err_bethe <= tol_b && !bethe_converged) {
                     bethe_converged = true;
                     bethe_error_converged = err_bethe;
                 } else {
                     bethe_iter += 1;
                 }
-                if (err_msg <= tol_msg) {
+                if (err_msg <= tol_msg && !msg_norm_converged) {
                     msg_norm_converged = true;
                     msg_error_converged = err_msg;
                 } else {
                     msg_norm_iter += 1;
                 }
+            }
+
+            if (iter == max_num_iters) {
+                // We failed to converge, use errors at time of termination
+                bethe_error_converged = err_bethe;
+                msg_error_converged = err_msg;
             }
 
             return MHLBPMulticlusterOutput(
