@@ -15,6 +15,7 @@ from tqdm import tqdm
 from copy import deepcopy
 
 from multiprocessing import Pool
+import multiprocessing
 import time
 from pathlib import Path
 
@@ -126,17 +127,20 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
-    # pmbm_files = pmbm_files[:100]
+    pmbm_files = pmbm_files[:1000]
     # pmbm_files = ["./data/pmbm_output_files/priorLikelihood_iMC10k100.mat"]
 
     print(f"Computing {len(pmbm_files)} files...")
 
+    num_processes = multiprocessing.cpu_count()  # Use the number of available CPU cores
+    pool = multiprocessing.Pool(processes=num_processes)
+
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    with tqdm(total=len(pmbm_files)) as pbar:
+        for i, result in enumerate(pool.imap_unordered(loop_func, pmbm_files)):
+            pbar.update(1)
+            pbar.set_description(f"Progress: {i+1}/{len(pmbm_files)}, {(i+1)/len(pmbm_files)*100.0:.2f}%")
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

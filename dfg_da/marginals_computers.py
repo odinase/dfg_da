@@ -145,7 +145,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             hypo_prob = ph.probability()
 
             R_sub = R_LC[tracks-1, :]
-            # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
+            # Williams LBP returns wonky stuff for empty hypotheses, set specific values
             lbp_probs = np.empty((0, R_LC.shape[1]))
             bethe_loglikelihood = 0
 
@@ -153,6 +153,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
                 lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
                 F_b_psuedo = self.bethe_constant(w_nmd, mu, nu)
                 bethe_loglikelihood = -F_b_psuedo
+                bethe_loglikelihood += R_sub[:, 0].sum() # Rescale again with misdetection probabilities
             
             # We need to concatenate the JPDAprobs with all tracks and existence probs
             existing_tracks_idx = tracks - 1

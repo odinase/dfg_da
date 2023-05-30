@@ -450,7 +450,7 @@ namespace dfg_da
 
             Eigen::ArrayXXd w_times_msg(n, m);
 
-            double prev_b = bethe_pseudodual_normalization_constant(
+            double prev_b = bethe_pseudodual_loglikelihood(
                 mu,
                 nu,
                 rho,
@@ -494,7 +494,7 @@ namespace dfg_da
 
                 iter += 1;
 
-                b = bethe_pseudodual_normalization_constant(
+                b = bethe_pseudodual_loglikelihood(
                     mu,
                     nu,
                     rho,
@@ -521,9 +521,11 @@ namespace dfg_da
                 }
             }
 
-            if (iter == max_num_iters) {
-                // We failed to converge, use errors at time of termination
+            // We failed to converge, use errors at time of termination
+            if (!bethe_converged) {
                 bethe_error_converged = err_bethe;
+            }
+            if (!msg_norm_converged) {
                 msg_error_converged = err_msg;
             }
 
