@@ -838,7 +838,7 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
 # plt.hexbin(x, y, gridsize=20, cmap='Blues', alpha=0.8)
 
     for approx_consts in approx_normalization_constants:
-        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.2, label=approx_consts.label)
+        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.05, label=approx_consts.label)
         # hb = ax.hexbin(approx_consts.constants, exact_normalization_constants, alpha=0.2, label=approx_consts.label)
 
     # cbar = fig.colorbar(hb)
@@ -1104,6 +1104,12 @@ if __name__ == "__main__":
                 cluster_stat.mc_phd_output.raised_warning
             ):
                 print("Found raised warning!")
+                if cluster_stat.mc_bethe_output.raised_warning:
+                    print("mc_bethe_output!")
+                if cluster_stat.mc_mhlbp_output.raised_warning:
+                    print("mc_mhlbp_output")
+                if cluster_stat.mc_phd_output.raised_warning:
+                    print("mc_mhlbp_output")
 
             k += 1
         

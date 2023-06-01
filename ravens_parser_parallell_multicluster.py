@@ -127,7 +127,7 @@ if __name__ == "__main__":
     if len(pmbm_files) != 10_000:
         raise ValueError()
 
-    pmbm_files = pmbm_files[:1000]
+    # pmbm_files = pmbm_files[:1000]
     # pmbm_files = ["./data/pmbm_output_files/priorLikelihood_iMC10k100.mat"]
 
     print(f"Computing {len(pmbm_files)} files...")
@@ -137,10 +137,29 @@ if __name__ == "__main__":
 
     print("Starting pool")
     start = time.time()
-    with tqdm(total=len(pmbm_files)) as pbar:
-        for i, result in enumerate(pool.imap_unordered(loop_func, pmbm_files)):
-            pbar.update(1)
-            pbar.set_description(f"Progress: {i+1}/{len(pmbm_files)}, {(i+1)/len(pmbm_files)*100.0:.2f}%")
+    with Pool() as p:
+        p.map(loop_func, pmbm_files)
+    # with tqdm(total=len(pmbm_files)) as pbar:
+    #     for i, result in enumerate(pool.imap_unordered(loop_func, pmbm_files)):
+    #         pbar.update(1)
+    #         pbar.set_description(f"Progress: {i+1}/{len(pmbm_files)}, {(i+1)/len(pmbm_files)*100.0:.2f}%")
+
+    # with Pool() as pool:
+    #     results = []
+    #     with tqdm(total=len(pmbm_files)) as pbar:
+    #         for file in pmbm_files:
+    #             result = pool.apply_async(loop_func, (file,))
+    #             results.append(result)
+
+    #         for result in results:
+    #             try:
+    #                 result.get()  # Get the result of the async task
+    #             except Exception as e:
+    #                 # Handle the exception for the specific file
+    #                 print(f"Error processing file: {e}")
+
+    #             pbar.update(1)
+    #             pbar.set_description(f"Progress: {pbar.n}/{pbar.total}, {(pbar.n/pbar.total)*100.0:.2f}%")
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

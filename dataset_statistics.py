@@ -39,9 +39,9 @@ from dataclasses import dataclass
 @dataclass
 class MerginingClustersStats:
     numbers_of_prior_hypotheses_apriori: List[np.ndarray]
-    numbers_of_competing_tracks_per_meas_apriori: List[np.ndarray]
     numbers_of_prior_hypotheses_aposteriori: np.ndarray
-    numbers_of_competing_tracks_per_meas_aposteriori: List[np.ndarray]
+    # numbers_of_competing_tracks_per_meas_apriori: List[np.ndarray]
+    # numbers_of_competing_tracks_per_meas_aposteriori: List[np.ndarray]
     number_of_superclusters: int
     number_of_linking_measurements: List[np.ndarray]
     number_of_clusters_merging: np.ndarray
@@ -114,13 +114,13 @@ def loop_func(pmbm_file):
         number_of_linking_measurements.append(np.array([len(c2lms[c]) for c in clusters]))
         number_of_clusters_merging[k] = len(clusters)
 
-        master = min(clusters)
-        post_idx = assocLocal[1, master].sum() - 1
-        ph_supercluster = prior_hypotheses_per_cluster_posterior[post_idx]
-        assert len(ph_supercluster) == np.prod(num_hypos_prior_cluster) # Should always be equal if logic is correct
-        for h in ph_supercluster:
-            # TODO(odin): fix here
-            pass
+        # master = min(clusters)
+        # post_idx = assocLocal[1, master].sum() - 1
+        # ph_supercluster = prior_hypotheses_per_cluster_posterior[post_idx]
+        # assert len(ph_supercluster) == np.prod(num_hypos_prior_cluster) # Should always be equal if logic is correct
+        # for h in ph_supercluster:
+        #     # TODO(odin): fix here
+        #     pass
 
 
     # @dataclass
@@ -281,8 +281,10 @@ if __name__ == "__main__":
             pbar.update(1)
             pbar.set_description(f"Progress: {i+1}/{len(pmbm_files)}, {(i+1)/len(pmbm_files)*100.0:.2f}%")
 
-    plot_number_of_hypos_vs_avg_number_tracks(results)
-    histogram_competing_tracks(results)
-    histogram_linking_measurements(results)
-    print_merging_clusters_stats(results)
-    histogram_number_prior_clusters_in_supercluster(results)
+    print(f"Max number prior clusters: {max(stats.number_of_prior_clusters for stats in results)}")
+
+    # plot_number_of_hypos_vs_avg_number_tracks(results)
+    # histogram_competing_tracks(results)
+    # histogram_linking_measurements(results)
+    # print_merging_clusters_stats(results)
+    # histogram_number_prior_clusters_in_supercluster(results)

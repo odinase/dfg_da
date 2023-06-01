@@ -55,7 +55,7 @@ gainMatPostC(isinf(gainMatPostC)) = -1000;
 
 % Let's set this low to try to see the effects of recycling
 % In this example there are 28 posterior hypotheses in total
-nHypoTotalMax = 5;
+nHypoTotalMax = 28;
 
 [hyposLocal,hyposCardLocal,probLogLocal,kInvestigate,pqLen,priorCardAve,pq] ...
     = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,...
@@ -131,6 +131,8 @@ end
 p_P = LBP_marginals - murty_marginals;
 
 
+trackProbAccumulatePure(num_tracks,hyposLocal,hyposCardLocal,clustersWill,clustersCardWill,probLogHyposWill)
+
 
 function original_tracks = map_new_tracks_to_old_tracks(new_tracks, trackNumberLookup)
     original_tracks = zeros(1, length(new_tracks));
@@ -143,6 +145,66 @@ function original_tracks = map_new_tracks_to_old_tracks(new_tracks, trackNumberL
 
     original_tracks = unique(original_tracks);
 end
+
+
+function [trackSumProbs,trackTotalProbs,probabilitiesCell] = trackProbAccumulatePure(num_tracks,hyposWill,hyposCardWill,clustersWill,clustersCardWill,probLogHyposWill)
+
+% New version of trackProbAccumulate that does not use meaHistCol
+% Written by Edmund Brekke, starting 3rd of July 2020.
+
+
+nTracks = num_tracks;
+
+probabilitiesCell = probLogs2Probabilities(probLogHyposWill,clustersWill,clustersCardWill);
+
+trackSumProbs = zeros(1,nTracks);
+trackTotalProbs = zeros(1,nTracks);
+clusterPerTrack = zeros(1,nTracks);
+hyposPerTrack = cell(1,nTracks);
+
+for t=1:nTracks
+    %meaSeq = meaHistCol(:,t);
+    %[tracks,hyposCol,clusterNumbers] = findTrack(meaSeq,meaHistCol,hyposWill,hyposCardWill,clustersWill,clustersCardWill);
+    
+    [clusterNumbers,hyposCol,probabilities] = track2Cluster(t,hyposWill,hyposCardWill,clustersWill,clustersCardWill,probLogHyposWill);
+    
+    
+    % Must use an alternative to find track
+    
+    
+    if(length(unique(clusterNumbers)) > 1)
+        error('several clusters assigned to one track');
+    end
+    clusterPerTrack(t) = unique(clusterNumbers);
+    
+    if(length(hyposCol) == 1)
+        hyposPerTrack(t) = hyposCol;
+    else
+        hyposPerTrack{t} = cell2mat(hyposCol);
+    end
+        
+      
+    
+    if(~isempty(clusterNumbers) && ~isnan(clusterNumbers(1)))
+        
+        % Need to convert a-level hypothesis numbers to b-level
+        
+        hList = hyposCol{1};
+        inClustersA = [];
+        for ii=1:size(hList,2)
+            
+            inClustersA = [inClustersA,find(clustersWill == hList(ii))];
+        end
+        
+        [b,c] = a2bcFaster(inClustersA,clustersCardWill);
+        
+        probabilitiesThis = probabilitiesCell{clusterNumbers};
+        trackSumProbs(t) = sum(probabilitiesThis(b));
+    end
+end
+end
+
+
 
 
 
