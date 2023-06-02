@@ -29,6 +29,8 @@ from dfg_da.marginals_computers import LBPMarginalsFullAssociation
 from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
 
+
+MURTY_OUTPUT = "./murty_output"
 FIGURES_PATH = "./figures"
 
 def save_fig_to_pdf(fig, fig_name, tight_layout=True):
@@ -140,7 +142,7 @@ def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
 
 
 
-def make_survival_function_plots(williams_approx_marginals: List[sl.Marginals], phd_approx_marginals: List[sl.Marginals], mcmhlbp_marginals: List[sl.Marginals], mc_eff_mhlbp_marginals: List[sl.Marginals], exact_marginals: List[sl.Marginals]):
+def make_survival_function_plots(williams_approx_marginals: List[sl.Marginals], phd_approx_marginals: List[sl.Marginals], mcmhlbp_marginals: List[sl.Marginals], mc_eff_mhlbp_marginals: List[sl.Marginals], exact_marginals: List[sl.Marginals], murty_marginals: List[sl.Marginals]):
     fig, ax = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
 
     # fig.suptitle("Survival functions")
@@ -154,7 +156,8 @@ def make_survival_function_plots(williams_approx_marginals: List[sl.Marginals], 
         (williams_approx_marginals, "Approximate Efficient Bethe"),
         (phd_approx_marginals, "Approximate Efficient PHD"),
         (mcmhlbp_marginals, "MCMH-LBP"),
-        (mc_eff_mhlbp_marginals, "Efficient MHLBP")
+        (mc_eff_mhlbp_marginals, "Efficient MHLBP"),
+        (murty_marginals, "Murty")
     ]
     for approx_margs, approx_name in approximate_data:
         approx_errors = sl.MarginalsErrors.concatenate([sl.MarginalsErrors(exact_marginals=e, approx_marginals=m) for e, m in zip(exact_marginals, approx_margs)])
@@ -432,19 +435,21 @@ def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
     save_fig(fig, "mhlbp_lbpphd_compare")
 
 
-def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_approx_marginals: List[sl.Marginals], mcmhlbp_marginals: List[sl.Marginals], mc_eff_mhlbp_marginals: List[sl.Marginals], exact_marginals: List[sl.Marginals]):
+def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_approx_marginals: List[sl.Marginals], mcmhlbp_marginals: List[sl.Marginals], mc_eff_mhlbp_marginals: List[sl.Marginals], exact_marginals: List[sl.Marginals], murty_marginals: List[sl.Marginals]):
 
     williams_approx_marginals: sl.Marginals = sl.Marginals.concatenate(williams_approx_marginals)
     phd_approx_marginals: sl.Marginals = sl.Marginals.concatenate(phd_approx_marginals)
     mcmhlbp_marginals: sl.Marginals = sl.Marginals.concatenate(mcmhlbp_marginals)
     mc_eff_mhlbp_marginals: sl.Marginals = sl.Marginals.concatenate(mc_eff_mhlbp_marginals)
     exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals)
+    murty_marginals: sl.Marginals = sl.Marginals.concatenate(murty_marginals)
 
     approximate_data: List[Tuple[sl.Marginals, str]] = [
         (williams_approx_marginals, "Approximate Efficient Bethe"),
         (phd_approx_marginals, "Approximate Efficient PHD"),
         (mcmhlbp_marginals, "MCMH-LBP"),
-        (mc_eff_mhlbp_marginals, "Efficient MHLBP")
+        (mc_eff_mhlbp_marginals, "Efficient MHLBP"),
+        (murty_marginals, "Murty")
     ]
 
     num_bins = 200
@@ -466,15 +471,21 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
         df_approx = df_approx.pivot(index="Exact marginals", columns=approx_name, values="hist")
         dfs.append(df_approx)
 
+    dfs.insert(1, None)
+
     figsize = (8, 8)
 
-    nrows = 2
+    nrows = 3
     ncols = 2
     fig, ax = plt.subplots(figsize=figsize, nrows=nrows, ncols=ncols, sharex=True, sharey=True)
     if not isinstance(ax, np.ndarray):
         ax = np.array([ax])
     num_ticks = 5
     for k, (axx, df) in enumerate(zip(ax.ravel(), dfs)):
+        if k == 1:
+            fig.delaxes(axx)
+            continue
+
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
 
         axx.tick_params(axis='both', which='major', labelsize=16)
@@ -484,8 +495,17 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
         axx.set_xlabel(df.columns.name, fontsize=16)
         cbar.ax.tick_params(labelsize=18)
         axx.invert_yaxis()
-        if k < nrows - 1:
+        r, c = np.unravel_index(k, (nrows, ncols))
+        if r < nrows - 1:
             axx.tick_params(bottom=False)
+
+        # if (c == 1) and (r == nrows - 2):
+        #     axx.xaxis.set_tick_params(labelbottom=True)
+        #     axx.tick_params(axis='x', rotation=90)
+
+    
+    # Remove the last axis from the grid
+    # fig.delaxes(ax.ravel()[-1])
 
     save_fig(fig, "heatmap_correlation")
 
@@ -770,8 +790,8 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         ax.set_xticklabels(xticks_labels)
         ax.tick_params(axis='both', which='major', labelsize=18)
         ax.tick_params(axis='both', which='minor', labelsize=18)
-        # ax.set_yscale('symlog', linthresh=steps[1])
-        ax.semilogy()
+        ax.set_yscale('symlog', linthresh=1e-2)
+        # ax.semilogy()
         ax.grid(True, alpha=0.2)
         if label != "_" and k == 0:
             ax.legend(fontsize=13)
@@ -1035,6 +1055,17 @@ def make_batch_intervals(batch_size: int):
 
     return batch_intervals
 
+
+def murty_results_from_cluster_path(cluster_path: Path) -> Tuple[np.ndarray, float]:
+    from scipy.io import loadmat
+    output_file_path = f"{MURTY_OUTPUT}/{Path(result_path_to_mat_file_string(cluster_path)).name}"
+    murty_ws = loadmat(output_file_path)
+    murty_norm = murty_ws["Z"][0,0]
+    murty_margs = murty_ws["a"]
+
+    return murty_margs, murty_norm
+
+
 if __name__ == "__main__":
     from ravens_parser_parallell_multicluster import OUTPUT_PATH_BASE as path
     # path += " (7th copy)"
@@ -1044,6 +1075,7 @@ if __name__ == "__main__":
     phd_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
     mc_eff_mhlbp_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
     mcmhlbp_approx_normalization_constants = np.empty(10_000, dtype=np.float32)
+    murty_normalization_constants = np.empty(10_000, dtype=np.float32)
 
     exact_normalization_constants = np.empty(10_000, dtype=np.float32)
 
@@ -1052,6 +1084,7 @@ if __name__ == "__main__":
     mc_eff_mhlbp_marginals = []
     mcmhlbp_marginals = []
     exact_marginals = []
+    murty_marginals = []
 
 
     williams_approx_theta_posteriors = []
@@ -1067,16 +1100,26 @@ if __name__ == "__main__":
 
     load_dirs = Path(path).glob("**/*")
     load_dirs = sorted(list(load_dirs))
+    # load_dirs = load_dirs[:100]
 
     k = 0
     for batch_start, batch_stop in tqdm(batch_intervals):
         cluster_stats_batch = load_cluster_stats_batch(load_dirs, batch_start, batch_stop)
         for (cluster_stat, cluster_path) in tqdm(cluster_stats_batch):
+            try:
+                murty_margs, murty_norm = murty_results_from_cluster_path(cluster_path)
+            except FileNotFoundError:
+                print(f"File {cluster_path} not computed by Murty, skipping...")
+                # This happens because Murty is run on a smaller set of the data, fix later
+                continue
+
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
             mcmhlbp_approx_normalization_constants[k] = cluster_stat.mcmhlbp_output.approx_normalization_constant
             williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
             mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
             phd_approx_normalization_constants[k] = cluster_stat.mc_phd_output.likelihood
+            murty_normalization_constants[k] = murty_norm
+
 
             if cluster_stat.mcmhlbp_output.approx_normalization_constant > cluster_stat.exact_output.exact_normalization_constant:
                 path = result_path_to_mat_file_string(cluster_path)
@@ -1088,6 +1131,7 @@ if __name__ == "__main__":
             mcmhlbp_marginals.append(sl.Marginals(cluster_stat.mcmhlbp_output.approx_marginals))
             mc_eff_mhlbp_marginals.append(sl.Marginals(cluster_stat.mc_mhlbp_output.marginals))
             exact_marginals.append(sl.Marginals(cluster_stat.exact_output.exact_marginals))
+            murty_marginals.append(sl.Marginals(murty_margs))
 
             williams_approx_theta_posteriors.append(np.hstack(cluster_stat.mc_bethe_output.theta_posteriors))
             phd_approx_theta_posteriors.append(np.hstack(cluster_stat.mc_phd_output.theta_posteriors))
@@ -1124,6 +1168,7 @@ if __name__ == "__main__":
     williams_approx_normalization_constants = BethePlotData(constants=williams_approx_normalization_constants[:num_files], label="Approx Efficient Bethe")
     phd_approx_normalization_constants = BethePlotData(constants=phd_approx_normalization_constants[:num_files], label="Approx Efficient PHD")
     mc_eff_mhlbp_approx_normalization_constants = BethePlotData(constants=mc_eff_mhlbp_approx_normalization_constants[:num_files], label="Efficient MHLBP")
+    murty_normalization_constants = BethePlotData(constants=murty_normalization_constants[:num_files], label="Murty")
 
     exact_normalization_constants = exact_normalization_constants[:num_files]
 
@@ -1137,6 +1182,7 @@ if __name__ == "__main__":
         mc_eff_mhlbp_approx_normalization_constants,
         williams_approx_normalization_constants,
         mcmhlbp_approx_normalization_constants,
+        murty_normalization_constants,
     ]
 
     approx_hypotheses_posteriors = [
@@ -1147,22 +1193,22 @@ if __name__ == "__main__":
     ]
 
     normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
-    make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
-    make_heatmap_correlation_theta(
-        williams_approx_theta_posteriors,
-        phd_approx_theta_posteriors,
-        mc_eff_mhlbp_theta_posteriors,
-        mcmhlbp_theta_posteriors,
-        exact_theta_posteriors
-    )
-    make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals)
+    make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals, murty_marginals)
+    # make_heatmap_correlation_theta(
+    #     williams_approx_theta_posteriors,
+    #     phd_approx_theta_posteriors,
+    #     mc_eff_mhlbp_theta_posteriors,
+    #     mcmhlbp_theta_posteriors,
+    #     exact_theta_posteriors
+    # )
+    make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals, murty_marginals)
     
-    make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
-        phd_approx_theta_posteriors,
-        mc_eff_mhlbp_theta_posteriors,
-        mcmhlbp_theta_posteriors,
-        exact_theta_posteriors
-    )
+    # make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+    #     phd_approx_theta_posteriors,
+    #     mc_eff_mhlbp_theta_posteriors,
+    #     mcmhlbp_theta_posteriors,
+    #     exact_theta_posteriors
+    # )
 
     # fig, ax = plt.subplots()
 

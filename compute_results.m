@@ -1,6 +1,7 @@
 clear all;
 % Specify the path to the text file
 file_path = './files_used.txt';
+output_folder = './murty_output';
 
 % Open the text file
 fid = fopen(file_path, 'r');
@@ -23,110 +24,142 @@ fclose(fid);
 
 num_files = length(filenames);
 iMC = 0;
+
+hypo_params = [10, 20, 50, 100, 150];  % List of numbers
+
+for K = hypo_params
+    folderPath = fullfile('.', sprintf('murty_output/nHypoTotalMax_%d', K));    
+    
+    if ~isfolder(folderPath)
+        mkdir(folderPath);
+        disp(['Directory ', folderPath, ' created successfully.']);
+    else
+        disp(['Directory ', folderPath, ' already exists.']);
+    end
+
+    
+
 for i = 1:num_files
     filename = filenames{i};
+    fprintf("Doing file %s!\n", filename);
     load(filename);
     begsC = tCloud2BegInd(clustersCard);
-                endsC = tCloud2EndInd(clustersCard);
-                begsH = tCloud2BegInd(hyposCard);
-                endsH = tCloud2EndInd(hyposCard);
-masters = assocLocal(1, assocLocal(2, :) == 1);
+    endsC = tCloud2EndInd(clustersCard);
+    begsH = tCloud2BegInd(hyposCard);
+    endsH = tCloud2EndInd(hyposCard);
+    masters = assocLocal(1, assocLocal(2, :) == 1);
+    
+    nT = size(trackFile,2);
+    m = size(measurements,2);
+    
+    num_tracks = nT;
+    num_measurements = m;
+    
+    newHypos = zeros(1,0); % To contain track numbers for each of the new hypotheses after clustering
+    newHyposCard = zeros(1,0);
+    newProbLogs = zeros(1,0);
+    cWNew = zeros(1,0);
+    cCardWNew = zeros(1,0);
+    newHyposCount = 0;
 
-nT = size(trackFile,2);
-m = size(measurements,2);
-
-num_tracks = nT;
-num_measurements = m;
-
-newHypos = zeros(1,0); % To contain track numbers for each of the new hypotheses after clustering
-newHyposCard = zeros(1,0);
-newProbLogs = zeros(1,0);
-cWNew = zeros(1,0);
-cCardWNew = zeros(1,0);
-newHyposCount = 0;
-
-            tfClusterMembership = NaN*zeros(1,size(meaHistColNew,2));  % Which new cluster a track belongs to
+    tfClusterMembership = NaN*zeros(1,size(meaHistColNew,2));  % Which new cluster a track belongs to
   
+%     if nHypoTotalMax ~= 150
+%        nHypoTotalMax
+%        filename
+%     end
+    nHypoTotalMax = K;
+    fprintf("Starting Murty with nHypoTotalMax = %i!\n", nHypoTotalMax);
 
-nHypoTotalMax = 500;
-
-
-for iC=1:size(masters,2)
-
-    [hyposLocal,hyposCardLocal,probLogLocal,kInvesti,pqLen,priorCardAve,pq] = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k);
+    for iC=1:size(masters,2)
     
-    newHypos = [newHypos,hyposLocal];
-    newHyposCard = [newHyposCard,hyposCardLocal];
-    newProbLogs = [newProbLogs,probLogLocal];
-    
-    
-    newHyposOld = newHyposCount;
-    newHyposCount = newHyposCount + size(hyposCardLocal,2);
-    cWNew = [cWNew,(newHyposOld+1):newHyposCount];
-    cCardWNew = [cCardWNew,size((newHyposOld+1):newHyposCount,2)];
-    clusterNumber = iC;
-tracksInCluster = unique(hyposLocal);
-tfClusterMembership(tracksInCluster) = clusterNumber;
+        [hyposLocal,hyposCardLocal,probLogLocal,kInvesti,pqLen,priorCardAve,pq] = branchAndBoundExplore(hypos,hyposCard,clusters,clustersCard,probLogHypos,iC,assocLocal,gainMatPostC,indicesOfNewbornTracks,nHypoTotalMax,trackNumberLookup,k);
+        
+        newHypos = [newHypos,hyposLocal];
+        newHyposCard = [newHyposCard,hyposCardLocal];
+        newProbLogs = [newProbLogs,probLogLocal];
+        
+        
+        newHyposOld = newHyposCount;
+        newHyposCount = newHyposCount + size(hyposCardLocal,2);
+        cWNew = [cWNew,(newHyposOld+1):newHyposCount];
+        cCardWNew = [cCardWNew,size((newHyposOld+1):newHyposCount,2)];
+        clusterNumber = iC;
+        tracksInCluster = unique(hyposLocal);
+        tfClusterMembership(tracksInCluster) = clusterNumber;
+        
+    end
 
-end
+    fprintf("Murty done!\n");
 
-            for jj=1:m
-                tIndex =indicesOfNewbornTracks(jj);  % Number of current track
-                
-                % Is this track a member of any hypothesis?
-                % If not, then we need to add it as a separate hypothesis
-                
-                %if(~ismember(tIndex,newHypos))
-                if(~ismember(jj,meaHistColNew(end,newHypos))) % New criterion only allows separate newborn cluster if MEASUREMENT not claimed in other clusters
-                    hI = tIndex;
-                    newHyposCard = [newHyposCard,1];
-                    newHypos = [newHypos,hI];
-                    newProbLogs = [newProbLogs,log(1)];
-                    hypoNumber = size(newHyposCard,2);
-                    tCluster = tfClusterMembership(tIndex);
-                    if(isnan(tCluster))
-                        cWNew = [cWNew,length(newHyposCard)];
-                        cCardWNew = [cCardWNew,1];
-                    else
-                        [cWNew,cCardWNew] = insertElements(tCluster,hypoNumber,cWNew,cCardWNew,1);
-                    end
-                end
+    for jj=1:m
+        tIndex =indicesOfNewbornTracks(jj);  % Number of current track
+        
+        % Is this track a member of any hypothesis?
+        % If not, then we need to add it as a separate hypothesis
+        
+        %if(~ismember(tIndex,newHypos))
+        if(~ismember(jj,meaHistColNew(end,newHypos))) % New criterion only allows separate newborn cluster if MEASUREMENT not claimed in other clusters
+            hI = tIndex;
+            newHyposCard = [newHyposCard,1];
+            newHypos = [newHypos,hI];
+            newProbLogs = [newProbLogs,log(1)];
+            hypoNumber = size(newHyposCard,2);
+            tCluster = tfClusterMembership(tIndex);
+            if(isnan(tCluster))
+                cWNew = [cWNew,length(newHyposCard)];
+                cCardWNew = [cCardWNew,1];
+            else
+                [cWNew,cCardWNew] = insertElements(tCluster,hypoNumber,cWNew,cCardWNew,1);
             end
+        end
+    end
 
-            hypos = newHypos;
-            hyposCard = newHyposCard;
-            clusters = cWNew;
-            clustersCard = cCardWNew;
-            probLogHypos = newProbLogs;
-            
-            num_tracks_new = sum(~isnan(trackNumberLookup),'all');
-            [margs, probabilitiesCell] = trackProbAccumulatePureOdin(num_tracks_new, hypos,hyposCard,clusters,clustersCard,probLogHypos);
-            
+    hypos = newHypos;
+    hyposCard = newHyposCard;
+    clusters = cWNew;
+    clustersCard = cCardWNew;
+    probLogHypos = newProbLogs;
+    
+    fprintf("Computing marginals\n");
+    num_tracks_new = sum(~isnan(trackNumberLookup),'all');
+    [margs, probabilitiesCell] = trackProbAccumulatePureOdin(num_tracks_new, hypos,hyposCard,clusters,clustersCard,probLogHypos);
+    a = margs2distrs(margs, trackNumberLookup, num_measurements);
+    fprintf("Computing marginals done!\n");
+
+
+    fprintf("Computing normalization constants\n");
+    begsC = tCloud2BegInd(clustersCard);
+    endsC = tCloud2EndInd(clustersCard);
+    
+    num_clusters = length(clustersCard);
+    
+    log_Zc = zeros(1, num_clusters);
+    
+    for iC = 1:num_clusters
+
+        bC = begsC(iC);
+        eC = endsC(iC);
+    
+        log_Zc(iC) = logsumexp(probLogHypos(bC:eC), 2);
+
+    end
+
+    logZ = sum(log_Zc);
+    Z = exp(logZ);
+    fprintf("Computing normalization constants done!\n");
+
+    [~, f, ext] = fileparts(filename);
+    outfile = [folderPath, '/', f, ext];
+    save(outfile, 'Z', 'a', '-v4');
+
+
+    fprintf("Done! Has completed %i out of %i files (%.3f %%)\n", i, num_files, i / num_files * 100.0);
 end
 
-
-begsC = tCloud2BegInd(clustersCard);
-endsC = tCloud2EndInd(clustersCard);
-
-num_clusters = length(clustersCard);
-
-log_Zc = zeros(1, num_clusters);
-
-for iC = 1:num_clusters
-
-    bC = begsC(iC);
-    eC = endsC(iC);
-
-    log_Zc(iC) = logsumexp(probLogHypos(bC:eC), 2);
-
 end
 
-logZ = sum(log_Zc);
-logZ
-exp(logZ)
-M = margs2distrs(margs, trackNumberLookup, num_measurements);
-
-x=1;
+% delete(gcp('nocreate'));
 
 
 function distrs = margs2distrs(margs, trackNumberLookup, num_measurements)
