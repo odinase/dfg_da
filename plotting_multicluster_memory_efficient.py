@@ -260,9 +260,9 @@ def make_boxplot_normconsts_rel_error(exact_normalization_constants: np.ndarray,
     ax2.set_ylabel("Relative Error", fontsize=18)
     ax2.set_title("Relative Error of Normalization Constants", fontsize=18)
     ax2.set_xticks(range(1, len(approx_normalization_constants) + 1))
-    ax2.set_xticklabels([data.label for data in approx_normalization_constants])
+    ax2.set_xticklabels([data.label for data in approx_normalization_constants], rotation=30)
     ax2.grid(True)
-
+    ax2.semilogy()
     # ax2.boxplot(relative_errors)
     # ax2.set_xlabel("Approximation", fontsize=18)
     # ax2.set_ylabel("Relative Error", fontsize=18)
@@ -1306,6 +1306,7 @@ if __name__ == "__main__":
 
     normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
     make_histogram_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants)
+    make_boxplot_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants)
     make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals, murty_marginals)
     make_heatmap_correlation_theta(
         williams_approx_theta_posteriors,
