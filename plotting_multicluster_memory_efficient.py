@@ -33,6 +33,19 @@ from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 MURTY_OUTPUT = "./murty_output"
 FIGURES_PATH = "./figures"
 
+
+
+
+@dataclass
+class BethePlotData:
+    constants: np.ndarray
+    label: str
+
+
+
+
+
+
 def save_fig_to_pdf(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
@@ -165,6 +178,21 @@ def make_survival_function_plots(williams_approx_marginals: List[sl.Marginals], 
     
     save_fig(fig, "sf")
 
+@dataclass
+class SurvivalPlotData:
+    marginals: List[sl.Marginals]
+    label: str
+
+
+def make_survival_function_plots_generic(exact_marginals: List[sl.Marginals], approximate_data: List[SurvivalPlotData]):
+    fig, ax = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
+
+    for ap in approximate_data:
+        approx_errors = sl.MarginalsErrors.concatenate([sl.MarginalsErrors(exact_marginals=e, approx_marginals=m) for e, m in zip(exact_marginals, ap.marginals)])
+        plot_survival_function(ax, approx_errors, label=ap.label)
+    
+    save_fig(fig, "sf_generic")
+
 
 def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterData, Path]]):
     cluster_stats_converged, cluster_stats_diverged = split_cluster_stats_converged(cluster_stats)
@@ -182,6 +210,92 @@ def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterDa
         plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
 
     save_fig(fig, "sf_conditioned", tight_layout=False)
+
+
+def make_histogram_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_hist"):    
+    alphas = np.ones(len(approx_normalization_constants)) / 4.0
+    
+    bins = 100
+    hist_figsize = (10, 7)
+
+    fig2, ax2 = plt.subplots(figsize=hist_figsize)
+
+    for data, alpha in zip(approx_normalization_constants, alphas):
+        err = (exact_normalization_constants - data.constants) / exact_normalization_constants
+        ax2.hist(err, bins=bins, label=data.label, alpha=alpha)
+
+
+    ax2.set_title("Histogram over relative normalization constants errors, (exact - approximate) / exact", fontsize=20)
+    ax2.semilogy()
+    ax2.legend(fontsize=10)
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='minor', labelsize=18)
+
+
+    # fig3, ax3 = plt.subplots(figsize=hist_figsize)
+
+    # x = lbp_errors.raw_errors
+    # ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    # ax3.set_title("Histogram over signed marginal errors")
+    # ax3.semilogy()
+    # ax3.legend()
+
+
+    # save_fig_to_pdf(fig, "signed_error")
+    save_fig(fig2, figure_name)
+
+
+def make_boxplot_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_boxplot"):    
+    relative_errors = []
+
+    for data in approx_normalization_constants:
+        relative_error = (exact_normalization_constants - data.constants) / exact_normalization_constants
+        relative_errors.append(relative_error)
+
+    fig2, ax2 = plt.subplots()
+    ax2.boxplot(relative_errors)
+    ax2.set_title("Boxplot over relative normalization constants errors, (exact - approximate) / exact", fontsize=20)
+    ax2.set_xlabel("Approximation", fontsize=18)
+    ax2.set_ylabel("Relative Error", fontsize=18)
+    ax2.set_title("Relative Error of Normalization Constants", fontsize=18)
+    ax2.set_xticks(range(1, len(approx_normalization_constants) + 1))
+    ax2.set_xticklabels([data.label for data in approx_normalization_constants])
+    ax2.grid(True)
+
+    # ax2.boxplot(relative_errors)
+    # ax2.set_xlabel("Approximation", fontsize=18)
+    # ax2.set_ylabel("Relative Error", fontsize=18)
+    # ax2.set_title("Relative Error of Normalization Constants", fontsize=18)
+    # ax2.xticks(range(1, len(approx_normalization_constants) + 1), [data.label for data in approx_normalization_constants])
+    # ax2.grid(True)
+
+
+    # for data, alpha in zip(approx_normalization_constants, alphas):
+    #     err = (exact_normalization_constants - data.constants) / exact_normalization_constants
+    #     ax2.hist(err, bins=bins, label=data.label, alpha=alpha)
+
+
+    # ax2.set_title("Histogram over relative normalization constants errors, (exact - approximate) / exact", fontsize=20)
+    # ax2.semilogy()
+    # ax2.legend(fontsize=10)
+    # ax2.tick_params(axis='both', which='major', labelsize=18)
+    # ax2.tick_params(axis='both', which='minor', labelsize=18)
+
+
+    # fig3, ax3 = plt.subplots(figsize=hist_figsize)
+
+    # x = lbp_errors.raw_errors
+    # ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+
+    # ax3.set_title("Histogram over signed marginal errors")
+    # ax3.semilogy()
+    # ax3.legend()
+
+
+    # save_fig_to_pdf(fig, "signed_error")
+    save_fig(fig2, figure_name)
+
 
 
 def make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
@@ -845,13 +959,8 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
     # # print(np.mean(converged_stats["IoU"]))
     # print(np.mean(diverged_stats["IoU"]))
 
-@dataclass
-class BethePlotData:
-    constants: np.ndarray
-    label: str
 
-
-def normalization_constant_scatter_plot(approx_normalization_constants: List[BethePlotData], exact_normalization_constants: np.ndarray):
+def normalization_constant_scatter_plot(approx_normalization_constants: List[BethePlotData], exact_normalization_constants: np.ndarray, figure_name: str = "normalization_constant"):
     fig, ax = plt.subplots()
     # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
 
@@ -888,7 +997,7 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
     ax.set_yticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
     
 
-    save_fig(fig, "normalization_constant")
+    save_fig(fig, figure_name)
 
 
 
@@ -1056,9 +1165,9 @@ def make_batch_intervals(batch_size: int):
     return batch_intervals
 
 
-def murty_results_from_cluster_path(cluster_path: Path) -> Tuple[np.ndarray, float]:
+def murty_results_from_cluster_path(cluster_path: Path, K: int = 150) -> Tuple[np.ndarray, float]:
     from scipy.io import loadmat
-    output_file_path = f"{MURTY_OUTPUT}/{Path(result_path_to_mat_file_string(cluster_path)).name}"
+    output_file_path = f"{MURTY_OUTPUT}/nHypoTotalMax_{K}/{Path(result_path_to_mat_file_string(cluster_path)).name}"
     murty_ws = loadmat(output_file_path)
     murty_norm = murty_ws["Z"][0,0]
     murty_margs = murty_ws["a"]
@@ -1086,7 +1195,6 @@ if __name__ == "__main__":
     exact_marginals = []
     murty_marginals = []
 
-
     williams_approx_theta_posteriors = []
     phd_approx_theta_posteriors = []
     mc_eff_mhlbp_theta_posteriors = []
@@ -1102,6 +1210,9 @@ if __name__ == "__main__":
     load_dirs = sorted(list(load_dirs))
     # load_dirs = load_dirs[:100]
 
+    cluster_paths = []
+    # batch_intervals = [batch_intervals[0]]
+
     k = 0
     for batch_start, batch_stop in tqdm(batch_intervals):
         cluster_stats_batch = load_cluster_stats_batch(load_dirs, batch_start, batch_stop)
@@ -1113,13 +1224,13 @@ if __name__ == "__main__":
                 # This happens because Murty is run on a smaller set of the data, fix later
                 continue
 
+
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
             mcmhlbp_approx_normalization_constants[k] = cluster_stat.mcmhlbp_output.approx_normalization_constant
             williams_approx_normalization_constants[k] = cluster_stat.mc_bethe_output.likelihood
             mc_eff_mhlbp_approx_normalization_constants[k] = cluster_stat.mc_mhlbp_output.likelihood
             phd_approx_normalization_constants[k] = cluster_stat.mc_phd_output.likelihood
             murty_normalization_constants[k] = murty_norm
-
 
             if cluster_stat.mcmhlbp_output.approx_normalization_constant > cluster_stat.exact_output.exact_normalization_constant:
                 path = result_path_to_mat_file_string(cluster_path)
@@ -1155,8 +1266,9 @@ if __name__ == "__main__":
                 if cluster_stat.mc_phd_output.raised_warning:
                     print("mc_mhlbp_output")
 
+            cluster_paths.append(cluster_path)
             k += 1
-        
+
         del cluster_stats_batch
 
     num_files = k
@@ -1164,18 +1276,18 @@ if __name__ == "__main__":
     print(f"Num cases too large Bethe: {len(larger_bethe_constant)}")
     print(f"Num files read: {num_files}")
 
-    mcmhlbp_approx_normalization_constants = BethePlotData(constants=mcmhlbp_approx_normalization_constants[:num_files], label="MCMH-LBP")
-    williams_approx_normalization_constants = BethePlotData(constants=williams_approx_normalization_constants[:num_files], label="Approx Efficient Bethe")
+    mcmhlbp_approx_normalization_constants: BethePlotData = BethePlotData(constants=mcmhlbp_approx_normalization_constants[:num_files], label="MCMH-LBP")
+    williams_approx_normalization_constants: BethePlotData = BethePlotData(constants=williams_approx_normalization_constants[:num_files], label="Approx Efficient Bethe")
     phd_approx_normalization_constants = BethePlotData(constants=phd_approx_normalization_constants[:num_files], label="Approx Efficient PHD")
     mc_eff_mhlbp_approx_normalization_constants = BethePlotData(constants=mc_eff_mhlbp_approx_normalization_constants[:num_files], label="Efficient MHLBP")
     murty_normalization_constants = BethePlotData(constants=murty_normalization_constants[:num_files], label="Murty")
 
-    exact_normalization_constants = exact_normalization_constants[:num_files]
+    exact_normalization_constants: np.ndarray = exact_normalization_constants[:num_files]
 
-    mcmhlbp_runtimes = mcmhlbp_runtimes[:num_files]
-    exact_runtimes = exact_runtimes[:num_files]
+    # mcmhlbp_runtimes = mcmhlbp_runtimes[:num_files]
+    # exact_runtimes = exact_runtimes[:num_files]
 
-    # williams_approx_normalization_constants.constants = williams_approx_normalization_constants.constants * exact_normalization_constants.min()/williams_approx_normalization_constants.constants.min()
+    # # williams_approx_normalization_constants.constants = williams_approx_normalization_constants.constants * exact_normalization_constants.min()/williams_approx_normalization_constants.constants.min()
 
     approx_normalization_constants = [
         phd_approx_normalization_constants,
@@ -1193,22 +1305,23 @@ if __name__ == "__main__":
     ]
 
     normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
+    make_histogram_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants)
     make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals, murty_marginals)
-    # make_heatmap_correlation_theta(
-    #     williams_approx_theta_posteriors,
-    #     phd_approx_theta_posteriors,
-    #     mc_eff_mhlbp_theta_posteriors,
-    #     mcmhlbp_theta_posteriors,
-    #     exact_theta_posteriors
-    # )
+    make_heatmap_correlation_theta(
+        williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors
+    )
     make_survival_function_plots(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals, murty_marginals)
     
-    # make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
-    #     phd_approx_theta_posteriors,
-    #     mc_eff_mhlbp_theta_posteriors,
-    #     mcmhlbp_theta_posteriors,
-    #     exact_theta_posteriors
-    # )
+    make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors
+    )
 
     # fig, ax = plt.subplots()
 
@@ -1241,3 +1354,48 @@ if __name__ == "__main__":
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_heatmap_correlation_distinct_errors(cluster_stats)
+
+
+    N = len(cluster_paths)
+
+    murty_output = {
+        10:  ([], np.empty(N, dtype=np.float32)),
+        20:  ([], np.empty(N, dtype=np.float32)),
+        50:  ([], np.empty(N, dtype=np.float32)),
+        100: ([], np.empty(N, dtype=np.float32)),
+        150: ([], np.empty(N, dtype=np.float32)),
+    }
+
+    for k, cluster_path in enumerate(cluster_paths):
+        for K in murty_output:
+            murty_margs, murty_norm = murty_results_from_cluster_path(cluster_path, K=K)
+            murty_output[K][0].append(sl.Marginals(murty_margs))
+            murty_output[K][1][k] = murty_norm
+    
+    # def make_survival_function_plots_generic(exact_marginals: List[sl.Marginals], approximate_data: List[SurvivalPlotData]):
+
+    sf_plot_data = []
+
+    efficient_bethe_sf_data = SurvivalPlotData(marginals=williams_approx_marginals, label="Efficient Approx Bethe")
+
+    sf_plot_data.append(efficient_bethe_sf_data)
+
+    for K in murty_output:
+        marginals = murty_output[K][0]
+        label = f"{K}-Murty"
+        sf_plot_data.append(SurvivalPlotData(marginals=marginals, label=label))
+
+    make_survival_function_plots_generic(exact_marginals=exact_marginals, approximate_data=sf_plot_data)
+    # normalization_constant_scatter_plot(approx_normalization_constants: List[BethePlotData], exact_normalization_constants: np.ndarray):
+    norm_data = []
+
+    for K in murty_output:
+        constants = murty_output[K][1]
+        label = f"{K}-Murty"
+        norm_data.append(BethePlotData(constants=constants, label=label))
+
+    norm_data.append(mcmhlbp_approx_normalization_constants)
+
+    normalization_constant_scatter_plot(norm_data, exact_normalization_constants, figure_name="norm_consts_murtys")
+# def make_histogram_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData]):    
+    make_histogram_normconsts_rel_error(exact_normalization_constants, norm_data, figure_name="rel_error_normconsts_hist_murtys")
