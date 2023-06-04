@@ -28,6 +28,7 @@ import dfg_da.stats_logger as sl
 from dfg_da.marginals_computers import LBPMarginalsFullAssociation
 from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
+from textwrap import wrap, fill
 
 
 MURTY_OUTPUT = "./murty_output"
@@ -96,74 +97,10 @@ def cluster_stats_to_errors(cluster_stats: List[Tuple[MulticlusterData, Path]]) 
 
     return lbp_errors
 
-@dataclass
-class NormConstTuple:
-    bethe_constant: float
-    exact_constant:float
-
-
-def cluster_stats_to_norm_consts(cluster_stats: List[Tuple[MulticlusterData, Path]]) -> List[NormConstTuple]:
-    norm_consts = []
-
-    for cluster_stat, _ in cluster_stats:
-        if cluster_stat.exact_computation_error:
-            continue
-        norm_consts.append(NormConstTuple(bethe_constant=cluster_stat.bethe_normalization_constant, exact_constant=cluster_stat.exact_marginals))
-
-    return norm_consts
-
-
-
-def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
-    cluster_size_table_lbp_converge = defaultdict(lambda: 0)
-    cluster_size_table_lbp_converge_num = defaultdict(lambda: 0)
-    clusters_not_converged = list()
-
-    print(f"Num empty clusters: {len(empty_clusters)}, {len(empty_clusters) / (len(empty_clusters) + len(cluster_stats))*100.0:.3f}%")
-
-    for cluster_stat, cluster_file in cluster_stats:
-        c = cluster_stat.cardinality
-        cluster_size_table_lbp_converge[c] += cluster_stat.lbp_stats.num_iters
-        cluster_size_table_lbp_converge_num[c] += 1
-        if not cluster_stat.lbp_stats.converged:
-            clusters_not_converged.append(c)
-
-    table = np.array([t for t in cluster_size_table_lbp_converge.items()])
-    table = table[table[:,0].argsort()]
-
-    nums = np.array([t for t in cluster_size_table_lbp_converge_num.items()])
-    nums = nums[nums[:,0].argsort()]
-
-    table[:,1] = table[:,1] / nums[:,1]
-
-    print(f"Num not converged: {len(clusters_not_converged)}")
-    clusters_not_converged = np.sort(np.array([c for c in set(clusters_not_converged)]))
-    print(clusters_not_converged)
-
-    fig, ax = plt.subplots(nrows=3)
-
-    ax[0].plot(*table.T)
-    ax[0].set_xlabel("Cluster cardinality")
-    ax[0].set_ylabel("LBP convergence average iterations")
-    for cnc in clusters_not_converged:
-        ax[0].axvline(cnc, color="red")
-
-    ax[1].plot(*nums.T)
-
-    ax[2].hist(clusters_not_converged, bins=25)
-    ax[2].set_title("Clusters not converged")
-
 
 
 def make_survival_function_plots(williams_approx_marginals: List[sl.Marginals], phd_approx_marginals: List[sl.Marginals], mcmhlbp_marginals: List[sl.Marginals], mc_eff_mhlbp_marginals: List[sl.Marginals], exact_marginals: List[sl.Marginals], murty_marginals: List[sl.Marginals]):
     fig, ax = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
-
-    # fig.suptitle("Survival functions")
-    # williams_approx_marginals: sl.Marginals = sl.Marginals.concatenate(williams_approx_marginals)
-    # phd_approx_marginals: sl.Marginals = sl.Marginals.concatenate(phd_approx_marginals)
-    # mcmhlbp_marginals: sl.Marginals = sl.Marginals.concatenate(mcmhlbp_marginals)
-    # mc_eff_mhlbp_marginals: sl.Marginals = sl.Marginals.concatenate(mc_eff_mhlbp_marginals)
-    # exact_marginals: sl.Marginals = sl.Marginals.concatenate(exact_marginals)
 
     approximate_data: List[Tuple[sl.Marginals, str]] = [
         (williams_approx_marginals, "Approximate Efficient Bethe"),
@@ -175,7 +112,10 @@ def make_survival_function_plots(williams_approx_marginals: List[sl.Marginals], 
     for approx_margs, approx_name in approximate_data:
         approx_errors = sl.MarginalsErrors.concatenate([sl.MarginalsErrors(exact_marginals=e, approx_marginals=m) for e, m in zip(exact_marginals, approx_margs)])
         plot_survival_function(ax, approx_errors, label=approx_name)
-    
+
+    ax[0].legend(loc='upper center', bbox_to_anchor=(0.5, 2.1), ncol=3, fontsize=16)
+    # ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=16)
+
     save_fig(fig, "sf")
 
 @dataclass
@@ -190,7 +130,12 @@ def make_survival_function_plots_generic(exact_marginals: List[sl.Marginals], ap
     for ap in approximate_data:
         approx_errors = sl.MarginalsErrors.concatenate([sl.MarginalsErrors(exact_marginals=e, approx_marginals=m) for e, m in zip(exact_marginals, ap.marginals)])
         plot_survival_function(ax, approx_errors, label=ap.label)
-    
+
+    ax[0].legend(loc='upper center', bbox_to_anchor=(0.5, 2.1), ncol=3, fontsize=16)
+
+    # ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=16)
+
+
     save_fig(fig, "sf_generic")
 
 
@@ -213,8 +158,9 @@ def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterDa
 
 
 def make_histogram_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_hist"):    
-    alphas = np.ones(len(approx_normalization_constants)) / 4.0
-    
+    alphas = np.cumsum(np.exp(np.ones(len(approx_normalization_constants))))
+    alphas =  alphas[::-1] / alphas[-1]
+
     bins = 100
     hist_figsize = (10, 7)
 
@@ -231,70 +177,79 @@ def make_histogram_normconsts_rel_error(exact_normalization_constants: np.ndarra
     ax2.tick_params(axis='both', which='major', labelsize=18)
     ax2.tick_params(axis='both', which='minor', labelsize=18)
 
-
-    # fig3, ax3 = plt.subplots(figsize=hist_figsize)
-
-    # x = lbp_errors.raw_errors
-    # ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
-
-    # ax3.set_title("Histogram over signed marginal errors")
-    # ax3.semilogy()
-    # ax3.legend()
-
-
-    # save_fig_to_pdf(fig, "signed_error")
     save_fig(fig2, figure_name)
 
 
-def make_boxplot_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_boxplot"):    
+def make_boxplot_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_boxplot", ax2: plt.Axes = None, rot_angle: float = 0.0):    
     relative_errors = []
 
     for data in approx_normalization_constants:
         relative_error = (exact_normalization_constants - data.constants) / exact_normalization_constants
         relative_errors.append(relative_error)
 
-    fig2, ax2 = plt.subplots()
+    should_save = False
+    if ax2 is None:
+        fig2, ax2 = plt.subplots()
+        should_save = True
+
     ax2.boxplot(relative_errors)
-    ax2.set_title("Boxplot over relative normalization constants errors, (exact - approximate) / exact", fontsize=20)
-    ax2.set_xlabel("Approximation", fontsize=18)
-    ax2.set_ylabel("Relative Error", fontsize=18)
-    ax2.set_title("Relative Error of Normalization Constants", fontsize=18)
-    ax2.set_xticks(range(1, len(approx_normalization_constants) + 1))
-    ax2.set_xticklabels([data.label for data in approx_normalization_constants], rotation=30)
-    ax2.grid(True)
-    ax2.semilogy()
-    # ax2.boxplot(relative_errors)
     # ax2.set_xlabel("Approximation", fontsize=18)
-    # ax2.set_ylabel("Relative Error", fontsize=18)
-    # ax2.set_title("Relative Error of Normalization Constants", fontsize=18)
-    # ax2.xticks(range(1, len(approx_normalization_constants) + 1), [data.label for data in approx_normalization_constants])
-    # ax2.grid(True)
+    ax2.set_ylabel("Relative Error", fontsize=18)
+    ax2.set_xticks(range(1, len(approx_normalization_constants) + 1))
+    ax2.set_xticklabels([fill(data.label, 12) for data in approx_normalization_constants], fontsize=17, rotation=rot_angle)
+    ax2.grid(True)
+    ax2.set_yscale('symlog')
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='minor', labelsize=18)
+
+    if should_save:
+        save_fig(fig2, figure_name)
 
 
-    # for data, alpha in zip(approx_normalization_constants, alphas):
-    #     err = (exact_normalization_constants - data.constants) / exact_normalization_constants
-    #     ax2.hist(err, bins=bins, label=data.label, alpha=alpha)
 
+def make_boxplot_marginal_errs(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors, 
+        figure_name: str = "boxplot_theta_posterior_errors",
+        ax2: plt.Axes = None):    
+    relative_errors = []
 
-    # ax2.set_title("Histogram over relative normalization constants errors, (exact - approximate) / exact", fontsize=20)
-    # ax2.semilogy()
-    # ax2.legend(fontsize=10)
-    # ax2.tick_params(axis='both', which='major', labelsize=18)
-    # ax2.tick_params(axis='both', which='minor', labelsize=18)
+    williams_approx_theta_posteriors = np.hstack(williams_approx_theta_posteriors)
+    phd_approx_theta_posteriors = np.hstack(phd_approx_theta_posteriors)
+    mc_eff_mhlbp_theta_posteriors = np.hstack(mc_eff_mhlbp_theta_posteriors)
+    mcmhlbp_theta_posteriors = np.hstack(mcmhlbp_theta_posteriors)
+    exact_theta_posteriors = np.hstack(exact_theta_posteriors)
 
+    approximate_data = [
+        (williams_approx_theta_posteriors, "Approximate Efficient Bethe"),
+        (phd_approx_theta_posteriors, "Approximate Efficient PHD"),
+        (mc_eff_mhlbp_theta_posteriors, "MCMH-LBP"),
+        (mcmhlbp_theta_posteriors, "Efficient MHLBP")
+    ]
 
-    # fig3, ax3 = plt.subplots(figsize=hist_figsize)
+    for data in approximate_data:
+        relative_error = (exact_theta_posteriors - data[0])
+        relative_errors.append(relative_error)
 
-    # x = lbp_errors.raw_errors
-    # ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
+    should_save = False
+    if ax2 is None:
+        fig2, ax2 = plt.subplots()
+        should_save = True
 
-    # ax3.set_title("Histogram over signed marginal errors")
-    # ax3.semilogy()
-    # ax3.legend()
+    ax2.boxplot(relative_errors)
+    # ax2.set_xlabel("Approximation", fontsize=18)
+    ax2.set_ylabel("Signed error", fontsize=20)
+    ax2.set_xticks(range(1, len(approximate_data) + 1))
+    ax2.set_xticklabels([fill(data[1], 12) for data in approximate_data], fontsize=18)
+    ax2.grid(True)
+    # ax2.set_yscale('symlog')
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='minor', labelsize=18)
 
-
-    # save_fig_to_pdf(fig, "signed_error")
-    save_fig(fig2, figure_name)
+    if should_save:
+        save_fig(fig2, figure_name)
 
 
 
@@ -302,7 +257,8 @@ def make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
         phd_approx_theta_posteriors,
         mc_eff_mhlbp_theta_posteriors,
         mcmhlbp_theta_posteriors,
-        exact_theta_posteriors):
+        exact_theta_posteriors,
+        ax2: plt.Axes = None):
 
     williams_approx_theta_posteriors = np.hstack(williams_approx_theta_posteriors)
     phd_approx_theta_posteriors = np.hstack(phd_approx_theta_posteriors)
@@ -311,82 +267,35 @@ def make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
     exact_theta_posteriors = np.hstack(exact_theta_posteriors)
 
     approximate_data: List[Tuple[sl.Marginals, str]] = [
-        (williams_approx_theta_posteriors, "Approximate Efficient Bethe"),
-        (phd_approx_theta_posteriors, "Approximate Efficient PHD"),
+        (williams_approx_theta_posteriors, "Approx Efficient Bethe"),
+        (phd_approx_theta_posteriors, "Approx Efficient PHD"),
         (mc_eff_mhlbp_theta_posteriors, "MCMH-LBP"),
         (mcmhlbp_theta_posteriors, "Efficient MHLBP")
     ]
     
-    alphas = np.ones(4) / 4.0
-    alphas[-1] = 1 - alphas[:-1].sum() # Ensure it sums to one
-    
-    bins = 100
-    hist_figsize = (10, 7)
+    alphas = np.ones(len(approximate_data)) / len(approximate_data)
 
-    fig2, ax2 = plt.subplots(figsize=hist_figsize)
+    bins = 100
+
+    should_save = False
+    if ax2 is None:
+        hist_figsize = (10, 7)
+        fig2, ax2 = plt.subplots(figsize=hist_figsize)
+        should_save = True
 
     for (data, label), alpha in zip(approximate_data, alphas):
         err = exact_theta_posteriors - data
-        ax2.hist(err, bins=bins, label=label, alpha=alpha)
+        ax2.hist(err, bins=bins, label=fill(label, 12), alpha=alpha)
 
 
-    ax2.set_title("Histogram over signed hypotheses posterior errors, exact - approximate", fontsize=20)
+    # ax2.set_title("Histogram over signed hypotheses posterior errors, exact - approximate", fontsize=20)
     ax2.semilogy()
-    ax2.legend(fontsize=10)
+    ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=18)
     ax2.tick_params(axis='both', which='major', labelsize=18)
     ax2.tick_params(axis='both', which='minor', labelsize=18)
 
-
-    # fig3, ax3 = plt.subplots(figsize=hist_figsize)
-
-    # x = lbp_errors.raw_errors
-    # ax3.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
-
-    # ax3.set_title("Histogram over signed marginal errors")
-    # ax3.semilogy()
-    # ax3.legend()
-
-
-    # save_fig_to_pdf(fig, "signed_error")
-    save_fig(fig2, "signed_error_histogram_hypotheses_posterior")
-    # save_fig_to_pdf(fig3, "signed_error_histogram_exact")
-
-    # cluster_stats_lbp_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if cluster_stat.lbp_stats.converged]
-    # cluster_stats_lbp_not_converged = [(cluster_stat, cluster_file) for (cluster_stat, cluster_file) in cluster_stats if not cluster_stat.lbp_stats.converged]
-    # lbp_errors_converged, williams_errors_converged = cluster_stats_to_errors(cluster_stats_lbp_converged)
-    # lbp_errors_not_converged, williams_errors_not_converged = cluster_stats_to_errors(cluster_stats_lbp_not_converged)
-
-
-    # fig4, ax4 = plt.subplots(figsize=hist_figsize)
-
-    # x = williams_errors_converged.raw_errors
-    # ax4.hist(x, bins=bins, label=williams_label, alpha=0.5)
-
-    # x = lbp_errors_converged.raw_errors
-    # ax4.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
-
-    # ax4.set_title("Histogram over signed marginal errors, MH-LBP converged")
-    # ax4.semilogy()
-    # ax4.legend()
-
-    # save_fig_to_pdf(fig4, "signed_error_histogram_lbp_converged")
-
-
-    # fig5, ax5 = plt.subplots(figsize=hist_figsize)
-
-    # x = williams_errors_not_converged.raw_errors
-    # ax5.hist(x, bins=bins, label=williams_label, alpha=0.5)
-
-    # x = lbp_errors_not_converged.raw_errors
-    # ax5.hist(x, bins=bins, label=mh_lbp_label, alpha=0.5)
-
-    # ax5.set_title("Histogram over signed marginal errors, MH-LBP did not converge")
-    # ax5.semilogy()
-    # ax5.legend()
-
-    # save_fig_to_pdf(fig5, "signed_error_histogram_lbp_not_converged")
-
-
+    if should_save:
+        save_fig(fig2, "signed_error_histogram_hypotheses_posterior")
 
 
 def make_correlation_plot(cluster_stats: List[ClusterData]):
@@ -499,29 +408,6 @@ def make_scatter_compare_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     save_fig(fig, "hist_stats", tight_layout=False)
 
 
-    # pd.plotting.scatter_matrix(df, alpha=0.3, ax=ax)
-    # g = sns.pairplot(df, diag_kind="hist", plot_kws={"alpha": 0.2})#, diag_kws={"stat": "density"})
-    # g.fig.set_size_inches(*figsize)
-    # # # plt.show()
-    # save_fig(fig, "scatter_matrix_we_max_marginal_error", tight_layout=False)
-
-
-    # df_convergent = make_df("convergent")
-    # num_data = len(df_convergent.columns)
-    # fig_convergent, ax_convergent = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
-    # pd.plotting.scatter_matrix(df_convergent, alpha=0.6, ax=ax_convergent)
-    # fig_convergent.suptitle("Statistics for convergent LBP")
-    # save_fig_to_pdf(fig_convergent, "scatter_matrix_converged_clusters")
-
-
-    # df_total = pd.concat((df_divergent, df_convergent))
-    # num_data = len(df_total.columns)
-    # fig, ax = plt.subplots(figsize=figsize, nrows=num_data, ncols=num_data)
-    # pd.plotting.scatter_matrix(df_total, alpha=0.6, ax=ax)
-    # fig.suptitle("Statistics for all LBP")
-    # save_fig_to_pdf(fig, "scatter_matrix_clusters")
-
-
 def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
     runtimes_mhlbp = []
     runtimes_wlbp = []
@@ -542,9 +428,6 @@ def compare_mhlbp_lbpphd(cluster_stats: List[Tuple[ClusterData, Path]]):
     for lh in leg.legendHandles: 
         lh.set_alpha(1)
     ax[0].semilogy()
-
-    # plt.show/(
-
 
     save_fig(fig, "mhlbp_lbpphd_compare")
 
@@ -594,7 +477,13 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
     fig, ax = plt.subplots(figsize=figsize, nrows=nrows, ncols=ncols, sharex=True, sharey=True)
     if not isinstance(ax, np.ndarray):
         ax = np.array([ax])
-    num_ticks = 5
+
+        # Set the desired number of x-axis ticks
+    num_xticks = 10
+
+    # Calculate the step size between ticks
+    xstep = int(num_bins / (num_xticks - 1))
+
     for k, (axx, df) in enumerate(zip(ax.ravel(), dfs)):
         if k == 1:
             fig.delaxes(axx)
@@ -602,8 +491,8 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
 
         sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
 
-        axx.tick_params(axis='both', which='major', labelsize=16)
-        axx.tick_params(axis='both', which='minor', labelsize=16)
+        axx.tick_params(axis='both', which='major', labelsize=18)
+        axx.tick_params(axis='both', which='minor', labelsize=18)
         cbar = axx.collections[0].colorbar
         axx.set_ylabel(df.index.name, fontsize=18)
         axx.set_xlabel(df.columns.name, fontsize=16)
@@ -612,6 +501,14 @@ def make_heatmap_correlation(williams_approx_marginals: List[sl.Marginals], phd_
         r, c = np.unravel_index(k, (nrows, ncols))
         if r < nrows - 1:
             axx.tick_params(bottom=False)
+
+
+        # Adjust the x-axis tick locations and labels
+        xticks = np.arange(0, num_bins + 1, xstep)
+        axx.set_xticks(xticks)
+        axx.set_xticklabels([f"{xtick / num_bins:.3f}" for xtick in xticks])
+        axx.set_yticks(xticks)
+        axx.set_yticklabels([f"{xtick / num_bins:.3f}" for xtick in xticks])
 
         # if (c == 1) and (r == nrows - 2):
         #     axx.xaxis.set_tick_params(labelbottom=True)
@@ -671,8 +568,11 @@ def make_heatmap_correlation_theta(
     fig, ax = plt.subplots(figsize=figsize, nrows=nrows, ncols=ncols, sharex=True, sharey=True)
     if not isinstance(ax, np.ndarray):
         ax = np.array([ax])
-    num_ticks = 5
-    depth_list = np.linspace(0, 1, num_ticks)
+
+
+    num_ticks = 10
+    xstep = int(num_bins / (num_ticks - 1))
+
     # the index of the position of yticks
     # yticks = np.arange(0, num_bins, num_bins // num_ticks)
     # xticks = yticks
@@ -695,6 +595,14 @@ def make_heatmap_correlation_theta(
         axx.invert_yaxis()
         if k < nrows - 1:
             axx.tick_params(bottom=False)
+
+    
+        # Adjust the x-axis tick locations and labels
+        xticks = np.arange(0, num_bins, xstep)
+        axx.set_xticks(xticks)
+        axx.set_xticklabels([f"{xtick / num_bins:.3f}" for xtick in xticks])
+        axx.set_yticks(xticks)
+        axx.set_yticklabels([f"{xtick / num_bins:.3f}" for xtick in xticks])
 
     # params = {
     #         # 'legend.fontsize': 'x-large',
@@ -888,15 +796,16 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         ax.set_title(title, fontsize=20)
         steps = np.linspace(1.0, 0.0, len(error))
         # first_nonzero = np.where(error > 0)[0][0]
-        first_val = 1e-6#error[first_nonzero]
-        idxs = subsample(np.log10(error), 1e-10, first_val=np.log10(first_val)) # Use -5 as first val since we are logarithmic
+        # first_val = error[first_nonzero]
+        idxs = subsample(error, 1e-10, first_val=10**-10) # Use -5 as first val since we are logarithmic
         print(f"Subsampling {title} for {label} reduced data to {len(idxs)/len(error)*100.0:.3f}%")
         error = error[idxs]
         steps = steps[idxs]
-        ax.step(error, steps, label=label)
+        ax.step(error, steps, label=fill(label, 20))
         print(error[1])
-        ax.set_xscale('symlog', linthresh=first_val)
-        log_err = np.linspace(np.log10(error[1]), np.log10(error[-1]*1.1), 9).astype(int)
+        x_linthresh = 1e-6
+        ax.set_xscale('symlog', linthresh=x_linthresh)
+        log_err = np.linspace(np.log10(x_linthresh), np.log10(error[-1]*1.1), 3).astype(int)
         xticks = np.array([0, *((10.0)**log_err)])
         print(f"Using xticks {xticks}")
         ax.set_xticks(xticks)
@@ -904,33 +813,9 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         ax.set_xticklabels(xticks_labels)
         ax.tick_params(axis='both', which='major', labelsize=18)
         ax.tick_params(axis='both', which='minor', labelsize=18)
-        ax.set_yscale('symlog', linthresh=1e-2)
-        # ax.semilogy()
+        # ax.set_yscale('symlog', linthresh=10**(-2.0))
+        ax.semilogy()
         ax.grid(True, alpha=0.2)
-        if label != "_" and k == 0:
-            ax.legend(fontsize=13)
-
-
-def condense_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
-    stats = defaultdict(list)
-
-    # IoU of hypotheses?
-    for cluster_stat, cluster_file in tqdm(cluster_stats):
-        # intersection_tracks = set()
-        # union_tracks = set()
-        # mat_file = sl.MatFileParser(cluster_file_to_mat_file(cluster_file))
-        # c_idx = cluster_file_to_cluster_idx(cluster_file)
-        # for tracks, p in mat_file.prior_hypotheses_per_cluster[c_idx]:
-        #     s_tracks = set(tracks)
-        #     intersection_tracks = intersection_tracks & s_tracks
-        #     union_tracks = union_tracks | s_tracks
-
-        # IoU = len(intersection_tracks) / len(union_tracks)
-        # stats["IoU"].append(IoU)
-        pass
-
-    
-    return stats
 
 
 def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -960,24 +845,26 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
     # print(np.mean(diverged_stats["IoU"]))
 
 
-def normalization_constant_scatter_plot(approx_normalization_constants: List[BethePlotData], exact_normalization_constants: np.ndarray, figure_name: str = "normalization_constant"):
-    fig, ax = plt.subplots()
-    # ax.plot(phd_normalization_constants, exact_normalization_constants, 'o', alpha=0.2, label="PHD")
-
-# plt.hexbin(x, y, gridsize=20, cmap='Blues', alpha=0.8)
+def normalization_constant_scatter_plot(approx_normalization_constants: List[BethePlotData], exact_normalization_constants: np.ndarray, figure_name: str = "normalization_constant", ax: plt.Axes = None):
+    should_save_fig = False
+    if ax is None:
+        figsize = (8, 6)
+        fig, ax = plt.subplots(figsize=figsize)
+        should_save_fig = True
 
     for approx_consts in approx_normalization_constants:
-        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.05, label=approx_consts.label)
-        # hb = ax.hexbin(approx_consts.constants, exact_normalization_constants, alpha=0.2, label=approx_consts.label)
+        ax.plot(approx_consts.constants, exact_normalization_constants, 'o', alpha=0.05, label=fill(approx_consts.label, 12))
 
-    # cbar = fig.colorbar(hb)
-
-
-    ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label="Perfect correlation")
+    ax.plot(exact_normalization_constants, exact_normalization_constants, '--', label=fill("Perfect correlation", 12))
     ax.set_xlabel("Approximate normalization constant", fontsize=18)
     ax.set_ylabel("Exact normalization constant", fontsize=18)
     ax.grid(True, alpha=0.3)
-    leg = ax.legend(fontsize=14)
+    # leg = ax.legend(fontsize=14)
+    # leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15),
+    #       ncol=3, fancybox=True, shadow=True, fontsize=14)
+
+    # Put a legend to the right of the current axis
+    leg = ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=16)
     for lh in leg.legendHandles: 
         lh.set_alpha(1)
 
@@ -985,19 +872,26 @@ def normalization_constant_scatter_plot(approx_normalization_constants: List[Bet
 
     x = np.array([(l.constants.min(), l.constants.max()) for l in approx_normalization_constants])
     y = exact_normalization_constants
-    # Determine tick values based on data range
     data_min = min(np.min(x), np.min(y))
     data_max = max(np.max(x), np.max(y))
     ticks = np.logspace(np.floor(np.log10(data_min)), np.ceil(np.log10(data_max)), 5)
 
-    # Set equal tick labels on both axes
     ax.set_xticks(ticks)
     ax.set_yticks(ticks)
     ax.set_xticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
     ax.set_yticklabels(['$10^{%d}$' % np.log10(v) for v in ticks], fontsize=18)
-    
 
-    save_fig(fig, figure_name)
+    if should_save_fig:
+        save_fig(fig, figure_name)
+
+    # Move the legend above the figure
+    # leg_bbox = leg.get_bbox_to_anchor().transformed(ax.transAxes)
+    # leg_bbox.y1 = 1.15  # Adjust the y-coordinate to move the legend higher
+    # leg.set_bbox_to_anchor(leg_bbox, transform=ax.transAxes)
+
+    if should_save_fig:
+        save_fig(fig, figure_name)
+
 
 
 
@@ -1172,6 +1066,9 @@ def murty_results_from_cluster_path(cluster_path: Path, K: int = 150) -> Tuple[n
     murty_norm = murty_ws["Z"][0,0]
     murty_margs = murty_ws["a"]
 
+    assert murty_norm > 0.0
+    assert (np.abs(murty_margs.sum(1) - 1.0) < 1e-5).all()
+
     return murty_margs, murty_norm
 
 
@@ -1223,7 +1120,6 @@ if __name__ == "__main__":
                 print(f"File {cluster_path} not computed by Murty, skipping...")
                 # This happens because Murty is run on a smaller set of the data, fix later
                 continue
-
 
             exact_normalization_constants[k] = cluster_stat.exact_output.exact_normalization_constant
             mcmhlbp_approx_normalization_constants[k] = cluster_stat.mcmhlbp_output.approx_normalization_constant
@@ -1304,9 +1200,18 @@ if __name__ == "__main__":
         mcmhlbp_theta_posteriors,
     ]
 
-    normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
     make_histogram_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants)
+    
+    normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants)
     make_boxplot_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants)
+
+    figsize_combined = (9, 12)
+    fig_combined, axes_combined = plt.subplots(nrows=2, figsize=figsize_combined)
+    normalization_constant_scatter_plot(approx_normalization_constants, exact_normalization_constants, ax=axes_combined[1])
+    make_boxplot_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants, ax2=axes_combined[0])
+    save_fig(fig_combined, "normalization_constant_combined")
+
+
     make_heatmap_correlation(williams_approx_marginals, phd_approx_marginals, mcmhlbp_marginals, mc_eff_mhlbp_marginals, exact_marginals, murty_marginals)
     make_heatmap_correlation_theta(
         williams_approx_theta_posteriors,
@@ -1323,39 +1228,30 @@ if __name__ == "__main__":
         mcmhlbp_theta_posteriors,
         exact_theta_posteriors
     )
+  
+    make_boxplot_marginal_errs(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors)
+    
 
-    # fig, ax = plt.subplots()
+    fig_theta_posteriors_combined, axes_theta_posteriors_combined = plt.subplots(nrows=2, figsize=figsize_combined)
+    make_boxplot_marginal_errs(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors, 
+        ax2=axes_theta_posteriors_combined[0])
 
-    # print(f"MCMH-LBP runtime average: {mcmhlbp_runtimes.mean()}\u00B1{mcmhlbp_runtimes.std()} s\nMax: {mcmhlbp_runtimes.max()} s\nMin: {mcmhlbp_runtimes.min()} s")
-    # print(f"Exact runtime average: {exact_runtimes.mean()}\u00B1{exact_runtimes.std()} s\nMax: {exact_runtimes.max()} s\nMin: {exact_runtimes.min()} s")
-    # ax.plot(mcmhlbp_runtimes, "*--", label="MCMH-LBP runtime")
-    # ax.plot(exact_runtimes, "o--", label="Exact runtime")
-    # ax.semilogy()
-
-    # ax.plot(mcmhlbp_iters[:,0], "--", label="Bethe iters")
-    # ax.plot(mcmhlbp_iters[:,1], "--", label="Msg norm iters")
-    # failed_converge = np.where(mcmhlbp_iters[:,0] == 10_000)[0]
-    # if len(failed_converge) > 0:
-    #     ax.plot(mcmhlbp_iters[failed_converge,0], "x")
-
-    # ax.semilogy()
-
-    # ax.legend()
-
-    # plt.show()
-
-
-    # print(illegal_files)
-    # make_raw_error_plot(cluster_stats)
-    # make_divergence_comparison_plot(cluster_stats)
-    # make_scatter_compare_plot(cluster_stats)
-    # compare_mhlbp_lbpphd(cluster_stats)
-    # compare_converge_not_converge(cluster_stats)
-    # correlation_plot_theta_posterior(cluster_stats)
-    # make_conditioned_survival_function_plots(cluster_stats)
-    # print_raw_error_stats(cluster_stats)
-    # make_heatmap_correlation_distinct_errors(cluster_stats)
-
+    make_raw_error_plot_hypotheses_posterior(williams_approx_theta_posteriors,
+        phd_approx_theta_posteriors,
+        mc_eff_mhlbp_theta_posteriors,
+        mcmhlbp_theta_posteriors,
+        exact_theta_posteriors,
+        ax2=axes_theta_posteriors_combined[1]
+    )
+    save_fig(fig_theta_posteriors_combined, "theta_errors_combined")
 
     N = len(cluster_paths)
 
@@ -1372,7 +1268,7 @@ if __name__ == "__main__":
             murty_margs, murty_norm = murty_results_from_cluster_path(cluster_path, K=K)
             murty_output[K][0].append(sl.Marginals(murty_margs))
             murty_output[K][1][k] = murty_norm
-    
+
     # def make_survival_function_plots_generic(exact_marginals: List[sl.Marginals], approximate_data: List[SurvivalPlotData]):
 
     sf_plot_data = []
@@ -1399,4 +1295,6 @@ if __name__ == "__main__":
 
     normalization_constant_scatter_plot(norm_data, exact_normalization_constants, figure_name="norm_consts_murtys")
 # def make_histogram_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData]):    
-    make_histogram_normconsts_rel_error(exact_normalization_constants, norm_data, figure_name="rel_error_normconsts_hist_murtys")
+    # make_histogram_normconsts_rel_error(exact_normalization_constants, norm_data, figure_name="rel_error_normconsts_hist_murtys")
+    fig, ax = plt.subplots(figsize=(5, 4))
+    make_boxplot_normconsts_rel_error(exact_normalization_constants, norm_data,figure_name="boxplot_murtys_normconsts", rot_angle=30)

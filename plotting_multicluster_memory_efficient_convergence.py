@@ -876,29 +876,48 @@ def plot_iterations(bethe_msg_norm_iters: np.ndarray, bethe_msg_norm_errors: np.
     assert bethe_msg_norm_iters.shape[0] == 2, f"Needs to be (2, N), is now {bethe_msg_norm_iters.shape}"
     assert bethe_msg_norm_errors.shape[0] == 2, f"Needs to be (2, N), is now {bethe_msg_norm_iters.shape}"
 
-    fig, axes = plt.subplots(figsize=(12, 8), nrows=2)
+    fig, axes = plt.subplots(figsize=(12, 8), nrows=2, sharex=True)
 
-    axes[0].plot(bethe_msg_norm_iters[0], "g", alpha=0.7, label="Bethe iters")
-    axes[0].plot(bethe_msg_norm_iters[1], "b", alpha=0.7, label="Message norm iters")
+    failed_converge = (bethe_msg_norm_iters == 10_000).any(0)
 
-    axes[0].semilogy()
-    axes[0].set_xlabel("Timestep")
-    axes[0].set_ylabel("Number of iterations")
+    bethe_iters, norm_iters = bethe_msg_norm_iters.copy()
+    bethe_iters[failed_converge] = np.nan
+    norm_iters[failed_converge] = np.nan
 
-    axes[0].legend()
+    axes[0].plot(norm_iters, "b", alpha=0.7, label="Message norm")
+    axes[0].plot(bethe_iters, "g", alpha=0.7, label="Bethe pseudodual")
 
-    axes[1].plot(bethe_msg_norm_errors[0], "g", alpha=0.7, label="Bethe error at convergence")
-    axes[1].plot(bethe_msg_norm_errors[1], "b", alpha=0.7, label="Message norm error at convergence")
+    # axes[0].semilogy()
+    # axes[0].set_xlabel("Timestep", fontsize=18)
+    axes[0].set_ylabel("Number of iterations", fontsize=20)
 
-    axes[1].set_xlabel("Timestep")
-    axes[1].set_ylabel("Error")
+    axes[0].legend(fontsize=20)
 
-    axes[1].legend()
+    bethe_errors_converged = bethe_msg_norm_errors[0].copy()
+    msg_norm_errors = bethe_msg_norm_errors[1].copy()
+
+    bethe_errors_converged[failed_converge] = np.nan
+    msg_norm_errors[failed_converge] = np.nan
+
+    axes[1].plot(msg_norm_errors, "b", alpha=0.7, label="Message norm error at convergence")
+    axes[1].plot(bethe_errors_converged, "g", alpha=0.7, label="Bethe error at convergence")
+
+    axes[1].semilogy()
+
+    axes[1].set_xlabel("Timestep", fontsize=20)
+    axes[1].set_ylabel("Error", fontsize=20)
+
+    # axes[1].legend(fontsize=18)
+
+    for ax2 in axes:
+        ax2.tick_params(axis='both', which='major', labelsize=20)
+        ax2.tick_params(axis='both', which='minor', labelsize=20)
+        ax2.grid(True, alpha=0.3)
 
 
     save_fig(fig, "iterations_errrs_mcmhlbp")
 
-    failed_converge = (bethe_msg_norm_iters == 10_000).any(0)
+
     number_of_failed_convergences = failed_converge.sum()
     if number_of_failed_convergences > 0:
         fig2, ax2 = plt.subplots()
@@ -911,6 +930,7 @@ def plot_iterations(bethe_msg_norm_iters: np.ndarray, bethe_msg_norm_errors: np.
 
         save_fig(fig2, "failed_convergence_iterations")
         
+    # plt.show()
 
 
 def overestimated_bethe(bethe_constants: np.ndarray, exact_constants: np.ndarray):
@@ -1066,7 +1086,7 @@ if __name__ == "__main__":
             mcmhlbp_errors[k, 1] = cluster_stat.mcmhlbp_output.full_output.convergence_results.msg_norm_error
 
             k += 1
-        
+
         del cluster_stats_batch
 
     num_files = k

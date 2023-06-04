@@ -64,7 +64,7 @@ def loop_func(pmbm_file):
     pmbm_file_path = Path(pmbm_file)
     pmbm_filename = pmbm_file_path.name[:-len(pmbm_file_path.suffix)]
 
-    path = Path(f"{OUTPUT_PATH_BASE}")
+    path = Path(f"{OUTPUT_PATH_BASE}_convergence")
     path.mkdir(parents=True, exist_ok=True)
 
     save_path = f"{path}/{pmbm_filename}_stats"
@@ -80,23 +80,23 @@ def loop_func(pmbm_file):
     explicit_hypothesis_enumeration_error = False
     exact_output = None
 
-    try:
-        start = time.time()
-        exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-        dur_exact = time.time() - start
-        exact_output.runtime = dur_exact
-        exact_output.theta_posteriors = exact_output.compute_theta_posteriors()
-    except ExplicitHypothesisEnumerationError:
-        explicit_hypothesis_enumeration_error = True
+    # try:
+    #     start = time.time()
+    #     exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
+    #     dur_exact = time.time() - start
+    #     exact_output.runtime = dur_exact
+    #     exact_output.theta_posteriors = exact_output.compute_theta_posteriors()
+    # except ExplicitHypothesisEnumerationError:
+    #     explicit_hypothesis_enumeration_error = True
 
-    mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
-    mc_bethe_output = mc_bethe.compute_marginals_likelihood()
+    # mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
+    # mc_bethe_output = mc_bethe.compute_marginals_likelihood()
 
-    mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
-    mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
+    # mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
+    # mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
 
-    mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD(), cluster_links=mc_bethe.cluster_links)
-    mc_phd_output = mc_phd.compute_marginals_likelihood()
+    # mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD(), cluster_links=mc_bethe.cluster_links)
+    # mc_phd_output = mc_phd.compute_marginals_likelihood()
 
 
     cluster_data = sl.MulticlusterData(
@@ -107,9 +107,9 @@ def loop_func(pmbm_file):
             full_output=mcmhlbp,
             runtime=dur_mcmhlbp
         ),
-        mc_phd_output=mc_phd_output,
-        mc_bethe_output=mc_bethe_output,
-        mc_mhlbp_output=mc_mhlbp_output,
+        mc_phd_output=None,#mc_phd_output,
+        mc_bethe_output=None,#mc_bethe_output,
+        mc_mhlbp_output=None,#mc_mhlbp_output,
         exact_output=exact_output,
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )

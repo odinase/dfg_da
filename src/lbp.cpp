@@ -448,6 +448,9 @@ namespace dfg_da
             size_t bethe_iter = 0;
             size_t msg_norm_iter = 0;
 
+            size_t bethe_iter_converged = 0;
+            size_t msg_norm_iter_converged = 0;
+
             Eigen::ArrayXXd w_times_msg(n, m);
 
             double prev_b = bethe_pseudodual_loglikelihood(
@@ -507,26 +510,31 @@ namespace dfg_da
                 prev_nu = nu;
                 prev_b = b;
 
+                bethe_iter += 1;
+
                 if (err_bethe <= tol_b && !bethe_converged) {
                     bethe_converged = true;
                     bethe_error_converged = err_bethe;
-                } else {
-                    bethe_iter += 1;
+                    bethe_iter_converged = bethe_iter;
                 }
+                
+                msg_norm_iter += 1;
+                
                 if (err_msg <= tol_msg && !msg_norm_converged) {
                     msg_norm_converged = true;
                     msg_error_converged = err_msg;
-                } else {
-                    msg_norm_iter += 1;
+                    msg_norm_iter_converged = msg_norm_iter;
                 }
             }
 
             // We failed to converge, use errors at time of termination
             if (!bethe_converged) {
                 bethe_error_converged = err_bethe;
+                bethe_iter_converged = bethe_iter;
             }
             if (!msg_norm_converged) {
                 msg_error_converged = err_msg;
+                msg_norm_iter_converged = msg_norm_iter;
             }
 
             return MHLBPMulticlusterOutput(
@@ -541,13 +549,13 @@ namespace dfg_da
                     // size_t total_number_iterations,
                     iter,
                     // size_t bethe_pseudodual_iterations,
-                    bethe_iter,
+                    bethe_iter_converged,
                     // double bethe_pseudodual_error,
                     bethe_error_converged,
                     // const double bethe_pseudodual_tol,
                     tol_b,
                     // size_t msg_norm_iterations,
-                    msg_norm_iter,
+                    msg_norm_iter_converged,
                     // double msg_norm_error,
                     msg_error_converged,
                     // const double msg_norm_tol
