@@ -32,8 +32,8 @@ FIGURES_PATH = "./figures"
 def save_fig_to_pdf(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.pdf", bbox_inches='tight')
-    print(f"Saved {FIGURES_PATH}/{fig_name}.pdf")
+    fig.savefig(f"{FIGURES_PATH}/paper/{fig_name}.pdf", bbox_inches='tight')
+    print(f"Saved {FIGURES_PATH}/paper/{fig_name}.pdf")
 
 
 def save_fig_to_png(fig, fig_name, tight_layout=True):
@@ -467,21 +467,21 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     df_lbp = pd.DataFrame({
         "MH-LBP marginals": np.around(X_lbp.ravel(), decimals=3),
         "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
-        "hist": heatmap_lbp.ravel()
+        "hist": heatmap_lbp.T.ravel()
     })
     df_lbp = df_lbp.pivot(index="Exact marginals", columns="MH-LBP marginals", values="hist")
 
     df_w = pd.DataFrame({
         "LBP with PHD approximation normalization constants": np.around(X_w.ravel(), decimals=3),
         "Exact marginals": np.around(Y_w.ravel(), decimals=3),
-        "hist": heatmap_w.ravel()
+        "hist": heatmap_w.T.ravel()
     })
     df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
 
     df_we = pd.DataFrame({
         "LBP with exact normalization constants": np.around(X_we.ravel(), decimals=3),
         "Exact marginals": np.around(Y_we.ravel(), decimals=3),
-        "hist": heatmap_we.ravel()
+        "hist": heatmap_we.T.ravel()
     })
     df_we = df_we.pivot(index="Exact marginals", columns="LBP with exact normalization constants", values="hist")
 
@@ -800,7 +800,7 @@ if __name__ == "__main__":
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    # make_heatmap_correlation(cluster_stats)
+    make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
     normalization_constant_scatter_plot(cluster_stats)
