@@ -53,7 +53,7 @@ def plot_survival_function(axes, max_errors, abs_errors, misdetection_errors, de
 
 
 def loop_func(pmbm_file):
-    mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file)
+    mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file, use_cpp=True)
 
     R_LC = mat_data.reward_matrix_lc
     prior_hypotheses_per_cluster = mat_data.prior_hypotheses_per_cluster
@@ -81,8 +81,8 @@ def loop_func(pmbm_file):
     for k, prior_hypotheses in enumerate(prior_hypotheses_per_cluster):
         cluster_stats = sl.ClusterData()
         save_path = f"{path}/cluster{str(k).zfill(digits)}"
-        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
-        t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
+        tracks_in_cluster = prior_hypotheses.tracks()
+        t_idx = prior_hypotheses.t_idxs()
 
         try:
             exact_marginals, (exact_normalization_constants,) = exact_marginal_computer(R_LC, prior_hypotheses)
@@ -103,16 +103,20 @@ def loop_func(pmbm_file):
         if lbp_williams_marginals_exact_norm_const is not None:
             lbp_williams_marginals_exact_norm_const = sl.Marginals(lbp_williams_marginals_exact_norm_const[t_idx, :])
 
-        lbp_mh_marginals, (tot_iters, msg_iters, lbp_converged) = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
 
-        lbp_marginals_bethe, bethe_constants_odin, bethe_constants_lc = approx_marginal_computers["lbp_bethe"](R_LC, prior_hypotheses)
+        marginals_mhlbp, _, likelihood_mhlbp = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
+
+        # lbp_marginal_total, conditioned_theta_posterior, likelihood
+        lbp_marginal_total_bethe, _, likelihood_bethe = approx_marginal_computers["lbp_bethe"](R_LC, prior_hypotheses)
 
         lbp_stats = sl.LBPStats(
-            num_iters_msg=msg_iters,
-            num_iters=tot_iters,
-            marginals=sl.Marginals(lbp_mh_marginals[t_idx, :]),
-            converged=lbp_converged
+            num_iters_msg=0,
+            num_iters=0,
+            marginals=sl.Marginals(marginals_mhlbp[t_idx, :]),
+            converged=True,
+            normalization_constant=likelihood_mhlbp
         )
+
         williams_stats = sl.WilliamsStats(
             lbp_iters=williams_iters,
             marginals=sl.Marginals(lbp_williams_marginals[t_idx, :]),
@@ -122,10 +126,11 @@ def loop_func(pmbm_file):
         )
 
         bethe_stats = sl.BetheStats(
-            marginals=sl.Marginals(lbp_marginals_bethe[t_idx, :]),
-            normalization_constants_odin=bethe_constants_odin,
-            normalization_constants_lc=bethe_constants_lc
+            marginals=sl.Marginals(lbp_marginal_total_bethe[t_idx, :]),
+            normalization_constants_odin=likelihood_bethe,
+            normalization_constants_lc=None
         )
+
 
         cluster_stats.lbp_stats = lbp_stats
         cluster_stats.williams_stats = williams_stats
@@ -150,15 +155,16 @@ if __name__ == "__main__":
     approx_marginal_computers = {
         "lbp_williams": mc.LBPMarginalsByTotalProb(),
         "lbp_mh": mc.LBPMarginalsFullAssociation(),
+        "lbp_phd": mc.LBPMarginalsByTotalProbPHD(),
         "lbp_bethe": mc.LBPMarginalsByTotalProbBethe()
     }
 
     print("Starting pool")
     start = time.time()
-    # for pmbm_file in tqdm(pmbm_files):
-    #     loop_func(pmbm_file)
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
+    for pmbm_file in tqdm(pmbm_files):
+        loop_func(pmbm_file)
+    # with Pool() as p:
+    #     p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

@@ -50,8 +50,9 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
         iters_list = np.empty(len(prior_hypotheses), dtype=int)
         converged_list = np.empty(len(prior_hypotheses), dtype=bool)
 
-        for k, (tracks, hypo_prob) in enumerate(prior_hypotheses):
-
+        for k, h in enumerate(prior_hypotheses):
+            tracks = np.sort(np.array(h.tracks())).astype(int)
+            hypo_prob = h.probability()
             R_sub = R_LC[tracks-1, :]
 
             if len(tracks) > 0:

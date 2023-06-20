@@ -39,8 +39,8 @@ def save_fig_to_pdf(fig, fig_name, tight_layout=True):
 def save_fig_to_png(fig, fig_name, tight_layout=True):
     if tight_layout:
         fig.tight_layout()
-    fig.savefig(f"{FIGURES_PATH}/{fig_name}.png", bbox_inches='tight', dpi=600)
-    print(f"Saved {FIGURES_PATH}/{fig_name}.png")
+    fig.savefig(f"{FIGURES_PATH}/paper/{fig_name}.png", bbox_inches='tight', dpi=600)
+    print(f"Saved {FIGURES_PATH}/paper/{fig_name}.png")
 
 
 def save_fig(fig, fig_name, tight_layout=True):
@@ -777,16 +777,16 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
     cluster_stats: List[Tuple[ClusterData, Path]] = []
     if return_empty_clusters:
         empty_clusters: List[Tuple[ClusterData, Path]] = []
-    for cluster_file in tqdm(load_dirs, total=num_files):
-        if cluster_file.name != "empty_cluster":
-            cluster_stats.append(
-                (ClusterData.from_data(cluster_file), cluster_file)
-            )
-        if return_empty_clusters and cluster_file.name == "empty_cluster":
-            empty_clusters.append(
-                (ClusterData.from_data(cluster_file), cluster_file)
-            )
-
+    for cluster_path in tqdm(load_dirs, total=num_files):
+        for cluster_file in cluster_path.glob("*"):
+            if cluster_file.name != "empty_cluster":
+                cluster_stats.append(
+                    (ClusterData.from_data(cluster_file), cluster_file)
+                )
+            if return_empty_clusters and cluster_file.name == "empty_cluster":
+                empty_clusters.append(
+                    (ClusterData.from_data(cluster_file), cluster_file)
+                )
 
     return (cluster_stats, empty_clusters) if return_empty_clusters else cluster_stats
 
@@ -803,8 +803,8 @@ if __name__ == "__main__":
     make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
+    make_survival_function_plots(cluster_stats)
     normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
-    make_survival_function_plots(cluster_stats)
     # make_heatmap_correlation_lbpphd(cluster_stats)

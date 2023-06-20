@@ -428,6 +428,7 @@ class LBPStats:
     num_iters_msg: int
     num_iters: int
     marginals: Marginals
+    normalization_constant: float
     converged: bool
 
 @dataclass
