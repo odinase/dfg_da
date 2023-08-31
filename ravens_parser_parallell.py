@@ -96,12 +96,13 @@ def loop_func(pmbm_file):
             cluster_stats.explicit_hypothesis_enumeration_error = True
             exact_normalization_constants = None
 
-        lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = approx_marginal_computers["lbp_williams"](
-            R_LC, prior_hypotheses, 
-            own_normalizing_constants=exact_normalization_constants
-        )
-        if lbp_williams_marginals_exact_norm_const is not None:
-            lbp_williams_marginals_exact_norm_const = sl.Marginals(lbp_williams_marginals_exact_norm_const[t_idx, :])
+        # lbp_williams_marginals, (approx_normalization_constants, williams_iters, williams_converged_list, lbp_williams_marginals_exact_norm_const) = approx_marginal_computers["lbp_williams"](
+        #     R_LC, prior_hypotheses, 
+        #     own_normalizing_constants=exact_normalization_constants
+        # )
+        # if lbp_williams_marginals_exact_norm_const is not None:
+        #     lbp_williams_marginals_exact_norm_const = sl.Marginals(lbp_williams_marginals_exact_norm_const[t_idx, :])
+        lbp_marginal_total_williams, _, likelihood_williams = approx_marginal_computers["lbp_phd"](R_LC, prior_hypotheses)
 
 
         marginals_mhlbp, _, likelihood_mhlbp = approx_marginal_computers["lbp_mh"](R_LC, prior_hypotheses)
@@ -118,11 +119,11 @@ def loop_func(pmbm_file):
         )
 
         williams_stats = sl.WilliamsStats(
-            lbp_iters=williams_iters,
-            marginals=sl.Marginals(lbp_williams_marginals[t_idx, :]),
-            marginals_exact_normalization_constant=lbp_williams_marginals_exact_norm_const,
-            normalization_constants=approx_normalization_constants,
-            converged_list=williams_converged_list
+            lbp_iters=0,
+            marginals=sl.Marginals(lbp_marginal_total_williams[t_idx, :]),
+            marginals_exact_normalization_constant=None,
+            normalization_constants=likelihood_williams,
+            converged_list=None
         )
 
         bethe_stats = sl.BetheStats(
@@ -161,10 +162,10 @@ if __name__ == "__main__":
 
     print("Starting pool")
     start = time.time()
-    for pmbm_file in tqdm(pmbm_files):
-        loop_func(pmbm_file)
-    # with Pool() as p:
-    #     p.map(loop_func, pmbm_files)
+    # for pmbm_file in tqdm(pmbm_files):
+    #     loop_func(pmbm_file)
+    with Pool() as p:
+        p.map(loop_func, pmbm_files)
     stop = time.time()
     print("Pools done")
     duration_s = stop - start

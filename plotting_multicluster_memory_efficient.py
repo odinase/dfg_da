@@ -809,7 +809,7 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
         xticks = np.array([0, *((10.0)**log_err)])
         print(f"Using xticks {xticks}")
         ax.set_xticks(xticks)
-        xticks_labels = [0] + [rf'$10^{{{l}}}$' for l in log_err]
+        xticks_labels = [r'$0$'] + [rf'$10^{{{l}}}$' for l in log_err]
         ax.set_xticklabels(xticks_labels)
         ax.tick_params(axis='both', which='major', labelsize=18)
         ax.tick_params(axis='both', which='minor', labelsize=18)

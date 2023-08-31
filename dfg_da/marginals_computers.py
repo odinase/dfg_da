@@ -286,7 +286,10 @@ class ExactMarginals(MarginalsComputer):
         assert (np.abs(marginal_total.sum(axis=1) - 1.0) < 1e-6).all()
         assert ((0 <= marginal_total) & (marginal_total <= 1.0)).all()
 
-        return marginal_total, (normalizing_constants,)
+        prior_probs = np.array(prior_hypotheses.hypothesis_probabilites())
+        cluster_norm_const = (normalizing_constants * prior_probs).sum()
+
+        return marginal_total, (cluster_norm_const,)
 
 
 class LBPMarginalsFullAssociation(MarginalsComputer):

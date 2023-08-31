@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from copy import deepcopy
 
 
@@ -26,6 +27,11 @@ import dfg_da.stats_logger as sl
 from dfg_da.marginals_computers import LBPMarginalsFullAssociation
 from ravens_parser_parallell import OUTPUT_PATH_BASE, PMBM_DATA_PATH
 
+
+
+from textwrap import wrap, fill
+
+from plotting_multicluster_memory_efficient import BethePlotData
 
 FIGURES_PATH = "./figures"
 
@@ -131,13 +137,18 @@ def plot_iterations_not_converged(cluster_stats: List[ClusterData]):
 
 
 def make_survival_function_plots(cluster_stats: List[ClusterData]):
-    fig, ax = plt.subplots(nrows=5, figsize=(7, 12), sharex=True)
+    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(7, 12)[::-1], sharey=True)
 
     lbp_errors, williams_errors, williams_errors_exact  = cluster_stats_to_errors(cluster_stats, add_williams_exact=True)
 
-    plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
-    plot_survival_function(ax, williams_errors_exact, "Hypothesis-conditioned LBP with exact normalization constant")
-    plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
+    plot_survival_function(ax.ravel(), lbp_errors, "Multihypothesis LBP")
+    plot_survival_function(ax.ravel(), williams_errors_exact, "Hypothesis-conditioned LBP with exact normalization constant")
+    plot_survival_function(ax.ravel(), williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
+
+    fig.delaxes(ax[-1, -1])
+    ax[-1, 1].legend(loc='upper right', bbox_to_anchor=(2.5, 1.0), ncol=1, fontsize=20)
+
+    # fig.subplots_adjust(wspace=0.2, hspace=0.2)
 
     save_fig(fig, "sf")
 
@@ -157,6 +168,8 @@ def make_conditioned_survival_function_plots(cluster_stats: List[Tuple[ClusterDa
 
         plot_survival_function(ax, lbp_errors, "Multihypothesis LBP")
         plot_survival_function(ax, williams_errors, "Hypothesis-conditioned LBP with PHD approximation")
+
+    ax[0].legend(loc='upper center', bbox_to_anchor=(0.5, 2.1), ncol=3, fontsize=16)
 
     save_fig(fig, "sf_conditioned", tight_layout=False)
 
@@ -464,32 +477,43 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     heatmap_we, xedges, yedges = np.histogram2d(williams_marginals_exact.marginals, exact_marginals.marginals, bins=bins)
     X_we, Y_we = np.meshgrid(xedges[:-1], yedges[:-1])
 
+    num_xticks = 10
+
+    # Calculate the step size between ticks
+    xstep = int(num_bins / (num_xticks - 1))
+    good_length_label = len("LBP with exact normalization constants")
+
+    lbp_label= fill("MH-LBP marginals", good_length_label)
     df_lbp = pd.DataFrame({
-        "MH-LBP marginals": np.around(X_lbp.ravel(), decimals=3),
+        lbp_label: np.around(X_lbp.ravel(), decimals=3),
         "Exact marginals": np.around(Y_lbp.ravel(), decimals=3),
         "hist": heatmap_lbp.T.ravel()
     })
-    df_lbp = df_lbp.pivot(index="Exact marginals", columns="MH-LBP marginals", values="hist")
+    df_lbp = df_lbp.pivot(index="Exact marginals", columns=lbp_label, values="hist")
 
+    w_label = fill("LBP with PHD approximation normalization constants", good_length_label)
     df_w = pd.DataFrame({
-        "LBP with PHD approximation normalization constants": np.around(X_w.ravel(), decimals=3),
+        w_label: np.around(X_w.ravel(), decimals=3),
         "Exact marginals": np.around(Y_w.ravel(), decimals=3),
         "hist": heatmap_w.T.ravel()
     })
-    df_w = df_w.pivot(index="Exact marginals", columns="LBP with PHD approximation normalization constants", values="hist")
+    df_w = df_w.pivot(index="Exact marginals", columns=w_label, values="hist")
 
+    we_label = fill("LBP with exact normalization constants", good_length_label)
     df_we = pd.DataFrame({
-        "LBP with exact normalization constants": np.around(X_we.ravel(), decimals=3),
+        we_label: np.around(X_we.ravel(), decimals=3),
         "Exact marginals": np.around(Y_we.ravel(), decimals=3),
         "hist": heatmap_we.T.ravel()
     })
-    df_we = df_we.pivot(index="Exact marginals", columns="LBP with exact normalization constants", values="hist")
+    df_we = df_we.pivot(index="Exact marginals", columns=we_label, values="hist")
 
     dfs = [df_lbp, df_w, df_we]
-    figsize = (8, 16)
+    figsize = (8, 16)[::-1]
 
     nrows = len(dfs)
-    fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    # fig, ax = plt.subplots(figsize=figsize, nrows=nrows, sharex=True)
+    fig, ax = plt.subplots(figsize=figsize, ncols=nrows, sharey=True)
+
     num_ticks = 5
     depth_list = np.linspace(0, 1, num_ticks)
     # the index of the position of yticks
@@ -499,20 +523,34 @@ def make_heatmap_correlation(cluster_stats: List[Tuple[ClusterData, Path]]):
     # yticklabes = np.linspace()
     # xticklabes = yticklabes
     for k, (axx, df) in enumerate(zip(ax, dfs)):
-        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx)
+        sns.heatmap(df, square=True, norm=LogNorm(), cmap="Reds", ax=axx, cbar=False)
         # axx.set_xticks(xticks)
         # axx.set_yticks(yticks)
-        axx.tick_params(axis='both', which='major', labelsize=16)
-        axx.tick_params(axis='both', which='minor', labelsize=16)
-        cbar = axx.collections[0].colorbar
-        axx.set_ylabel(df.index.name, fontsize=18)
-        axx.set_xlabel(df.columns.name, fontsize=16)
-        # here set the labelsize by 20
-        cbar.ax.tick_params(labelsize=18)
+        axx.tick_params(axis='both', which='major', labelsize=20)
+        axx.tick_params(axis='both', which='minor', labelsize=20)
+        if k == 0:
+            axx.set_ylabel(df.index.name, fontsize=20)
+        else:
+            axx.set_ylabel('')
+        axx.set_xlabel(df.columns.name, fontsize=20)
+        divider = make_axes_locatable(axx)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar = fig.colorbar(axx.collections[0], cax=cax)
+
+        cbar.ax.tick_params(labelsize=20)
+
         axx.invert_yaxis()
+
+
         if k < nrows - 1:
             axx.tick_params(bottom=False)
 
+
+        xticks = np.arange(0, num_bins + 1, xstep)
+        axx.set_xticks(xticks)
+        axx.set_xticklabels([f"{xtick / num_bins:.3f}" for xtick in xticks])
+        axx.set_yticks(xticks)
+        axx.set_yticklabels([f"{xtick / num_bins:.3f}" for xtick in xticks])
     # params = {
     #         # 'legend.fontsize': 'x-large',
     #         # 'figure.figsize': (15, 5),
@@ -623,28 +661,31 @@ def plot_survival_function(axes: plt.Axes, marginals_errors: MarginalsErrors, la
     for k, (ax, error, title) in enumerate(zip(axes, errors, titles)):
         ax.set_title(title, fontsize=20)
         steps = np.linspace(1.0, 0.0, len(error))
-        first_nonzero = np.where(error > 0)[0][0]
-        first_val = error[first_nonzero]
-        idxs = subsample(np.log10(error), 1e-10, first_val=np.log10(first_val)) # Use -5 as first val since we are logarithmic
+        # first_nonzero = np.where(error > 0)[0][0]
+        # first_val = error[first_nonzero]
+        first_val = min(error[-1], 10**-12)
+        idxs = subsample(error, 1e-10, first_val=first_val) # Use -5 as first val since we are logarithmic
         print(f"Subsampling {title} for {label} reduced data to {len(idxs)/len(error)*100.0:.3f}%")
         error = error[idxs]
         steps = steps[idxs]
-        ax.step(error, steps, label=label)
+        ax.step(error, steps, label=fill(label, 20))
         print(error[1])
-        ax.set_xscale('symlog', linthresh=first_val)
-        log_err = np.linspace(np.log10(error[1]), np.log10(error[-1]*1.1), 9).astype(int)
+        x_linthresh = 1e-6
+        ax.set_xscale('symlog', linthresh=x_linthresh)
+        first_idx = int(len(error)*0.3)
+        log_err = np.linspace(np.log10(error[first_idx]), np.log10(error[-1]*1.1), 3).astype(int)
         xticks = np.array([0, *((10.0)**log_err)])
         print(f"Using xticks {xticks}")
         ax.set_xticks(xticks)
-        xticks_labels = [0] + [rf'$10^{{{l}}}$' for l in log_err]
+        xticks_labels = [r'$0$'] + [rf'$10^{{{int(l)}}}$' for l in log_err]
         ax.set_xticklabels(xticks_labels)
         ax.tick_params(axis='both', which='major', labelsize=18)
         ax.tick_params(axis='both', which='minor', labelsize=18)
-        # ax.set_yscale('symlog', linthresh=steps[1])
+        ax.set_yscale('symlog', linthresh=1e-2)
         ax.semilogy()
         ax.grid(True, alpha=0.2)
-        if label != "_" and k == 0:
-            ax.legend(fontsize=13)
+        # if label != "_" and k == 0:
+        #     ax.legend(fontsize=13)
 
 
 def condense_stats(cluster_stats: List[Tuple[ClusterData, Path]]):
@@ -696,10 +737,37 @@ def compare_converge_not_converge(cluster_stats: List[Tuple[ClusterData, Path]])
     # print(np.mean(diverged_stats["IoU"]))
 
 
+
+def make_boxplot_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_boxplot", ax2: plt.Axes = None, rot_angle: float = 0.0):    
+    relative_errors = []
+
+    for data in approx_normalization_constants:
+        relative_error = (exact_normalization_constants - data.constants) / exact_normalization_constants
+        relative_errors.append(relative_error)
+
+    should_save = False
+    if ax2 is None:
+        fig2, ax2 = plt.subplots()
+        should_save = True
+
+    ax2.boxplot(relative_errors)
+    # ax2.set_xlabel("Approximation", fontsize=18)
+    ax2.set_ylabel("Relative Error", fontsize=18)
+    ax2.set_xticks(range(1, len(approx_normalization_constants) + 1))
+    ax2.set_xticklabels([data.label for data in approx_normalization_constants], fontsize=17, rotation=rot_angle)
+    ax2.grid(True)
+    ax2.set_yscale('symlog')
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='minor', labelsize=18)
+
+    if should_save:
+        save_fig(fig2, figure_name)
+
+
+
 def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, Path]]):
     phd_normalization_constants = []
     bethe_normalization_constants_odin = []
-    bethe_normalization_constants_lc = []
     exact_normalization_constants = []
 
     for cluster_stat, cluster_file in cluster_stats:
@@ -707,10 +775,8 @@ def normalization_constant_scatter_plot(cluster_stats: List[Tuple[ClusterData, P
             phd_normalization_constants.append(cluster_stat.williams_stats.normalization_constants)
             exact_normalization_constants.append(cluster_stat.exact_stats.normalization_constants)
             bethe_normalization_constants_odin.append(cluster_stat.bethe_stats.normalization_constants_odin)
-            bethe_normalization_constants_lc.append(cluster_stat.bethe_stats.normalization_constants_lc)
 
     phd_normalization_constants = np.hstack(phd_normalization_constants)
-    bethe_normalization_constants_lc = np.hstack(bethe_normalization_constants_lc)
     bethe_normalization_constants_odin = np.hstack(bethe_normalization_constants_odin)
     exact_normalization_constants = np.hstack(exact_normalization_constants)
 
@@ -792,19 +858,50 @@ def load_cluster_stats(path: str = OUTPUT_PATH_BASE, return_empty_clusters: bool
 
 
 if __name__ == "__main__":
-    cluster_stats = load_cluster_stats()
+    path = OUTPUT_PATH_BASE
+    path += " (copy)"
+    cluster_stats = load_cluster_stats(path=path)
 
     # illegal_files = [f"{cluster_path.parent.name}.mat" for cluster_stat, cluster_path in cluster_stats if cluster_stat.explicit_hypothesis_enumeration_error]
+
+    # cluster_stats = cluster_stats[:10]
+    make_heatmap_correlation(cluster_stats)
+    make_survival_function_plots(cluster_stats)
+
+
+# def make_boxplot_normconsts_rel_error(exact_normalization_constants: np.ndarray, approx_normalization_constants: List[BethePlotData], figure_name: str = "rel_error_normconsts_boxplot", ax2: plt.Axes = None, rot_angle: float = 0.0):
+    # num_data = len(cluster_stats)
+    # exact_normalization_constants = np.empty(num_data)
+    # phd_normalization_constants = np.empty(num_data)
+    # bethe_normalization_constants = np.empty(num_data)
+    # k = 0
+    # for cluster_stat, _ in cluster_stats:
+    #     if not cluster_stat.explicit_hypothesis_enumeration_error:
+    #         phd_normalization_constants[k] = cluster_stat.williams_stats.normalization_constants
+    #         exact_normalization_constants[k] = cluster_stat.exact_stats.normalization_constants
+    #         bethe_normalization_constants[k] = cluster_stat.bethe_stats.normalization_constants_odin
+    #         k += 1
+
+    # exact_normalization_constants = exact_normalization_constants[:k]
+    # phd_normalization_constants = phd_normalization_constants[:k]
+    # bethe_normalization_constants = bethe_normalization_constants[:k]
+
+    # approx_normalization_constants = [
+    #     BethePlotData(constants=bethe_normalization_constants, label="Bethe"),
+    #     BethePlotData(constants=phd_normalization_constants, label="PHD"),
+    # ]
+
+    # make_boxplot_normconsts_rel_error(exact_normalization_constants, approx_normalization_constants)
+
+    normalization_constant_scatter_plot(cluster_stats)
+
 
     # print(illegal_files)
     # make_raw_error_plot(cluster_stats)
     # make_divergence_comparison_plot(cluster_stats)
     # make_scatter_compare_plot(cluster_stats)
-    make_heatmap_correlation(cluster_stats)
     # compare_mhlbp_lbpphd(cluster_stats)
     # compare_converge_not_converge(cluster_stats)
-    make_survival_function_plots(cluster_stats)
-    normalization_constant_scatter_plot(cluster_stats)
     # make_conditioned_survival_function_plots(cluster_stats)
     # print_raw_error_stats(cluster_stats)
     # make_heatmap_correlation_lbpphd(cluster_stats)
