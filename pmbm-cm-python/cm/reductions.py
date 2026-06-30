@@ -5,11 +5,12 @@ Ports of ``pruningPmbmBid.m`` (+ ``pruningAdjustClusters2.m``),
 ``checkSameTrackInDifferentClusters.m``), ``majorityTracks.m`` and
 ``clusterSplittingMajTraj.m`` (script_pmbm91.m:1847-2034).
 
-Equivalent, not bit-exact (no MATLAB reference). Note that the "bid" pruning
-loop in ``pruningPmbmBid`` never marks any hypothesis for removal (its
-``toBeRemoved`` stays all-false); the function's real effect is sorting,
-removing tracks with no hypothesis support, and simplifying two-hypothesis
-clusters that contain an empty hypothesis — so that loop is omitted here.
+Equivalent, not bit-exact (no MATLAB reference). ``pruningPmbmBid`` here enforces
+the per-cluster hypothesis cap ``n_hypo_max`` as an n-best cut (the MATLAB "bid"
+loop's effect): hypotheses beyond rank ``n_hypo_max`` within each cluster are
+marked for removal after the descending-log-prob sort. It then also removes
+tracks with no hypothesis support and simplifies two-hypothesis clusters that
+contain an empty hypothesis.
 """
 
 import numpy as np
@@ -73,8 +74,13 @@ def pruning_adjust_clusters2(clusters, clusters_card, to_be_kept, to_be_removed,
 
 def pruning_pmbm_bid(hypos, hypos_card, clusters, clusters_card, prob_log_hypos,
                      track_file, track_file_shadow, mea_hist_col, incol,
-                     n_hypo_total_max, k):
-    """Port of ``pruningPmbmBid.m`` (the no-op bid loop is omitted)."""
+                     n_hypo_total_max, n_hypo_max, k):
+    """Port of ``pruningPmbmBid.m``.
+
+    The per-cluster cap ``n_hypo_max`` is enforced as an n-best cut: after the
+    hypotheses are sorted descending by log-prob within each cluster, the tail
+    beyond rank ``n_hypo_max`` is marked for removal. ``n_hypo_total_max`` is
+    unused (kept for signature stability)."""
     (hypos, hypos_card, clusters, clusters_card, _probs, prob_log_hypos) = \
         sort_hypos_in_cluster(hypos, hypos_card, clusters, clusters_card, prob_log_hypos)
     hypos = np.asarray(hypos, dtype=int).ravel()
@@ -87,8 +93,15 @@ def pruning_pmbm_bid(hypos, hypos_card, clusters, clusters_card, prob_log_hypos,
     mea_hist_col = np.array(mea_hist_col, dtype=float)
 
     n_clusters_hyp = clusters.size
-    to_be_removed = np.zeros(int(np.sum(clusters_card)), dtype=bool)  # stays all-False
-    to_be_kept = np.arange(1, n_clusters_hyp + 1)
+    # Per-cluster n-best cut: hypotheses are sorted descending by log-prob within
+    # each cluster, so keep the first ``n_hypo_max`` and drop the tail.
+    to_be_removed = np.zeros(n_clusters_hyp, dtype=bool)
+    c_begs = tcloud_to_beg(clusters_card)
+    c_ends = tcloud_to_end(clusters_card)
+    for c in range(clusters_card.size):
+        if clusters_card[c] > n_hypo_max:
+            to_be_removed[c_begs[c] - 1 + n_hypo_max:c_ends[c]] = True
+    to_be_kept = np.nonzero(~to_be_removed)[0] + 1
 
     hypos_ind_prune, hypos_card_prune = _pick_ind_c2(
         np.sort(clusters[to_be_kept - 1]), hypos_card)

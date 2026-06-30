@@ -91,6 +91,7 @@ def _carry_over_with_clusters(state, dump, extra, config):
     incol = state.incol
     k = int(dump["k"])
     n_hypo_total_max = int(config["nHypoTotalMax"])
+    n_hypo_max = int(config["nHypoMax"])
 
     hypos = np.asarray(state.hypos, dtype=int).ravel()
     hypos_card = np.asarray(state.hypos_card, dtype=int).ravel()
@@ -172,7 +173,7 @@ def _carry_over_with_clusters(state, dump, extra, config):
          track_file_shadow, mea_hist_col, _exist) = pruning_pmbm_bid(
             state.hypos, state.hypos_card, state.clusters, state.clusters_card,
             state.prob_log_hypos, state.track_file, state.track_file_shadow,
-            state.mea_hist_col, incol, n_hypo_total_max, k)
+            state.mea_hist_col, incol, n_hypo_total_max, n_hypo_max, k)
         state.hypos, state.hypos_card = hypos, hypos_card
         state.clusters, state.clusters_card = clusters, clusters_card
         state.prob_log_hypos = prob_log_hypos

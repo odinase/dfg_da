@@ -30,3 +30,4 @@ py_dfg_da.cpython-39-x86_64-linux-gnu.so
 !./data/scenario210/k210ic5Few_prior.mat
 !./data/scenario210/k210ic5Many_prior.mat
 /build_cpp
+.venv

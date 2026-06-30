@@ -1,0 +1,334 @@
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+#include <pybind11/eigen.h>
+
+#include <vector>
+#include "dfg_da/hypothesis.h"
+PYBIND11_MAKE_OPAQUE(std::vector<dfg_da::hypothesis::Hypotheses>);
+
+
+#include <iostream>
+
+#include <Eigen/Core>
+#include <Eigen/Sparse>
+
+#include <limits>
+#include <fstream>
+
+
+
+#ifdef GLOG_AVAILABLE
+#include <glog/logging.h>
+#endif // GLOG_AVAILABLE
+#include <cmath>
+
+#include "dfg_da/lbp.h"
+
+
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+using namespace dfg_da;
+
+int add(int i, int j) {
+    return i + j;
+}
+
+
+PYBIND11_MODULE(py_dfg_da, m) {
+    m.doc() = R"pbdoc(
+        Pybind11 example plugin
+        -----------------------
+        .. currentmodule:: cmake_example
+        .. autosummary::
+           :toctree: _generate
+           add
+           subtract
+    )pbdoc";
+
+    m.def("throw_test", []() { throw std::invalid_argument("Test"); });
+
+
+    py::module_ hypothesis = m.def_submodule("hypothesis");
+
+    hypothesis.def("association_marginal_posteriors_normalization_constant", hypothesis::association_marginal_posteriors_normalization_constant, "reward_matrix"_a.noconvert(), "prior_hypotheses"_a.noconvert());
+    hypothesis.def("association_marginal_posteriors_normalization_constant_multicluster", hypothesis::association_marginal_posteriors_normalization_constant_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster_posterior"_a.noconvert());
+    hypothesis.def("hypothesis_enumeration", hypothesis::hypothesis_enumeration, "reward_matrix"_a.noconvert(), "prior_hypothesis"_a.noconvert());
+    hypothesis.def("mo_to_to_hypothesis", hypothesis::mo_to_to_hypothesis, "mo_hypothesis"_a, "num_tracks"_a);
+    hypothesis.def("prior_hypothesis_conditional_association_probability", hypothesis::prior_hypothesis_conditional_association_probability, "to_hypothesis"_a, "prior_hypothesis"_a.noconvert(), "reward_matrix"_a.noconvert());
+
+// std::tuple<Eigen::ArrayXXd, Eigen::ArrayXXd, std::map<std::string, Eigen::ArrayXd>, double> all_exact_marginals_and_normalization_constant
+
+    py::bind_vector<std::vector<dfg_da::hypothesis::Hypotheses>>(hypothesis, "HypothesesList")
+    .def(py::pickle(
+        [](const std::vector<dfg_da::hypothesis::Hypotheses> &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+
+            auto tuple = py::tuple(p.size());
+            for (int i = 0 ; i < p.size() ; i++)
+            {
+                tuple[i] = p.at(i);
+            }
+
+            return tuple;
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() <= 0)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            std::vector<dfg_da::hypothesis::Hypotheses> p;
+            for (int i = 0 ; i < t.size() ; i++)
+            {
+                p.push_back(t[i].cast<dfg_da::hypothesis::Hypotheses>());
+            }
+            return p;
+        }
+    ));
+
+    py::class_<hypothesis::Hypothesis>(hypothesis, "Hypothesis")
+    .def(py::init<const std::vector<size_t>&, double>())
+    .def("probability", &hypothesis::Hypothesis::probability)
+    .def("tracks", &hypothesis::Hypothesis::tracks)
+    .def("reindex_tracks", py::overload_cast<const std::map<size_t, size_t>&>(&hypothesis::Hypothesis::reindex_tracks))
+    .def("reindex_tracks", py::overload_cast<>(&hypothesis::Hypothesis::reindex_tracks))
+    .def("contains", &hypothesis::Hypothesis::contains)
+    .def("log_prob", &hypothesis::Hypothesis::log_prob)
+    .def(py::pickle(
+        [](const hypothesis::Hypothesis &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple(p.log_prob(), p.tracks());
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 2)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            double log_prob = t[0].cast<double>();
+            dfg_da::hypothesis::Hypothesis h(
+                std::move(t[1].cast<std::vector<size_t>>()),
+                log_prob
+            );
+
+            return h;
+        }
+    ));
+
+    py::class_<hypothesis::Hypotheses>(hypothesis, "Hypotheses")
+    .def(py::init<const std::vector<hypothesis::Hypothesis>&>())
+    .def("combine", &hypothesis::Hypotheses::combine)
+    .def("__getitem__", &hypothesis::Hypotheses::operator[])
+    .def("__len__", &hypothesis::Hypotheses::num_hypotheses)
+    .def("tracks", &hypothesis::Hypotheses::tracks)
+    .def("reindex_tracks", py::overload_cast<const std::map<size_t, size_t>&>(&hypothesis::Hypotheses::reindex_tracks))
+    .def("reindex_tracks", py::overload_cast<>(&hypothesis::Hypotheses::reindex_tracks))
+    .def("hypothesis_probabilites", &hypothesis::Hypotheses::hypothesis_probabilites)
+    .def("num_hypotheses", &hypothesis::Hypotheses::num_hypotheses)
+    .def("t_idxs", &hypothesis::Hypotheses::t_idxs)
+    .def("__iter__", [](hypothesis::Hypotheses &h) { return py::make_iterator(h.begin(), h.end()); },
+                         py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */)
+    .def(py::pickle(
+        [](const hypothesis::Hypotheses &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            std::vector<hypothesis::Hypothesis> h(p.cbegin(), p.cend());
+            return py::make_tuple(h);
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 1)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            dfg_da::hypothesis::Hypotheses hh(std::move(t[0].cast<std::vector<hypothesis::Hypothesis>>()));
+
+            return hh;
+        }
+    ));
+
+
+    py::module_ lbp = m.def_submodule("lbp");
+
+
+    py::class_<lbp::ClusterData>(lbp, "ClusterData")
+    .def("phi",  &lbp::ClusterData::phi)
+    .def_readwrite("phi_vec", &lbp::ClusterData::phi_vec)
+    .def_readwrite("t_idx", &lbp::ClusterData::t_idx)
+    .def_readwrite("t2h_not", &lbp::ClusterData::t2h_not)
+    .def_readwrite("t2h", &lbp::ClusterData::t2h)
+    .def(py::pickle(
+        [](const lbp::ClusterData &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+
+            // We need to undo the 0-indexing of tracks that is done in the constructor before saving to file
+            std::vector<size_t> tracks;
+            std::transform(p.t_idx.begin(), p.t_idx.end(), std::back_inserter(tracks), [](const auto& t) { return t + 1; });
+            return py::make_tuple(p.phi_vec, tracks, p.t2h_not, p.t2h);
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 4)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            lbp::ClusterData p(
+                t[0].cast<std::vector<double>>(),
+                t[1].cast<std::vector<size_t>>(),
+                t[2].cast<Eigen::ArrayXXd>(),
+                t[3].cast<Eigen::ArrayXXd>()
+            );
+
+            return p;
+        }
+    ));
+
+        // struct MHLBPMulticlusterConvergenceResults {
+        //     const size_t total_number_iterations;
+        //     const size_t bethe_pseudodual_iterations;
+        //     const double bethe_pseudodual_error;
+        //     const size_t msg_norm_iterations;
+        //     const size_t msg_norm_error;
+    py::class_<lbp::MHLBPMulticlusterConvergenceResults>(lbp, "MHLBPMulticlusterConvergenceResults")
+    .def_readonly("total_number_iterations", &lbp::MHLBPMulticlusterConvergenceResults::total_number_iterations)
+    .def_readonly("bethe_pseudodual_iterations", &lbp::MHLBPMulticlusterConvergenceResults::bethe_pseudodual_iterations)
+    .def_readonly("bethe_pseudodual_error", &lbp::MHLBPMulticlusterConvergenceResults::bethe_pseudodual_error)
+    .def_readonly("bethe_pseudodual_tol", &lbp::MHLBPMulticlusterConvergenceResults::bethe_pseudodual_tol)
+    .def_readonly("msg_norm_iterations", &lbp::MHLBPMulticlusterConvergenceResults::msg_norm_iterations)
+    .def_readonly("msg_norm_error", &lbp::MHLBPMulticlusterConvergenceResults::msg_norm_error)
+    .def_readonly("msg_norm_tol", &lbp::MHLBPMulticlusterConvergenceResults::msg_norm_tol)
+    .def(py::pickle(
+        [](const lbp::MHLBPMulticlusterConvergenceResults &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple(
+                p.total_number_iterations,
+                p.bethe_pseudodual_iterations,
+                p.bethe_pseudodual_error,
+                p.bethe_pseudodual_tol,
+                p.msg_norm_iterations,
+                p.msg_norm_error,
+                p.msg_norm_tol
+            );
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 7)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            lbp::MHLBPMulticlusterConvergenceResults p(
+                t[0].cast<size_t>(),
+                t[1].cast<size_t>(),
+                t[2].cast<double>(),
+                t[3].cast<double>(),
+                t[4].cast<size_t>(),
+                t[5].cast<double>(),
+                t[6].cast<double>()
+            );
+
+            return p;
+        }
+    ));
+
+
+
+
+    py::class_<lbp::MHLBPMulticlusterOutput>(lbp, "MHLBPMulticlusterOutput")
+    .def("track_association_marginals",  &lbp::MHLBPMulticlusterOutput::track_association_marginals)
+    .def("measurement_association_marginals",  &lbp::MHLBPMulticlusterOutput::measurement_association_marginals)
+    .def("hypotheses_marginals",  &lbp::MHLBPMulticlusterOutput::hypotheses_marginals)
+    .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_loglikelihood)
+    .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPMulticlusterOutput::bethe_pseudodual_normalization_constant)
+    .def_readonly("mu", &lbp::MHLBPMulticlusterOutput::mu)
+    .def_readonly("nu", &lbp::MHLBPMulticlusterOutput::nu)
+    .def_readonly("rho", &lbp::MHLBPMulticlusterOutput::rho)
+    .def_readonly("sigma", &lbp::MHLBPMulticlusterOutput::sigma)
+    .def_readonly("w_nmd", &lbp::MHLBPMulticlusterOutput::w_nmd)
+    .def_readonly("w_0", &lbp::MHLBPMulticlusterOutput::w_0)
+    .def_readonly("cluster_data", &lbp::MHLBPMulticlusterOutput::cluster_data)
+    .def_readonly("convergence_results", &lbp::MHLBPMulticlusterOutput::convergence_results)
+    .def_readonly("num_tracks", &lbp::MHLBPMulticlusterOutput::num_tracks)
+    .def_readonly("num_measurements", &lbp::MHLBPMulticlusterOutput::num_measurements)
+    .def_readonly("num_clusters", &lbp::MHLBPMulticlusterOutput::num_clusters)
+    .def(py::pickle(
+        [](const lbp::MHLBPMulticlusterOutput &p) { // __getstate__
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple(
+                p.mu,
+                p.nu,
+                p.rho,
+                p.sigma,
+                p.w_nmd,
+                p.w_0,
+                p.cluster_data,
+                p.convergence_results
+            );
+        },
+        [](py::tuple t) { // __setstate__
+            if (t.size() != 8)
+                throw std::runtime_error("Invalid state!");
+
+            /* Create a new C++ instance */
+            lbp::MHLBPMulticlusterOutput p(
+                t[0].cast<Eigen::ArrayXXd>(),
+                t[1].cast<Eigen::ArrayXXd>(),
+                t[2].cast<Eigen::ArrayXd>(),
+                t[3].cast<Eigen::ArrayXd>(),
+                t[4].cast<Eigen::ArrayXXd>(),
+                t[5].cast<Eigen::ArrayXd>(),
+                t[6].cast<std::vector<lbp::ClusterData>>(),
+                t[7].cast<lbp::MHLBPMulticlusterConvergenceResults>()
+            );
+
+            return p;
+        }
+    ));
+
+    // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
+    lbp.def("lbp_multicluster", &lbp::lbp_multicluster, "reward_matrix"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert(), "max_num_iters"_a = 10'000);
+
+    py::class_<lbp::MHLBPSingleClusterOutput>(lbp, "MHLBPSingleClusterOutput")
+    .def_readonly("mu", &lbp::MHLBPSingleClusterOutput::mu)
+    .def_readonly("nu", &lbp::MHLBPSingleClusterOutput::nu)
+    .def_readonly("rho", &lbp::MHLBPSingleClusterOutput::rho)
+    .def_readonly("sigma", &lbp::MHLBPSingleClusterOutput::sigma)
+    .def_readonly("w_nmd", &lbp::MHLBPSingleClusterOutput::w_nmd)
+    .def_readonly("w_0", &lbp::MHLBPSingleClusterOutput::w_0)
+    .def_readonly("t2h", &lbp::MHLBPSingleClusterOutput::t2h)
+    .def_readonly("t2h_not", &lbp::MHLBPSingleClusterOutput::t2h_not)
+    .def_readonly("phi", &lbp::MHLBPSingleClusterOutput::phi)
+    .def("track_association_marginals",  &lbp::MHLBPSingleClusterOutput::track_association_marginals)
+    .def("measurement_association_marginals",  &lbp::MHLBPSingleClusterOutput::measurement_association_marginals)
+    .def("hypotheses_marginal",  &lbp::MHLBPSingleClusterOutput::hypotheses_marginal)
+    .def("bethe_pseudodual_loglikelihood",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_loglikelihood)
+    .def("bethe_pseudodual_normalization_constant",  &lbp::MHLBPSingleClusterOutput::bethe_pseudodual_normalization_constant);
+    // MHLBPMultilusterOutput lbp_multicluster(const Eigen::Ref<const Eigen::MatrixXd> &reward_matrix, const std::vector<hypothesis::Hypotheses> &prior_hypotheses_per_cluster, size_t max_num_iters = 300);
+    lbp.def("lbp_single_cluster", &lbp::lbp_single_cluster, "reward_matrix"_a.noconvert(), "prior_hypotheses"_a.noconvert(), "max_num_iters"_a = 300);
+}
+
+
+
+// PYBIND11_MODULE(dfg_da, m)
+// {
+//     // m.doc() = "pybind11 example plugin"; // optional module docstring
+//     py::class_<Test>(m, "Test")
+//         .def(py::init<>());
+//     m.def("test_optional", &test_optional);
+//     // m.def("test_shared_ptr", &test_shared_ptr);
+//     m.def("test_ptr", &test_ptr);
+//     m.def("test_vec", &test_vec);
+
+
+//     // .def("setName", &Pet::setName)
+//     // .def("getName", &Pet::getName);
+//     py::module_ targets = m.def_submodule("targets");
+//     py::class_<Target>(targets, "Target")
+//         .def(py::init<const VectorConstRef, std::shared_ptr<DynamicModel>, int>(), py::arg("init_state"), py::arg("dyn_model"), py::arg("len_story") = 1);
+
+//     py::module_ dynamics = m.def_submodule("dynamics");
+//     py::class_<DynamicModel, std::shared_ptr<DynamicModel>, PyDynamicModel>(dynamics, "DynamicModel")
+//         .def(py::init<>())
+//         .def("state_space_dim", &DynamicModel::state_space_dim)
+//         .def("pos_idx", &DynamicModel::pos_idx)
+//         .def("input_vec", &DynamicModel::input_vec)
+//         .def("gain_mat", &DynamicModel::gain_mat)
+//         .def("cov_mat", &DynamicModel::cov_mat)
+//         .def("dyn_mat", &DynamicModel::dyn_mat)
+//         .def("propagate", &DynamicModel::propagate);
+// }

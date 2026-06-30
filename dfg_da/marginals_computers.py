@@ -449,7 +449,10 @@ class ClusterHypothesesPosterior:
     """
 
     def __init__(self, assocLocal: np.ndarray, prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList):
-        # Assuming assocLocal is straight from MATLAB, we need to shift the cluster idx to 0-index
+        # Assuming assocLocal is straight from MATLAB, we need to shift the cluster idx to 0-index.
+        # Cast to int first: scipy loads MATLAB assocLocal as float64, which breaks the
+        # integer indexing in merge_clusters_labled (master_idxs[assocLocal[0]]).
+        assocLocal = np.asarray(assocLocal).astype(int)
         assocLocal[0] -= 1
         self.prior_hypotheses_per_cluster_posterior, self.hypothesis_index_map = self.merge_clusters_labled(assocLocal, prior_hypotheses_per_cluster)
 

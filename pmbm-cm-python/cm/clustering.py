@@ -7,8 +7,9 @@ Port of ``clusteringPreprocess.m``. The MATLAB uses graph-toolbox functions
 
 Stage-1 note: at k=1 there are no clusters, so only the trivial ``else`` branch
 runs (returns the gain matrix unchanged with empty ``masters``/``assocLocal``).
-The heavy graph branch is ported for Stage 2 but is NOT yet validated against
-MATLAB (betweenness / connected-component labelling order may differ).
+The heavy graph branch (including the supercluster size/cardinality balancing
+loop) is ported for Stage 2 but is not bit-exact against MATLAB (betweenness /
+connected-component labelling order may differ).
 """
 
 import numpy as np
@@ -24,6 +25,15 @@ from .clouds import (
 from .mathutils import find_colmajor, v2m
 
 
+# Supercluster balancing heuristics (script_pmbm91 lines ~74-289). MATLAB magic
+# numbers, kept verbatim.
+MAX_CLUSTERS_PER_SUPERCLUSTER = 5      # GC > 5 test
+MAX_CARD_HEURISTIC_MARGIN = 5          # maxCardHeuri = max(maxCard) + 5
+MAX_COUNT_HEURISTIC_MARGIN = 100       # maxCountHeuri = max(maxCount) + 100
+EDGE_GAIN_HEURISTIC_WEIGHT = 0.75      # worstBreakEdgeGains * 3/4
+MAX_BALANCING_ITERS = 1200             # nycaCount < 1200 guard
+
+
 def _conncomp_labels(graph, n_nodes):
     """Return a 1-based component label per node (1..n_nodes), mimicking the
     way MATLAB ``conncomp`` + the cluster-assoc loop derive a representative."""
@@ -36,6 +46,22 @@ def _conncomp_labels(graph, n_nodes):
         for node in comp:
             labels[node] = comp_id
     return labels
+
+
+def _cluster_assoc_from_graph(H, nC, n_nodes):
+    """Component representative per cluster node, mirroring MATLAB ``conncomp`` +
+    ``clusterAssoc(q) = q(1)``: each of the first ``nC`` nodes is mapped to the
+    lowest node id in its connected component. Returns a length-``nC`` 1-based
+    array."""
+    labels = _conncomp_labels(H, n_nodes)
+    comp_first = {}
+    assoc_full = np.zeros(n_nodes + 1, dtype=int)
+    for node in range(1, n_nodes + 1):
+        lab = labels[node]
+        if lab not in comp_first:
+            comp_first[lab] = node
+        assoc_full[node] = comp_first[lab]
+    return assoc_full[1:nC + 1]
 
 
 def clustering_preprocess(hypos, hypos_card, clusters, clusters_card,
@@ -77,7 +103,12 @@ def clustering_preprocess(hypos, hypos_card, clusters, clusters_card,
 
 def _clustering_heavy(hypos, hypos_card, clusters, clusters_card, gain_mat_full,
                       l_mat_full, nT, nC, m, pre_cluster_threshold):
-    """Heavy graph branch of clusteringPreprocess (Stage-2; unvalidated)."""
+    """Heavy graph branch of clusteringPreprocess.
+
+    Builds the cluster-measurement graph, breaks weak connecting edges via
+    betweenness, then runs the iterative supercluster size/cardinality balancing
+    loop (MATLAB lines 74-289) that keeps superclusters small. Not bit-exact vs
+    MATLAB (betweenness / connected-component ordering may differ)."""
     import networkx as nx
 
     begsC = tcloud_to_beg(clusters_card)
@@ -130,18 +161,117 @@ def _clustering_heavy(hypos, hypos_card, clusters, clusters_card, gain_mat_full,
         if H.has_edge(int(edge_arr[0, e]), int(edge_arr[1, e])):
             H.remove_edge(int(edge_arr[0, e]), int(edge_arr[1, e]))
 
-    # NOTE: the iterative super-cluster size/cardinality balancing loop
-    # (script_pmbm91 lines ~74-289) is deferred to Stage 2. For now we accept the
-    # initial edge-breaking and derive cluster associations from H.
-    labels = _conncomp_labels(H, nC + m)
-    cluster_assoc_full = np.zeros(nC + m + 1, dtype=int)
-    comp_first = {}
-    for node in range(1, nC + m + 1):
-        lab = labels[node]
-        if lab not in comp_first:
-            comp_first[lab] = node
-        cluster_assoc_full[node] = comp_first[lab]
-    cluster_assoc = cluster_assoc_full[1:nC + 1]
+    # --- Supercluster size/cardinality balancing loop (clusteringPreprocess.m
+    # lines 74-289) --------------------------------------------------------------
+    n_nodes = nC + m
+
+    # Per-cluster max hypothesis cardinality and hypothesis count (lines 74-82).
+    max_card_clusters = np.zeros(nC, dtype=float)
+    for ii in range(nC):
+        seg = hypos_card[begsC[ii] - 1:endsC[ii]]
+        max_card_clusters[ii] = seg.max() if seg.size else 0
+    max_count_clusters = clusters_card.astype(float)
+    max_card_heuri = (max_card_clusters.max() + MAX_CARD_HEURISTIC_MARGIN) if nC else 0.0
+    max_count_heuri = (max_count_clusters.max() + MAX_COUNT_HEURISTIC_MARGIN) if nC else 0.0
+
+    def _mea_neighbors(node):
+        return set(int(v) - nC for v in H.neighbors(node) if v > nC)
+
+    # Precompute per-cluster-pair break info + worst-edge gains (lines 86-169).
+    init_assoc = _cluster_assoc_from_graph(H, nC, n_nodes)
+    worst_break_edge_gains = np.full((nC, nC), -np.inf)
+    break_edge_stuff = {}
+    edges_cand = []
+    for ii in range(1, nC + 1):
+        for jj in range(ii + 1, nC + 1):
+            if init_assoc[ii - 1] != init_assoc[jj - 1]:
+                continue
+            mea_common = np.array(sorted(_mea_neighbors(ii) & _mea_neighbors(jj)),
+                                  dtype=int)
+            if mea_common.size == 0:
+                continue
+            tracks_i = cluster2tracks(ii, hypos, hypos_card, clusters, clusters_card)
+            tracks_j = cluster2tracks(jj, hypos, hypos_card, clusters, clusters_card)
+            tracks_union, a_match, b_match = union_sorted(tracks_i, tracks_j)
+            rew_sub = gain_mat_full[np.ix_(tracks_union - 1, mea_common - 1)].copy()
+            winning = np.zeros(mea_common.size, dtype=int)
+            worst = -np.inf
+            for zz in range(mea_common.size):
+                gating = np.nonzero(rew_sub[:, zz] > -np.inf)[0] + 1  # 1-based union pos
+                tracks_iz = np.intersect1d(a_match, gating)
+                tracks_jz = np.intersect1d(b_match, gating)
+                max_i = rew_sub[tracks_iz - 1, zz].max() if tracks_iz.size else -np.inf
+                max_j = rew_sub[tracks_jz - 1, zz].max() if tracks_jz.size else -np.inf
+                if max_i > max_j:
+                    winning[zz] = ii
+                    rew_sub[tracks_jz - 1, zz] = -np.inf
+                    worst = max(worst, max_j)
+                else:
+                    winning[zz] = jj
+                    rew_sub[tracks_iz - 1, zz] = -np.inf
+                    worst = max(worst, max_i)
+            break_edge_stuff[(ii, jj)] = {
+                "mea_common": mea_common, "rew_sub": rew_sub,
+                "winning": winning, "tracks_union": tracks_union}
+            worst_break_edge_gains[ii - 1, jj - 1] = worst
+            edges_cand.append((ii, jj))
+
+    # Iteratively cut the weakest inter-cluster connection until every
+    # supercluster is acceptably small (lines 185-286).
+    acceptable = (nC == 0)
+    count = 1
+    while not acceptable and count < MAX_BALANCING_ITERS:
+        count += 1
+        cluster_assoc = _cluster_assoc_from_graph(H, nC, n_nodes)
+        uca, gc = np.unique(cluster_assoc, return_counts=True)
+        test_size = not np.any(gc > MAX_CLUSTERS_PER_SUPERCLUSTER)
+        card_ok = True
+        count_ok = True
+        for rep in uca:
+            members = np.nonzero(cluster_assoc == rep)[0]
+            if members.size > 1:
+                if max_card_clusters[members].sum() > max_card_heuri:
+                    card_ok = False
+                if max_count_clusters[members].sum() > max_count_heuri:
+                    count_ok = False
+        if test_size and card_ok and count_ok:
+            acceptable = True
+            continue
+        if not edges_cand:
+            break
+
+        heuristic = np.empty(len(edges_cand))
+        for idx, (ii, jj) in enumerate(edges_cand):
+            size_contrib = np.sum(cluster_assoc == cluster_assoc[ii - 1]) \
+                / MAX_CLUSTERS_PER_SUPERCLUSTER
+            card_contrib = (max_card_clusters[ii - 1] + max_card_clusters[jj - 1]) \
+                / max_card_heuri
+            count_contrib = (max_count_clusters[ii - 1] + max_count_clusters[jj - 1]) \
+                / max_count_heuri
+            edge_contrib = worst_break_edge_gains[ii - 1, jj - 1] \
+                * EDGE_GAIN_HEURISTIC_WEIGHT
+            heuristic[idx] = size_contrib + card_contrib + count_contrib - edge_contrib
+
+        best_idx = int(np.argmax(heuristic))
+        ii, jj = edges_cand.pop(best_idx)
+        stuff = break_edge_stuff[(ii, jj)]
+        # Apply the (loser-masked) reward submatrix into the gain matrix.
+        gain_mat_full[np.ix_(stuff["tracks_union"] - 1, stuff["mea_common"] - 1)] = \
+            stuff["rew_sub"]
+        # Remove the losing cluster's edge to each affected measurement in H.
+        for z in range(stuff["mea_common"].size):
+            winner = stuff["winning"][z]
+            loser = jj if winner == ii else ii
+            mnode = nC + int(stuff["mea_common"][z])
+            if H.has_edge(loser, mnode):
+                H.remove_edge(loser, mnode)
+
+    # Mark every original edge no longer present in H as broken (lines 288-289).
+    for e in range(edge_arr.shape[1]):
+        if not H.has_edge(int(edge_arr[0, e]), int(edge_arr[1, e])):
+            to_be_broken[e] = True
+
+    cluster_assoc = _cluster_assoc_from_graph(H, nC, n_nodes)
 
     # Remove assignments lacking cluster support.
     gain_mat_post_c = np.array(gain_mat_full, copy=True)
