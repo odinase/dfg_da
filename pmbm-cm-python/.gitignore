@@ -1,0 +1,9 @@
+# Per-run output folders (priorLikelihood{k}.mat, results, plots)
+runs/
+
+# Generated plots
+gospa_results.png
+gospa_results_mat.png
+
+__pycache__/
+*.pyc
