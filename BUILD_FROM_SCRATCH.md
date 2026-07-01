@@ -143,18 +143,25 @@ Outputs land in `ravens_output_multicluster/metrics/` (`metrics.csv` + PNGs). Re
 
 ## 8. Docker
 
-The `Dockerfile` builds §1–§5 (toolchain, venv, C++ extension, Rust workspace + `dfg_da_py`).
-Data is **mounted at runtime**, not baked into the image (keeps the image small; data is
-gitignored anyway).
+The `Dockerfile` builds §1–§5 (toolchain, venv, C++ extension, Rust workspace + `dfg_da_py`)
+at image-build time, then drops you into an interactive **zsh** (oh-my-zsh + powerlevel10k,
+using the committed `docker/zshrc` + `docker/p10k.zsh`) as the **non-root user `odin`**
+(uid/gid 1000). Nothing runs by default — you enter and run things yourself. Data is
+**mounted at runtime**, not baked into the image.
 
 ```bash
 cd $REPO
 docker build -t dfg-da .
 
-# Sanity: the default command imports the whole stack.
-docker run --rm dfg-da            # prints "build OK"
+# Enter the container (primary use): a p10k zsh at /app, as odin.
+docker run -it --rm \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/ravens_output_multicluster:/app/ravens_output_multicluster" \
+  dfg-da
+# ...then inside:  python -W ignore ravens_parser_parallell_multicluster_not_exact.py
+#                  (the venv is on PATH, so `python` is the project interpreter)
 
-# Compute metrics from EXISTING host data mounted into the container:
+# Or run metrics in one shot (overrides the default shell):
 docker run --rm \
   -e EVAL_WORKERS=$(nproc) \
   -v "$PWD/data:/app/data" \
@@ -163,5 +170,14 @@ docker run --rm \
 ```
 The eval reads `/app/data/pmbm_output_files/*.mat` (mounted) and imports the local `dfg_da/` +
 `cluster_partition/` packages (baked into the image); results are written to the mounted
-`ravens_output_multicluster/`. `docker build` needs network (apt, rustup, cargo crates, and the
-`pyehm` git dependency).
+`ravens_output_multicluster/`. Because the container runs as `odin` (uid 1000), those outputs
+are **owned by you** on the host — no root-owned files.
+
+Notes:
+- **Fonts are host-side.** The powerlevel10k prompt uses `nerdfont-v3`; its icons render only
+  if your *host terminal* uses a Nerd Font (e.g. MesloLGS NF). The container only emits the
+  escape sequences.
+- **Different host user?** Build with `--build-arg UID=$(id -u) --build-arg GID=$(id -g)
+  --build-arg USERNAME=$(id -un)` so volume ownership matches your account.
+- `docker build` needs network (apt, rustup, cargo crates, oh-my-zsh/p10k clones, and the
+  `pyehm` git dependency).
