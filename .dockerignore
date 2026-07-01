@@ -1,0 +1,25 @@
+# Keep the build context small. Data is mounted at runtime, not baked into the image.
+.git
+.venv
+target
+Cargo.lock
+
+# Large / regenerated data + outputs
+data
+*.mat
+ravens_output*
+pmbm-cm-python/runs
+pmbm-cm-matlab
+pmbm_analysis_output*
+
+# Build artifacts / caches
+**/__pycache__
+*.so
+*.o
+*.a
+*.png
+*.pdf
+*.mp4
+build
+build_mex
+build_cpp

@@ -13,6 +13,9 @@ It supersedes `REPRODUCE.md` (which is Linux/`python3.10`-specific and predates 
 method). Where the two differ, follow this file. Commands assume the repo root as the
 working directory unless stated; `$REPO` denotes that absolute path.
 
+> **See also `BUILD_FROM_SCRATCH.md`** for a consolidated from-scratch runbook (native +
+> Docker) covering the venv, the `py_dfg_da` extension, and the Rust bindings in one place.
+>
 > **Environment update (single root venv):** the project now uses **one** venv at the repo
 > root, `$REPO/.venv`, instead of `pmbm-cm-python/.venv`. `requirements.txt` at the repo
 > root pins the full dependency set (incl. the `pyehm` fork). Quick install:

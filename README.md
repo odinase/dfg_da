@@ -1,5 +1,10 @@
 # Installation of code
 
+> **New:** for a single-command-per-step, from-scratch build on a fresh machine (one root
+> `.venv`, the `py_dfg_da` extension, the Rust↔C++↔Python bindings, and Docker), follow
+> **[`BUILD_FROM_SCRATCH.md`](BUILD_FROM_SCRATCH.md)**. The notes below are the older
+> GTSAM/pybind11 path.
+
 This project is split into C++ code and Python code. The C++ code is built with pybind11. This means that when cloning this repo, you should do `git submodule update --init --recursive` afterwards. Then the C++ code can be built and installed as a Python package with `pip install .`.
 
 Additionally, if you want to use the exact solver that finishes in reasonable time, i.e. multi-hypothesis EHM2, you'll need to clone [this fork](https://github.com/odinase/pyehm) of PyEHM2, change branch to `feature/add_return_likelihood` and install it with `python -m pip install -e .`. The only difference between the fork and the official repo is that the fork also returns the hypothesis-conditioned normalization constant.
