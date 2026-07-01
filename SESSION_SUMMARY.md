@@ -4,9 +4,11 @@ Work done in this session on the `pmbm-python-impl` branch, run against the
 existing PMBM output data in `data/pmbm_output_files/` (1396 `priorLikelihood*.mat`
 scans — no filter was re-run).
 
-Environment used throughout: `pmbm-cm-python/.venv` with the GTSAM-free
-`py_dfg_da` extension + the `pyehm` fork (see `SETUP_AND_RUN.md` §1). Full runs
-used `EVAL_WORKERS = nproc − 2` (30 on this machine).
+Environment used throughout: a single root venv `.venv` (formerly
+`pmbm-cm-python/.venv`) with the GTSAM-free `py_dfg_da` extension + the `pyehm`
+fork (see `SETUP_AND_RUN.md` §1 and the root `requirements.txt`). Full runs used
+`EVAL_WORKERS = nproc − 2` (30 on this machine). Run scripts with
+`./.venv/bin/python` from the repo root.
 
 ---
 

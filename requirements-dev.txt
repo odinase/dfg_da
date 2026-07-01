@@ -1,0 +1,6 @@
+# Dev-only tooling (not needed to run the Python eval scripts).
+# Build the Rust->Python bindings (dfg-da-py) into the active venv:
+#     .venv/bin/pip install -r requirements-dev.txt
+#     cd dfg-da-py && ../.venv/bin/maturin develop
+-r requirements.txt
+maturin>=1.5,<2

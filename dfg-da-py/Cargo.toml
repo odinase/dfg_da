@@ -1,0 +1,13 @@
+[package]
+name = "dfg-da-py"
+version = "0.1.0"
+edition = "2021"
+description = "Python bindings (pyo3) to the safe dfg_da Rust wrappers"
+
+[lib]
+name = "dfg_da_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+dfg-da = { path = "../dfg-da" }
+pyo3 = { version = "0.22", features = ["extension-module"] }

@@ -1,0 +1,11 @@
+[package]
+name = "dfg-da"
+version = "0.1.0"
+edition = "2021"
+description = "Safe Rust wrappers over the dfg_da C API"
+
+[lib]
+name = "dfg_da"
+
+[dependencies]
+dfg-da-sys = { path = "../dfg-da-sys" }

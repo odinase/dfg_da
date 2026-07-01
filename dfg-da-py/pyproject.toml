@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "dfg_da_py"
+version = "0.1.0"
+description = "Python bindings to the dfg_da Rust wrappers (C++ single-cluster LBP)"
+requires-python = ">=3.8"
+
+[tool.maturin]
+# Crate lives in a workspace; point maturin at this crate's manifest.
+manifest-path = "Cargo.toml"
+module-name = "dfg_da_py"

@@ -1,0 +1,37 @@
+# Python requirements for the dfg_da multi-cluster data-association eval + plotting.
+#
+# One env for the whole repo: create it at the repo root and build the py_dfg_da
+# C++ extension into it (see SETUP_AND_RUN.md):
+#
+#     python3.12 -m venv .venv
+#     .venv/bin/pip install -U pip
+#     .venv/bin/pip install -r requirements.txt
+#
+# Pinned to the proven working set (Python 3.12, numpy 2.x).
+
+# Core numerics / plotting used by the eval + plotting scripts
+numpy==2.5.0
+scipy==1.18.0
+matplotlib==3.11.0
+networkx==3.6.1
+tqdm==4.68.3
+
+# C++ extension build-time (pybind11 headers); harmless at runtime
+pybind11==3.0.4
+pybind11-global==3.0.4
+
+# Kept <80 so pyehm's pkg_resources import works
+setuptools==79.0.1
+
+# Exact EHM2 solver -- the fork with EHM2.run_and_likelihood
+pyehm @ git+https://github.com/odinase/pyehm.git@c634e7dbc61b69dee7889f5c38073699c19f71ce
+
+# pyehm/stonesoup transitive deps (pinned for reproducibility)
+stonesoup==1.9.1
+plotly==6.8.0
+pymap3d==3.2.0
+utm==0.8.1
+rtree==1.4.1
+
+# tests
+pytest==9.1.1

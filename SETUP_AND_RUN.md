@@ -13,6 +13,21 @@ It supersedes `REPRODUCE.md` (which is Linux/`python3.10`-specific and predates 
 method). Where the two differ, follow this file. Commands assume the repo root as the
 working directory unless stated; `$REPO` denotes that absolute path.
 
+> **Environment update (single root venv):** the project now uses **one** venv at the repo
+> root, `$REPO/.venv`, instead of `pmbm-cm-python/.venv`. `requirements.txt` at the repo
+> root pins the full dependency set (incl. the `pyehm` fork). Quick install:
+> ```bash
+> cd $REPO
+> python3.12 -m venv .venv
+> .venv/bin/pip install -U pip
+> .venv/bin/pip install -r requirements.txt          # replaces §1a/§1c below
+> # then build py_dfg_da into it (§1b), using ../.venv instead of .venv paths:
+> #   SUFFIX/SITE from ../.venv/bin/python, output into $REPO/.venv site-packages
+> ```
+> Wherever the sections below say `pmbm-cm-python/.venv/bin/python`, read `./.venv/bin/python`
+> (e.g. `run_cm.py` in §3 becomes `./.venv/bin/python pmbm-cm-python/run_cm.py`, and the eval
+> in §6 becomes `EVAL_WORKERS=$W ./.venv/bin/python -W ignore <script>.py`).
+
 ---
 
 ## 0. Before you clone: push the working-tree change

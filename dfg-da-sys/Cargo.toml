@@ -1,0 +1,12 @@
+[package]
+name = "dfg-da-sys"
+version = "0.1.0"
+edition = "2021"
+description = "Raw FFI bindings to the dfg_da C API (libdfg_da_c)"
+links = "dfg_da_c"
+
+[lib]
+name = "dfg_da_sys"
+
+[build-dependencies]
+bindgen = "0.72"
