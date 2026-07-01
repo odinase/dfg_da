@@ -77,14 +77,13 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
     psi_times_msg.assign_to(unnormed_probs.slice_mut(s![.., 1..]));
 
     let probs = {
-        let mut unnormed_probs = unsafe { unnormed_probs.assume_init() };
-        unnormed_probs = &unnormed_probs
+        let unnormed_probs = unsafe { unnormed_probs.assume_init() };
+        &unnormed_probs
             / &unnormed_probs
                 .sum_axis(Axis(1))
                 .insert_axis(Axis(1))
                 .broadcast(unnormed_probs.dim())
-                .unwrap();
-        unnormed_probs
+                .unwrap()
     };
 
     (probs, 1.0)
