@@ -2,6 +2,6 @@
 resolver = "2"
 members = [
     "dfg-da-sys",
-    "dfg-da",
+    "dfg-da-rs",
     "dfg-da-py",
 ]

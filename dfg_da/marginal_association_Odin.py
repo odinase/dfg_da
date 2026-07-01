@@ -18,17 +18,25 @@ exact_marginal:
 
 Author: Lars-Christian Ness Tokle (lars-christian.n.tokle@ntnu.no), last modified 21.09.22.
 """
+
 import numpy as np
 from scipy.special import logsumexp
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
+import typing as typ
 import py_dfg_da as pdd
 
 # controls some extra (potentially costly) checks done in asserts
 DEBUG: bool = True
 
 
-def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def lbp_marginal(
+    llr: np.ndarray,
+    max_prob_diff_from_conv: float = 1e-3,
+    max_iter: int = 300,
+    iter_per_check: int = 5,
+    **kwargs,
+) -> Dict[str, typ.Any]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -78,13 +86,14 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
 
     while conv_val >= stop_crit and it < max_iter:
         for k in range(iter_per_check):
-            assert DEBUG or np.isfinite(a2b_msg).all(), 'a2b not finite'
-            assert DEBUG or np.isfinite(b2a_msg).all(), 'b2a not finite'
+            assert DEBUG or np.isfinite(a2b_msg).all(), "a2b not finite"
+            assert DEBUG or np.isfinite(b2a_msg).all(), "b2a not finite"
 
             w_times_msg = w_nmd * b2a_msg
             # note parenthesis for underflow problems
-            a2b_msg = w_nmd / \
-                (1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg))
+            a2b_msg = w_nmd / (
+                1 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)
+            )
 
             if k == iter_per_check - 1:
                 prevb2a = np.copy(b2a_msg)
@@ -116,21 +125,25 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
 
     converged = not (conv_val >= stop_crit and it < max_iter)
 
-    out = prob, it, converged
+    out = {
+        "prob": prob,
+        "it": it,
+        "converged": converged,
+    }
 
     is_finite = np.isfinite(llr)
     gated_prob = prob[is_finite]
-    U_B = - np.sum(gated_prob * llr[is_finite])
-    H_B_true = - np.sum(gated_prob * np.log(gated_prob))
+    U_B = -np.sum(gated_prob * llr[is_finite])
+    H_B_true = -np.sum(gated_prob * np.log(gated_prob))
 
-    onemprob = (1 - prob)
+    onemprob = 1 - prob
     pos_onemprob = onemprob[onemprob > 0]
-    H_B_false =  np.sum(pos_onemprob * np.log(pos_onemprob))
+    H_B_false = np.sum(pos_onemprob * np.log(pos_onemprob))
 
     H_B_t2m = H_B_true + H_B_false
 
     pos_new = not_track_prob[not_track_prob > 0]
-    H_B_new_true = - np.sum(pos_new * np.log(pos_new))
+    H_B_new_true = -np.sum(pos_new * np.log(pos_new))
 
     nonunit_onemnew = 1 - not_track_prob[not_track_prob < 1]
     H_B_new_false = np.sum(nonunit_onemnew * np.log(nonunit_onemnew))
@@ -140,29 +153,43 @@ def lbp_marginal(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_ite
     F_B = U_B - H_B
     loglikelihood: float = -F_B
 
-    out += (loglikelihood,)
+    out["loglikelihood"] = loglikelihood
 
     if ("return_mu_nu_w_nmd" in kwargs) and kwargs["return_mu_nu_w_nmd"]:
-        out += (a2b_msg, b2a_msg, w_nmd)
+        out = out | {
+            "a2b_msg": a2b_msg,
+            "b2a_msg": b2a_msg,
+            "w_nmd": w_nmd
+        }
 
     return out
 
 
-def bethe_loglikelihood_single_cluster(w_nmd: np.ndarray, b2a_msg: np.ndarray, a2b_msg: np.ndarray, w_0: np.ndarray):
+def bethe_loglikelihood_single_cluster(
+    w_nmd: np.ndarray, b2a_msg: np.ndarray, a2b_msg: np.ndarray, w_0: np.ndarray
+):
     n, m = w_nmd.shape
 
     w_times_msg: np.ndarray = w_nmd * b2a_msg
 
     Z_t: np.ndarray = w_0.ravel() + w_times_msg.sum(axis=1)
     Z_j: np.ndarray = 1.0 + a2b_msg.sum(axis=0)
-    Z_tj: np.ndarray = (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)) * (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg)) + w_nmd
+    Z_tj: np.ndarray = (
+        w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)
+    ) * (1 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg)) + w_nmd
 
     F = (m - 1) * np.log(Z_t).sum() + (n - 1) * np.log(Z_j).sum() - np.log(Z_tj).sum()
 
     return -F
 
 
-def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, max_iter: int = 300, iter_per_check: int = 5, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def lbp_marginal_clean(
+    llr: np.ndarray,
+    max_prob_diff_from_conv: float = 1e-3,
+    max_iter: int = 300,
+    iter_per_check: int = 5,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -213,13 +240,14 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
 
     while conv_val >= stop_crit and it < max_iter:
         for k in range(iter_per_check):
-            assert DEBUG or np.isfinite(a2b_msg).all(), 'a2b not finite'
-            assert DEBUG or np.isfinite(b2a_msg).all(), 'b2a not finite'
+            assert DEBUG or np.isfinite(a2b_msg).all(), "a2b not finite"
+            assert DEBUG or np.isfinite(b2a_msg).all(), "b2a not finite"
 
             w_times_msg = w_nmd * b2a_msg
             # note parenthesis for underflow problems
-            a2b_msg = w_nmd / \
-                (w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg))
+            a2b_msg = w_nmd / (
+                w_0 + (w_times_msg.sum(axis=1, keepdims=True) - w_times_msg)
+            )
 
             if k == iter_per_check - 1:
                 prevb2a = np.copy(b2a_msg)
@@ -246,10 +274,11 @@ def lbp_marginal_clean(llr: np.ndarray, max_prob_diff_from_conv: float = 1e-3, m
     prob[:, 1:] = w_nmd * b2a_msg
     prob = prob / prob.sum(1, keepdims=True)
 
-    log_Z = bethe_loglikelihood_single_cluster(w_nmd=w_nmd, b2a_msg=b2a_msg, a2b_msg=a2b_msg, w_0=w_0)
-    
-    return prob, log_Z
+    log_Z = bethe_loglikelihood_single_cluster(
+        w_nmd=w_nmd, b2a_msg=b2a_msg, a2b_msg=a2b_msg, w_0=w_0
+    )
 
+    return prob, log_Z
 
 
 @dataclass
@@ -265,7 +294,6 @@ class LBPOutput:
         self.all_mu_msgs = []
         self.all_nu_msgs = []
 
-
     def append(self, rho, sigma, mu, nu):
         self.all_rho_msgs.append(rho)
         self.all_sigma_msgs.append(sigma)
@@ -273,9 +301,7 @@ class LBPOutput:
         self.all_nu_msgs.append(nu)
 
     def minmax(self, msg_list):
-        return np.array([
-            [np.min(msg), np.max(msg)] for msg in msg_list
-        ])
+        return np.array([[np.min(msg), np.max(msg)] for msg in msg_list])
 
     def minmaxs(self):
         rho_minmax = self.minmax(self.all_rho_msgs)
@@ -286,8 +312,15 @@ class LBPOutput:
         return np.stack((rho_minmax, sigma_minmax, mu_minmax, nu_minmax))
 
 
-
-def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def lbp_marginal_nonexistence(
+    llr: np.ndarray,
+    prior_hypotheses: pdd.hypothesis.Hypotheses,
+    msg_thresh: float = 1e-7,
+    marginal_max_error_diff: float = 1e-6,
+    iters_per_marg_check: int = 5,
+    max_iter: int = 10_000,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -332,12 +365,11 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.
     # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
     # The nominator should only be over actual measurements, denominator however is over all values of ai / bj, so it should include misdetection and nonexistence
 
-
     # Initialize useful data structures for later: - We'll need index lists that broadcast arrays to correct sizes
     # List over each track what hypotheses it exists in. I.e., each row is a track, and that row is true or false for all hypotheses
-    t2h_idx = np.array([
-        [hypo.contains(t) for hypo in prior_hypotheses] for t in tracks
-    ])
+    t2h_idx = np.array(
+        [[hypo.contains(t) for hypo in prior_hypotheses] for t in tracks]
+    )
 
     # At this point we need to look for tracks that don't exist in any prior hypotheses and remove them from the association problem as they can potential cause LBP to not converge
     existing_tracks = t2h_idx.any(axis=1)
@@ -358,19 +390,20 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.
 
     phi = np.array(prior_hypotheses.hypothesis_probabilites())
     num_hyp = len(prior_hypotheses)
-        
 
     # phi = np.arange(len(phi))[::-1] + 1
     def compute_sigma(rho):
         rho_prods = (rho * h2t_idx + t2noth_idx.T).prod(axis=1)
-        a = (rho_prods*t2noth_idx*phi).sum(axis=1)
-        b = (rho_prods*t2h_idx*phi).sum(axis=1)
+        a = (rho_prods * t2noth_idx * phi).sum(axis=1)
+        b = (rho_prods * t2h_idx * phi).sum(axis=1)
 
         return rho * (a / b)
 
     sigma = compute_sigma(rho)
 
-    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+    a2b_msg = w_nmd / (
+        w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:, None]
+    )
 
     b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
@@ -392,7 +425,6 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.
         asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
 
         return asso_prob
-
 
     it = 0
     msg_it = 0
@@ -416,12 +448,11 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.
         #     sigma_moment *= sigma_moment
         # else:
         sigma = compute_sigma(rho)
-        
-        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:,None])
+
+        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:, None])
         # tracks x measurements
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
-
 
         it = it + 1
 
@@ -454,7 +485,7 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.
     tot_asso_prob[nonexisting_tracks, -1] = 1.0
 
     out = tot_asso_prob, it, msg_it, converged
-    
+
     # if full_ouput:
     #     ds = np.array(ds)
     #     prev_b_avg = np.array(prev_b_avg)
@@ -469,11 +500,29 @@ def lbp_marginal_nonexistence(llr: np.ndarray, prior_hypotheses: pdd.hypothesis.
 
     # out += (a2b_msg, b2a_msg, rho, sigma)
 
-    return w_nmd, w_0, a2b_msg, b2a_msg, rho, sigma, phi, t2h_idx, t2noth_idx, tot_asso_prob
+    return (
+        w_nmd,
+        w_0,
+        a2b_msg,
+        b2a_msg,
+        rho,
+        sigma,
+        phi,
+        t2h_idx,
+        t2noth_idx,
+        tot_asso_prob,
+    )
 
 
-
-def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def lbp_marginal_nonexistence_multicluster(
+    llr: np.ndarray,
+    prior_hypotheses_per_cluster: list[list[tuple[list[int], float]]],
+    msg_thresh: float = 1e-7,
+    marginal_max_error_diff: float = 1e-6,
+    iters_per_marg_check: int = 5,
+    max_iter: int = 10_000,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -512,11 +561,13 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
     phi_per_cluster = []
 
     for prior_hypotheses in prior_hypotheses_per_cluster:
-        tracks_in_cluster = frozenset(tt for t,_ in prior_hypotheses for tt in t)
+        tracks_in_cluster = frozenset(tt for t, _ in prior_hypotheses for tt in t)
         t_idx = np.sort(np.fromiter(tracks_in_cluster, dtype=int)) - 1
         track_idx_per_cluster.append(t_idx)
 
-        t2h_idx = np.array([[t in hypo[0] for hypo in prior_hypotheses] for t in tracks_in_cluster])
+        t2h_idx = np.array(
+            [[t in hypo[0] for hypo in prior_hypotheses] for t in tracks_in_cluster]
+        )
         t2noth_idx = ~t2h_idx
         h2t_idx = t2h_idx.T
 
@@ -533,19 +584,28 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
     rho = w_0.ravel() + (w_nmd).sum(axis=1)
 
     sigma: np.ndarray = np.empty_like(rho)
+
     def compute_sigma(rho: np.ndarray) -> np.ndarray:
-        for phi, t_idx, h2t_idx, t2noth_idx, t2h_idx in zip(phi_per_cluster, track_idx_per_cluster, h2t_idx_per_cluster, t2noth_idx_per_cluster, t2h_idx_per_cluster):
+        for phi, t_idx, h2t_idx, t2noth_idx, t2h_idx in zip(
+            phi_per_cluster,
+            track_idx_per_cluster,
+            h2t_idx_per_cluster,
+            t2noth_idx_per_cluster,
+            t2h_idx_per_cluster,
+        ):
             rho_c = rho[t_idx]
             rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
-            a = (rho_prods*t2noth_idx*phi).sum(axis=1)
-            b = (rho_prods*t2h_idx*phi).sum(axis=1)
+            a = (rho_prods * t2noth_idx * phi).sum(axis=1)
+            b = (rho_prods * t2h_idx * phi).sum(axis=1)
             sigma[t_idx] = rho_c * (a / b)
 
         return sigma
 
     sigma: np.ndarray = compute_sigma(rho)
 
-    a2b_msg: np.ndarray = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+    a2b_msg: np.ndarray = w_nmd / (
+        w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:, None]
+    )
 
     b2a_msg: np.ndarray = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
     converged = False
@@ -573,8 +633,8 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
 
         rho = w_0.ravel() + w_times_msg_sum.ravel()
         sigma = compute_sigma(rho)
-        
-        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:,None])
+
+        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:, None])
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
@@ -582,10 +642,8 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
 
     asso_prob = compute_asso_probs(sigma, b2a_msg)
 
-
     tot_asso_prob = np.empty((n, m + 2))
     tot_asso_prob = asso_prob
-
 
     meas_probs = np.empty((m, n + 1))
     meas_probs[:, 0] = 1
@@ -593,10 +651,16 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
     meas_probs = meas_probs / meas_probs.sum(axis=1, keepdims=True)
 
     theta_probs = []
-    for phi, t_idx, h2t_idx, t2noth_idx, t2h_idx in zip(phi_per_cluster, track_idx_per_cluster, h2t_idx_per_cluster, t2noth_idx_per_cluster, t2h_idx_per_cluster):
+    for phi, t_idx, h2t_idx, t2noth_idx, t2h_idx in zip(
+        phi_per_cluster,
+        track_idx_per_cluster,
+        h2t_idx_per_cluster,
+        t2noth_idx_per_cluster,
+        t2h_idx_per_cluster,
+    ):
         rho_c = rho[t_idx]
         rho_prods = (rho_c * h2t_idx + t2noth_idx.T).prod(axis=1)
-        p = rho_prods*phi
+        p = rho_prods * phi
         p = p / p.sum()
         theta_probs.append(p)
 
@@ -605,8 +669,15 @@ def lbp_marginal_nonexistence_multicluster(llr: np.ndarray, prior_hypotheses_per
     return out
 
 
-
-def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: list[tuple[list[int], float]], msg_thresh: float = 1e-7, marginal_max_error_diff: float = 1e-6, iters_per_marg_check: int = 5, max_iter: int = 10_000, **kwargs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def lbp_marginal_nonexistence_alternative(
+    llr: np.ndarray,
+    prior_hypotheses: list[tuple[list[int], float]],
+    msg_thresh: float = 1e-7,
+    marginal_max_error_diff: float = 1e-6,
+    iters_per_marg_check: int = 5,
+    max_iter: int = 10_000,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Calculate marginal association probabilities using loopy belief propagation [1].
 
     Parameters
@@ -651,12 +722,9 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
     # NOTE(odin): Add a misdetection term in bottom sum and make 1 for nonexistence?
     # The nominator should only be over actual measurements, denominator however is over all values of ai / bj, so it should include misdetection and nonexistence
 
-
     # Initialize useful data structures for later: - We'll need index lists that broadcast arrays to correct sizes
     # List over each track what hypotheses it exists in. I.e., each row is a track, and that row is true or false for all hypotheses
-    t2h_idx = np.array([
-        [t in hypo[0] for hypo in prior_hypotheses] for t in tracks
-    ])
+    t2h_idx = np.array([[t in hypo[0] for hypo in prior_hypotheses] for t in tracks])
 
     # At this point we need to look for tracks that don't exist in any prior hypotheses and remove them from the association problem as they can potential cause LBP to not converge
     existing_tracks = t2h_idx.any(axis=1)
@@ -673,7 +741,7 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
     noth2t_idx = ~h2t_idx
     # Assume sigma(ai = N) = 1 for initialization
 
-    # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende. 
+    # tracks x measurementsFor det første - Jeg har endelig tatt meg sammen og implementert de nye meldingene jeg utledet, og etter en del testing har jeg konkludert med at det funker, som er kult. Jeg legger ved Python-filen med koden om noen her skulle være interessert i å teste på sin ende.
 
     lbp_output_in_kwargs = False
     if "lbp_output" in kwargs and kwargs["lbp_output"]:
@@ -688,15 +756,17 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
     # phi = np.arange(len(phi))[::-1] + 1
     def compute_sigma(rho):
         rho_prods = (rho * noth2t_idx + h2t_idx).prod(axis=1)
-        a = (rho_prods*t2noth_idx*phi).sum(axis=1)
-        b = rho * (rho_prods*t2h_idx*phi).sum(axis=1)
+        a = (rho_prods * t2noth_idx * phi).sum(axis=1)
+        b = rho * (rho_prods * t2h_idx * phi).sum(axis=1)
 
-        return (a / b)
+        return a / b
 
     sigma = compute_sigma(rho)
     sigma_moment = 0.999
 
-    a2b_msg = w_nmd / (w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:,None])
+    a2b_msg = w_nmd / (
+        w_0 + (w_nmd.sum(axis=1, keepdims=True) - w_nmd) + sigma[:, None]
+    )
 
     b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
 
@@ -706,17 +776,15 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
     # we need messages from a to theta and theta to a
     # Let's do this carefully. Sigma should be nmber of tracks long, as we only store 1 number per track
 
-
     # The message from theta to track is a little convoluted to compute
     # We need, for each track, to know what hypotheses it's present in and what it's not, and do two sums for each track
     # However, the sum involves doing a product over all other tracks for the rho message, where the product changes
 
-    # We do both sums for each target, such that we slice the necessary 
+    # We do both sums for each target, such that we slice the necessary
 
     full_ouput = False
     if "full_output" in kwargs:
         full_ouput = kwargs["full_output"]
-
 
     def msg_norm(m, n):
         return np.max(np.abs(np.log(n / m)))
@@ -736,7 +804,6 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
         asso_prob = asso_prob / asso_prob.sum(axis=1, keepdims=True)
 
         return asso_prob
-
 
     it = 0
     msg_it = 0
@@ -767,12 +834,11 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
         #     sigma_moment *= sigma_moment
         # else:
         sigma = compute_sigma(rho)
-        
-        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:,None])
+
+        a2b_msg = w_nmd / ((w_0 + (w_times_msg_sum - w_times_msg)) + sigma[:, None])
         # tracks x measurements
 
         b2a_msg = 1.0 / (1.0 + (a2b_msg.sum(axis=0, keepdims=True) - a2b_msg))
-
 
         if lbp_output_in_kwargs:
             lbp_output.append(rho, sigma, a2b_msg, b2a_msg)
@@ -785,7 +851,6 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
             d = np.abs(asso_prob - prev_asso_prob).max()
             asso_prob_d.append(d)
             prev_asso_prob = asso_prob.copy()
-
 
         it = it + 1
 
@@ -818,7 +883,7 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
     tot_asso_prob[nonexisting_tracks, -1] = 1.0
 
     out = tot_asso_prob, it, msg_it, converged
-    
+
     if full_ouput:
         ds = np.array(ds)
         prev_b_avg = np.array(prev_b_avg)
@@ -830,13 +895,15 @@ def lbp_marginal_nonexistence_alternative(llr: np.ndarray, prior_hypotheses: lis
 
     if lbp_output_in_kwargs:
         out += (lbp_output,)
-        
+
     return out
 
 
-
-def exact_rec_marginal(llr_or_lr: np.ndarray, is_log: bool = True, **kwargs,
-                       ) -> tuple[np.ndarray, np.ndarray, float]:
+def exact_rec_marginal(
+    llr_or_lr: np.ndarray,
+    is_log: bool = True,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, float]:
     """Calculate marginal probabilities by naive recursions.
 
     Parameters
@@ -872,9 +939,8 @@ def exact_rec_marginal(llr_or_lr: np.ndarray, is_log: bool = True, **kwargs,
         lr_removed_i = np.delete(lr, i, axis=0)
         for j, lrij in enumerate(lri):
             if lrij > 0:
-                m_mask[j] = (j == 0)  # set to false when not missed detection
-                pr_a[i, j] = lrij * \
-                    exact_rec_marginal_inner(lr_removed_i, m_mask)
+                m_mask[j] = j == 0  # set to false when not missed detection
+                pr_a[i, j] = lrij * exact_rec_marginal_inner(lr_removed_i, m_mask)
                 m_mask[j] = True
             else:
                 pr_a[i, j] = 0
@@ -886,8 +952,7 @@ def exact_rec_marginal(llr_or_lr: np.ndarray, is_log: bool = True, **kwargs,
         m_mask[j] = True
 
     sums = pr_a.sum(axis=1, keepdims=True)
-    assert not DEBUG or np.allclose(
-        sums, tot_sum), "Nope, they were not equal..."
+    assert not DEBUG or np.allclose(sums, tot_sum), "Nope, they were not equal..."
 
     pr_a /= tot_sum
     pr_new /= tot_sum
@@ -903,11 +968,10 @@ def exact_rec_marginal_inner(lr: np.ndarray, m_mask) -> float:
     tot = 0
     for j in np.flatnonzero(m_mask):
         if lr[0, j] > 0:
-            m_mask[j] = (j == 0)  # set to false when not missed detection
+            m_mask[j] = j == 0  # set to false when not missed detection
             tot += lr[0, j] * exact_rec_marginal_inner(lr[1:], m_mask)
             m_mask[j] = True
-    assert not DEBUG or np.isfinite(tot),\
-        "non finite number encounterd in calculation"
+    assert not DEBUG or np.isfinite(tot), "non finite number encounterd in calculation"
     return tot
 
 
@@ -946,7 +1010,9 @@ class ExplicitHypothesisEnumerationError(Exception):
     pass
 
 
-def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[np.ndarray, np.ndarray, float]:
+def exact_marginal(
+    llr: np.ndarray, do_cluster: bool = True, **kwargs
+) -> tuple[np.ndarray, np.ndarray, float]:
     """Calculate marginal association probabilities by enumeration.
 
     Parameters
@@ -967,7 +1033,7 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
     ValueError:
         when the problem is too large
     """
-    g = (llr > -np.inf)
+    g = llr > -np.inf
     if do_cluster:
         pr_a = np.zeros_like(llr)
         pr_new = np.zeros(llr.shape[1] - 1, float)
@@ -994,7 +1060,8 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
                     cm[m_in_same] = True
 
                 pr_a[np.ix_(ctr, ca)], pr_new[cm] = exact_marginal(
-                    llr[np.ix_(ctr, ca)], False)
+                    llr[np.ix_(ctr, ca)], False
+                )
                 usedtr[ctr] = True
                 usedm[cm] = True
         pr_new[~usedm] = 1
@@ -1010,11 +1077,19 @@ def exact_marginal(llr: np.ndarray, do_cluster: bool = True, **kwargs) -> tuple[
     tracks_possible_associations = [np.nonzero(gi)[0] for gi in g]
     # Number of all possible hypotheses when only considering tracks after i
     # inclusive (both valid and invalid hypotheses).
-    Nhypotheses = np.concatenate((np.flip(np.cumprod(
-        [pai.shape[0] for pai in reversed(tracks_possible_associations)], dtype=np.uint)),
-        np.ones(1, dtype=np.uint)))
+    Nhypotheses = np.concatenate(
+        (
+            np.flip(
+                np.cumprod(
+                    [pai.shape[0] for pai in reversed(tracks_possible_associations)],
+                    dtype=np.uint,
+                )
+            ),
+            np.ones(1, dtype=np.uint),
+        )
+    )
 
-    if n * mp1 * Nhypotheses[0] > 10 ** 9:
+    if n * mp1 * Nhypotheses[0] > 10**9:
         raise ExplicitHypothesisEnumerationError()
     # Generate a matrix holding the track hypothesis for the joint hypothesis
     index_matrix = np.empty((n, Nhypotheses[0]), dtype=np.int16)

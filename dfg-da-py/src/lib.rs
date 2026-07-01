@@ -2,7 +2,7 @@
 //! single-cluster LBP through a C API). Built as a Python extension module with
 //! maturin: `cd dfg-da-py && maturin develop`.
 
-use dfg_da::{lbp_single_cluster, Hypotheses};
+use dfg_da_rs::{lbp_single_cluster, Hypotheses};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 

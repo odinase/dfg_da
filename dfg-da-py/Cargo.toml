@@ -9,5 +9,5 @@ name = "dfg_da_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-dfg-da = { path = "../dfg-da" }
+dfg-da-rs = { path = "../dfg-da-rs" }
 pyo3 = { version = "0.22", features = ["extension-module"] }

@@ -8,6 +8,7 @@ use std::ffi::CStr;
 use std::fmt;
 
 use dfg_da_sys as sys;
+pub mod lbp;
 
 /// Error carrying the C API's thread-local `dfg_last_error()` message.
 #[derive(Debug, Clone)]

@@ -2,7 +2,7 @@
 // The exact numeric cross-check against py_dfg_da is done at the Python level
 // (dfg-da-py) where both the compiled extension and this Rust path are callable.
 
-use dfg_da::{lbp_single_cluster, Hypotheses};
+use dfg_da_rs::{lbp_single_cluster, Hypotheses};
 
 #[test]
 fn single_cluster_runs() {
