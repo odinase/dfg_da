@@ -89,6 +89,105 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
     (probs, 1.0)
 }
 
+
+
+/// mu[i,j] = psi[i,j] / (1 + Σ_k w[i,k] − w[i,j])   — row reduction (Axis 1)
+/// `w` is `psi` for the initial pass and `psi * nu` inside the loop.
+fn fill_mu(mu: &mut Array2<f64>, psi: &Array2<f64>, w: &Array2<f64>) {
+    Zip::from(mu.rows_mut())
+        .and(psi.rows())
+        .and(w.rows())
+        .for_each(|mut mu_row, psi_row, w_row| {
+            let s = w_row.sum();
+            Zip::from(&mut mu_row)
+                .and(&psi_row)
+                .and(&w_row)
+                .for_each(|mu, &p, &w| *mu = p / (1.0 + s - w));
+        });
+}
+
+/// col_sum[j] = Σ_i mu[i,j]   — column reduction (Axis 0), in place.
+fn column_sums(mu: &Array2<f64>, col_sum: &mut Array1<f64>) {
+    col_sum.fill(0.0);
+    for row in mu.rows() {
+        *col_sum += &row;
+    }
+}
+
+/// nu[i,j] = 1 / (1 + col_sum[j] − mu[i,j])
+fn fill_nu(nu: &mut Array2<f64>, mu: &Array2<f64>, col_sum: &Array1<f64>) {
+    Zip::from(nu.rows_mut())
+        .and(mu.rows())
+        .for_each(|mut nu_row, mu_row| {
+            Zip::from(&mut nu_row)
+                .and(&mu_row)
+                .and(col_sum)
+                .for_each(|nu, &mu, &cs| *nu = 1.0 / (1.0 + cs - mu));
+        });
+}
+
+pub fn lbp_marginal_zip<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64>, f64) {
+    let (n, mp1) = llr.dim();
+    let m = mp1 - 1;
+    if n == 0 || m == 0 {
+        return (Array2::zeros((n, mp1)), 1.0);
+    }
+
+    // psi[i,j] = exp(llr[i, j+1] - llr[i, 0])   (computed once, loop-invariant)
+    let psi = (&llr.slice(s![.., 1..]) - &llr.slice(s![.., 0..1])).mapv(f64::exp);
+
+    // Every iteration buffer allocated exactly once.
+    let mut mu = Array2::<f64>::zeros((n, m));
+    let mut nu = Array2::<f64>::zeros((n, m));
+    let mut new_nu = Array2::<f64>::zeros((n, m));
+    let mut wtm = Array2::<f64>::zeros((n, m)); // psi * nu
+    let mut col_sum = Array1::<f64>::zeros(m);
+
+    // Initial messages.
+    fill_mu(&mut mu, &psi, &psi); // w = psi
+    column_sums(&mu, &mut col_sum);
+    fill_nu(&mut nu, &mu, &col_sum);
+
+    let thresh = 1e-5;
+    let max_iter = 300;
+    let mut term_val = f64::INFINITY;
+    let mut iter = 0; // NB: original never incremented this; fixed so max_iter binds
+
+    while term_val >= thresh && iter < max_iter {
+        Zip::from(&mut wtm).and(&psi).and(&nu).for_each(|w, &p, &nu| *w = p * nu);
+
+        fill_mu(&mut mu, &psi, &wtm);
+        column_sums(&mu, &mut col_sum);
+        fill_nu(&mut new_nu, &mu, &col_sum);
+
+        // Convergence on new_nu / nu, fused into one pass (no temporary).
+        let (mut max_r, mut min_r) = (f64::NEG_INFINITY, f64::INFINITY);
+        Zip::from(&new_nu).and(&nu).for_each(|&a, &b| {
+            let r = a / b;
+            max_r = max_r.max(r);
+            min_r = min_r.min(r);
+        });
+        term_val = max_r.max(1.0 / min_r).ln();
+
+        std::mem::swap(&mut nu, &mut new_nu); // adopt new_nu, no copy
+        iter += 1;
+    }
+
+    // Marginals: col 0 = 1, cols 1.. = psi*nu, then row-normalise in place.
+    Zip::from(&mut wtm).and(&psi).and(&nu).for_each(|w, &p, &nu| *w = p * nu);
+
+    let mut probs = Array2::<f64>::zeros((n, mp1));
+    probs.slice_mut(s![.., 0]).fill(1.0);
+    probs.slice_mut(s![.., 1..]).assign(&wtm);
+    Zip::from(probs.rows_mut()).for_each(|mut row| {
+        let s = row.sum();
+        row.map_inplace(|x| *x /= s);
+    });
+
+    (probs, 1.0)
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*; // brings the parent module's items into scope

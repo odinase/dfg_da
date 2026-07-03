@@ -10,6 +10,18 @@ use std::fmt;
 use dfg_da_sys as sys;
 pub mod lbp;
 
+use ndarray::{Array2, ArrayView2};
+
+#[inline(never)]
+pub fn lbp_marginal_f64(llr: ArrayView2<f64>) -> (Array2<f64>, f64) {
+    lbp::lbp_marginal(&llr)
+}
+
+#[inline(never)]
+pub fn lbp_marginal_f64_zip(llr: ArrayView2<f64>) -> (Array2<f64>, f64) {
+    lbp::lbp_marginal_zip(&llr)
+}
+
 /// Error carrying the C API's thread-local `dfg_last_error()` message.
 #[derive(Debug, Clone)]
 pub struct DfgError(pub String);
