@@ -22,27 +22,43 @@ build or GTSAM.
 Prereqs: `cargo`/`rustc`, `cmake` (`~/.local/bin` here), system Eigen
 (`/usr/include/eigen3`), a C++17 `g++`.
 
+### Build the Python bindings — one command
+
+With a virtualenv or conda env active, from the repo root:
+
 ```bash
-# Rust library + FFI + safe layer, plus the C++/C-API cross-path unit test
-cargo build -p dfg-da
-cargo test  -p dfg-da
+cargo dev-py
+```
 
-# Python module into the root .venv
-.venv/bin/pip install -r requirements-dev.txt      # adds maturin
-cd dfg-da-py && ../.venv/bin/maturin develop && cd ..
+This builds and installs the `dfg_da_py` extension into the active Python env and
+regenerates `dfg-da-py/dfg_da_py.pyi`. It works the same on macOS and Ubuntu, and
+installs `maturin` into the env automatically if it's missing. Prereqs: `cargo`,
+`cmake`, a C++17 compiler, and system Eigen (macOS: `brew install eigen`; Ubuntu:
+`apt install cmake g++ libeigen3-dev`).
 
-# Type stubs for the Python linter/IDE (regenerates dfg-da-py/dfg_da_py.pyi).
-# The stub_gen binary links libpython but embeds no rpath, so put the
-# interpreter's lib dir on the loader path when running it.
-cd dfg-da-py && \
-  DYLD_FALLBACK_LIBRARY_PATH="$(../.venv/bin/python -c 'import sysconfig;print(sysconfig.get_config_var("LIBDIR"))')" \
-  cargo run --bin stub_gen && cd ..   # on Linux use LD_LIBRARY_PATH instead
+Under the hood (`xtask/src/main.rs`) it just runs the two steps you can also do by hand:
+
+```bash
+# 1. build + install the extension (maturin reads features=["extension-module"] from pyproject)
+maturin develop --manifest-path dfg-da-py/Cargo.toml
+
+# 2. regenerate the stub. stub_gen links libpython but embeds no rpath, so put the
+#    interpreter's lib dir on the loader path (LD_LIBRARY_PATH on Linux):
+DYLD_FALLBACK_LIBRARY_PATH="$(python -c 'import sysconfig;print(sysconfig.get_config_var("LIBDIR"))')" \
+  cargo run --quiet -p dfg-da-py --bin stub_gen
 ```
 
 Stubs come from [`pyo3-stub-gen`](https://crates.io/crates/pyo3-stub-gen): each
 `#[pyfunction]` also carries `#[gen_stub_pyfunction]`, and `stub_gen` (`src/bin/`)
-gathers them via `define_stub_info_gatherer!` to emit `dfg_da_py.pyi`. Rerun it
-after changing any exported signature.
+gathers them via `define_stub_info_gatherer!` to emit `dfg_da_py.pyi`. `cargo dev-py`
+reruns both steps, so just call it again after changing any exported signature.
+
+To build/test only the Rust side (no Python):
+
+```bash
+cargo build -p dfg-da-rs
+cargo test  -p dfg-da-rs
+```
 
 Verify the Rust path matches the proven `py_dfg_da` C++ extension bit-for-bit:
 

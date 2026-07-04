@@ -1,0 +1,4 @@
+# `cargo dev-py` builds + installs the dfg_da_py extension into the active Python
+# env and regenerates dfg-da-py/dfg_da_py.pyi. See xtask/src/main.rs.
+[alias]
+dev-py = "run --quiet --package xtask --"

@@ -2,10 +2,15 @@
 # ruff: noqa: E501, F401, F403, F405
 
 import builtins
+import numpy
+import numpy.typing
 import typing
 __all__ = [
+    "lbp_marginal",
     "lbp_single_cluster_bethe",
 ]
+
+def lbp_marginal(llr: numpy.typing.NDArray[numpy.float64]) -> tuple[numpy.typing.NDArray[numpy.float64], builtins.float]: ...
 
 def lbp_single_cluster_bethe(reward: typing.Sequence[builtins.float], rows: builtins.int, cols: builtins.int, hyps: typing.Sequence[tuple[typing.Sequence[builtins.int], builtins.float]], max_iters: builtins.int = 300) -> builtins.float:
     r"""

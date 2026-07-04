@@ -1,0 +1,13 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Workspace automation (build + install + stub the Python bindings)"
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+# Intentionally dependency-free: a plain std process orchestrator.
+[dependencies]

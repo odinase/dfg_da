@@ -2,10 +2,11 @@
 //! single-cluster LBP through a C API). Built as a Python extension module with
 //! maturin: `cd dfg-da-py && maturin develop`.
 
-use dfg_da_rs::{lbp_single_cluster, Hypotheses};
+use dfg_da_rs::{lbp_single_cluster, Hypotheses, lbp};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
+use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 
 /// Run single-cluster LBP+Bethe and return the normalization constant.
 ///
@@ -34,11 +35,23 @@ fn lbp_single_cluster_bethe(
     Ok(out.bethe_norm_const())
 }
 
-
+#[gen_stub_pyfunction]
+#[pyfunction]
+fn lbp_marginal<'py>(
+    py: Python<'py>,
+    llr: PyReadonlyArray2<'py, f64>,
+) -> (Bound<'py, PyArray2<f64>>, f64) {
+    let view = llr.as_array(); // zero-copy ArrayView2<f64>
+    let (marginals, value) = py.detach(|| lbp::lbp_marginal(&view));
+    (marginals.into_pyarray(py), value)
+}
 
 #[pymodule]
 fn dfg_da_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lbp_single_cluster_bethe, m)?)?;
+
+    m.add_function(wrap_pyfunction!(lbp_marginal, m)?)?;
+
     Ok(())
 }
 

@@ -39,7 +39,7 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
     let thresh = 1e-5;
     let mut term_val = f64::INFINITY;
     let max_iter = 300;
-    let iter = 0;
+    let mut iter = 0;
 
     while term_val >= thresh && iter < max_iter {
         let psi_times_msg = &psi * &nu;
@@ -68,6 +68,7 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
         term_val = max_abs.ln();
 
         nu = new_nu;
+        iter += 1;
     }
 
     let mut unnormed_probs = Array2::uninit((n, mp1));
@@ -86,10 +87,64 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
                 .unwrap()
     };
 
-    (probs, 1.0)
+    let z_bethe = bethe_constant(&psi, &mu, &nu);
+
+    (probs, z_bethe)
 }
 
+fn bethe_constant<D: Data<Elem = f64>>(
+    psi: &ArrayBase<D, Ix2>,
+    mu: &ArrayBase<D, Ix2>,
+    nu: &ArrayBase<D, Ix2>,
+) -> f64 {
+    let zt = compute_zt(psi, nu);
+    let zj = compute_zj(
+      mu  
+    );
+    let ztj = compute_ztj(psi, mu, nu);
+    let m = zj.len();
+    let n = zt.len();
+    // Bethe free energy F, then return the loglikelihood −F (matches the Python reference
+    // `bethe_loglikelihood_single_cluster`).
+    let f = (m - 1) as f64 * zt.mapv(f64::ln).sum()
+        + (n - 1) as f64 * zj.mapv(f64::ln).sum()
+        - ztj.mapv(f64::ln).sum();
+    -f
+}
 
+fn compute_zt<D: Data<Elem = f64>>(psi: &ArrayBase<D, Ix2>, nu: &ArrayBase<D, Ix2>) -> Array1<f64> {
+    let psi_times_msg = psi * nu;
+    1.0 + &psi_times_msg.sum_axis(Axis(1))
+}
+
+fn compute_zj<D: Data<Elem = f64>>(mu: &ArrayBase<D, Ix2>) -> Array1<f64> {
+    1.0 + mu.sum_axis(Axis(0))
+}
+
+fn compute_ztj<D: Data<Elem = f64>>(
+    psi: &ArrayBase<D, Ix2>,
+    mu: &ArrayBase<D, Ix2>,
+    nu: &ArrayBase<D, Ix2>,
+) -> Array2<f64> {
+    let psi_times_msg = psi * nu;
+    // z_t = w_0 + (Σ_j wtm[i,j] − wtm[i,j]),  with the misdetection weight w_0 = 1.
+    let z_t = 1.0
+        + (&psi_times_msg
+            .sum_axis(Axis(1))
+            .insert_axis(Axis(1))
+            .broadcast(psi_times_msg.dim())
+            .unwrap()
+            - &psi_times_msg);
+    // z_j = 1 + (Σ_i mu[i,j] − mu[i,j])
+    let z_j = 1.0
+        + (&mu
+            .sum_axis(Axis(0))
+            .insert_axis(Axis(0))
+            .broadcast(mu.dim())
+            .unwrap()
+            - mu);
+    &z_t * &z_j + psi
+}
 
 /// mu[i,j] = psi[i,j] / (1 + Σ_k w[i,k] − w[i,j])   — row reduction (Axis 1)
 /// `w` is `psi` for the initial pass and `psi * nu` inside the loop.
@@ -154,7 +209,10 @@ pub fn lbp_marginal_zip<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2
     let mut iter = 0; // NB: original never incremented this; fixed so max_iter binds
 
     while term_val >= thresh && iter < max_iter {
-        Zip::from(&mut wtm).and(&psi).and(&nu).for_each(|w, &p, &nu| *w = p * nu);
+        Zip::from(&mut wtm)
+            .and(&psi)
+            .and(&nu)
+            .for_each(|w, &p, &nu| *w = p * nu);
 
         fill_mu(&mut mu, &psi, &wtm);
         column_sums(&mu, &mut col_sum);
@@ -174,7 +232,10 @@ pub fn lbp_marginal_zip<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2
     }
 
     // Marginals: col 0 = 1, cols 1.. = psi*nu, then row-normalise in place.
-    Zip::from(&mut wtm).and(&psi).and(&nu).for_each(|w, &p, &nu| *w = p * nu);
+    Zip::from(&mut wtm)
+        .and(&psi)
+        .and(&nu)
+        .for_each(|w, &p, &nu| *w = p * nu);
 
     let mut probs = Array2::<f64>::zeros((n, mp1));
     probs.slice_mut(s![.., 0]).fill(1.0);
@@ -186,7 +247,6 @@ pub fn lbp_marginal_zip<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2
 
     (probs, 1.0)
 }
-
 
 #[cfg(test)]
 mod tests {
