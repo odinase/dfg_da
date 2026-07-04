@@ -39,7 +39,13 @@ fn main() {
     // --- Link: the static C API + the C++ runtime it needs ---
     println!("cargo:rustc-link-search=native={}", cmake_build.display());
     println!("cargo:rustc-link-lib=static=dfg_da_c");
-    println!("cargo:rustc-link-lib=dylib=stdc++");
+    // macOS/clang uses libc++; Linux/gcc uses libstdc++.
+    let cxx_runtime = if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        "c++"
+    } else {
+        "stdc++"
+    };
+    println!("cargo:rustc-link-lib=dylib={}", cxx_runtime);
 
     // --- Rebuild triggers ---
     for rel in [

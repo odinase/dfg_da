@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <stack>
 #include <bitset>
+#include <cassert>
 
 namespace dfg_da
 {

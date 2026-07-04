@@ -6,8 +6,24 @@ description = "Python bindings (pyo3) to the safe dfg_da Rust wrappers"
 
 [lib]
 name = "dfg_da_py"
-crate-type = ["cdylib"]
+# `rlib` is needed so the `stub_gen` binary can link against the crate to
+# gather stub info; `cdylib` is the actual Python extension module.
+crate-type = ["cdylib", "rlib"]
+
+# Binary that writes the `.pyi` type stubs for the Python linter. Built without
+# the `extension-module` feature so it can link libpython and run standalone.
+[[bin]]
+name = "stub_gen"
+doc = false
+
+[features]
+default = []
+# maturin turns this on (see pyproject.toml) so the cdylib does not link
+# libpython; the `stub_gen` binary is built without it.
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 dfg-da-rs = { path = "../dfg-da-rs" }
-pyo3 = { version = "0.22", features = ["extension-module"] }
+pyo3 = { version = "0.29" }
+# 0.7+ renders arg types alongside signature defaults; 0.23 targets pyo3 0.27–0.29.
+pyo3-stub-gen = "0.23"

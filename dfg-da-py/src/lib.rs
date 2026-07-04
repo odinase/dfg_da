@@ -5,6 +5,7 @@
 use dfg_da_rs::{lbp_single_cluster, Hypotheses};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
 /// Run single-cluster LBP+Bethe and return the normalization constant.
 ///
@@ -14,6 +15,7 @@ use pyo3::prelude::*;
 ///   hyps: list of (tracks, log_prob) prior hypotheses; `tracks` are 1-indexed
 ///         local track ids as the C++ kernel expects.
 ///   max_iters: LBP iteration cap.
+#[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (reward, rows, cols, hyps, max_iters = 300))]
 fn lbp_single_cluster_bethe(
@@ -32,8 +34,14 @@ fn lbp_single_cluster_bethe(
     Ok(out.bethe_norm_const())
 }
 
+
+
 #[pymodule]
 fn dfg_da_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lbp_single_cluster_bethe, m)?)?;
     Ok(())
 }
+
+// Gathers the `#[gen_stub_*]`-annotated items so the `stub_gen` binary can emit
+// `dfg_da_py.pyi`. Generates a `pub fn stub_info() -> Result<StubInfo>`.
+pyo3_stub_gen::define_stub_info_gatherer!(stub_info);

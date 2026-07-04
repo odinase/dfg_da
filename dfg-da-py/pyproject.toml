@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.5,<2"]
+requires = ["maturin>=1.7,<2"]
 build-backend = "maturin"
 
 [project]
@@ -12,3 +12,7 @@ requires-python = ">=3.8"
 # Crate lives in a workspace; point maturin at this crate's manifest.
 manifest-path = "Cargo.toml"
 module-name = "dfg_da_py"
+# Enable the extension-module feature only for the wheel/develop build so the
+# cdylib does not link libpython. The `stub_gen` binary is built separately
+# without this feature. Regenerate stubs after building: `cargo run --bin stub_gen`.
+features = ["extension-module"]

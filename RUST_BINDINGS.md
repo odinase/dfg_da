@@ -30,7 +30,19 @@ cargo test  -p dfg-da
 # Python module into the root .venv
 .venv/bin/pip install -r requirements-dev.txt      # adds maturin
 cd dfg-da-py && ../.venv/bin/maturin develop && cd ..
+
+# Type stubs for the Python linter/IDE (regenerates dfg-da-py/dfg_da_py.pyi).
+# The stub_gen binary links libpython but embeds no rpath, so put the
+# interpreter's lib dir on the loader path when running it.
+cd dfg-da-py && \
+  DYLD_FALLBACK_LIBRARY_PATH="$(../.venv/bin/python -c 'import sysconfig;print(sysconfig.get_config_var("LIBDIR"))')" \
+  cargo run --bin stub_gen && cd ..   # on Linux use LD_LIBRARY_PATH instead
 ```
+
+Stubs come from [`pyo3-stub-gen`](https://crates.io/crates/pyo3-stub-gen): each
+`#[pyfunction]` also carries `#[gen_stub_pyfunction]`, and `stub_gen` (`src/bin/`)
+gathers them via `define_stub_info_gatherer!` to emit `dfg_da_py.pyi`. Rerun it
+after changing any exported signature.
 
 Verify the Rust path matches the proven `py_dfg_da` C++ extension bit-for-bit:
 
@@ -50,7 +62,9 @@ PY
 Add a C function in `dfg_da_c/include/dfg_da_c/lbp.h` + impl in `src/lbp_c.cpp`
 (keep the `dfg_`/`Dfg` prefixes so bindgen's allowlists pick them up), then a safe
 wrapper in `dfg-da/src/lib.rs` and, if needed, a `#[pyfunction]` in
-`dfg-da-py/src/lib.rs`. `bindgen` regenerates automatically.
+`dfg-da-py/src/lib.rs`. `bindgen` regenerates automatically. Annotate any new
+`#[pyfunction]` with `#[gen_stub_pyfunction]` and rerun `cargo run --bin stub_gen`
+(see above) so `dfg_da_py.pyi` stays in sync.
 
 > Note: `maturin develop` warns about `patchelf` for rpath — harmless here because
 > `dfg_da_c` and `libstdc++` are statically/system-linked. `pip install patchelf`
