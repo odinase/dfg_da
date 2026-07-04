@@ -6,9 +6,20 @@ import numpy
 import numpy.typing
 import typing
 __all__ = [
+    "cluster_tracks",
     "lbp_marginal",
     "lbp_single_cluster_bethe",
 ]
+
+def cluster_tracks(clusters: numpy.typing.NDArray[numpy.uint64], clusters_card: numpy.typing.NDArray[numpy.uint64], hypos: numpy.typing.NDArray[numpy.uint64], hypos_card: numpy.typing.NDArray[numpy.uint64]) -> builtins.list[builtins.list[builtins.int]]:
+    r"""
+    Decode cluster membership from the four PMBM cloud arrays.
+    
+    Pass the raw arrays from ``priorLikelihood*.mat`` (1-based ids) as
+    contiguous ``np.uint64`` arrays; they are borrowed zero-copy and cast to
+    ``usize`` internally. Returns ``cluster -> sorted track numbers`` (cluster
+    index 0-based).
+    """
 
 def lbp_marginal(llr: numpy.typing.NDArray[numpy.float64]) -> tuple[numpy.typing.NDArray[numpy.float64], builtins.float]: ...
 

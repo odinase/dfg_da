@@ -87,12 +87,12 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
                 .unwrap()
     };
 
-    let z_bethe = bethe_constant(&psi, &mu, &nu);
+    let z_bethe = bethe_loglikelihood(&psi, &mu, &nu);
 
     (probs, z_bethe)
 }
 
-fn bethe_constant<D: Data<Elem = f64>>(
+fn bethe_loglikelihood<D: Data<Elem = f64>>(
     psi: &ArrayBase<D, Ix2>,
     mu: &ArrayBase<D, Ix2>,
     nu: &ArrayBase<D, Ix2>,

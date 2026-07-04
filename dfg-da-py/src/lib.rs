@@ -2,11 +2,11 @@
 //! single-cluster LBP through a C API). Built as a Python extension module with
 //! maturin: `cd dfg-da-py && maturin develop`.
 
-use dfg_da_rs::{lbp_single_cluster, Hypotheses, lbp};
-use pyo3::exceptions::PyRuntimeError;
+use dfg_da_rs::{lbp_single_cluster, Clustering, Hypotheses, lbp};
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
-use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
+use numpy::{IntoPyArray, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 
 /// Run single-cluster LBP+Bethe and return the normalization constant.
 ///
@@ -46,11 +46,39 @@ fn lbp_marginal<'py>(
     (marginals.into_pyarray(py), value)
 }
 
+/// Decode cluster membership from the four PMBM cloud arrays.
+///
+/// Pass the raw arrays from ``priorLikelihood*.mat`` (1-based ids) as
+/// contiguous ``np.uint64`` arrays; they are borrowed zero-copy and cast to
+/// ``usize`` internally. Returns ``cluster -> sorted track numbers`` (cluster
+/// index 0-based).
+#[gen_stub_pyfunction]
+#[pyfunction]
+fn cluster_tracks(
+    clusters: PyReadonlyArray1<'_, u64>,
+    clusters_card: PyReadonlyArray1<'_, u64>,
+    hypos: PyReadonlyArray1<'_, u64>,
+    hypos_card: PyReadonlyArray1<'_, u64>,
+) -> PyResult<Vec<Vec<usize>>> {
+    let to_usize = |a: &PyReadonlyArray1<'_, u64>| -> PyResult<Vec<usize>> {
+        Ok(a.as_slice()?.iter().map(|&x| x as usize).collect())
+    };
+    let clusters = to_usize(&clusters)?;
+    let clusters_card = to_usize(&clusters_card)?;
+    let hypos = to_usize(&hypos)?;
+    let hypos_card = to_usize(&hypos_card)?;
+    let clustering = Clustering::decode(&clusters, &clusters_card, &hypos, &hypos_card)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(clustering.to_vecs())
+}
+
 #[pymodule]
 fn dfg_da_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lbp_single_cluster_bethe, m)?)?;
 
     m.add_function(wrap_pyfunction!(lbp_marginal, m)?)?;
+
+    m.add_function(wrap_pyfunction!(cluster_tracks, m)?)?;
 
     Ok(())
 }
