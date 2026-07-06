@@ -39,6 +39,34 @@ def test_case():
 
     return R, prior_hypotheses_per_cluster, assocLocal
 
+
+def test_case2():
+    R = np.array([
+        [    3.0, -np.inf, -np.inf,   -0.60, -np.inf, -np.inf, -np.inf, -np.inf],
+        [    3.2, -np.inf, -np.inf, -np.inf,   -0.56, -np.inf, -np.inf, -np.inf],
+        [   -3.0,     2.0,     1.2, -np.inf, -np.inf,   -0.46, -np.inf, -np.inf],
+        [-np.inf, -np.inf,     3.0, -np.inf, -np.inf, -np.inf,   -0.62, -np.inf],
+        [-np.inf,    -0.4,    -1.8, -np.inf, -np.inf, -np.inf, -np.inf,   -0.55],
+    ], order='F')
+
+    prior_hypotheses_per_cluster: pdd.hypothesis.HypothesesList = pdd.hypothesis.HypothesesList([
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([1, 2], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([1, 3], np.log(0.5))
+        ]),
+        pdd.hypothesis.Hypotheses([
+            pdd.hypothesis.Hypothesis([4], np.log(0.5)),
+            pdd.hypothesis.Hypothesis([5], np.log(0.5))
+        ])
+    ])
+
+    assocLocal = np.array([
+        [1, 1],
+        [1, 0]
+    ])
+
+    return R, prior_hypotheses_per_cluster, assocLocal
+
 @dataclass
 class LinkingMappings:
     cluster_to_linking_measurements: Dict[int, MutableSet[int]]

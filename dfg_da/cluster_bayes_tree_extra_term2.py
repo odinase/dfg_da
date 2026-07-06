@@ -262,7 +262,7 @@ def conditioned_reward_matrix(R_cluster, meas_existence_mapping) -> np.ndarray:
     R[:, nonexisting_meas] = -np.inf
 
     # First, normalize by misdetections. Can probably be done only once when initializing, but we do it here for now
-    R[:, 1:] -= R[:, [0]]
+    # R -= R[:, [0]]
 
     return R
 
@@ -503,6 +503,14 @@ class ConditionalSuperclusterMarginals:
                 linking_mappings_mapping_mat=linking_mappings_mapping_mat
             ))
 
+        # Compute number of competing clusters for each measurment
+        self.num_competing_clusters_per_lmk_arr_idx = np.empty(len(self.lm2arr_idx))
+        for lnk_meas_idx, clusters in self.linking_mappings.linking_measurements_to_clusters.items():
+            num_competing_lnk_meas_idx = len(clusters)
+            self.num_competing_clusters_per_lmk_arr_idx[self.lm2arr_idx[lnk_meas_idx]] = num_competing_lnk_meas_idx
+        
+        print(self.num_competing_clusters_per_lmk_arr_idx)
+
     def remap_linking_measurements(self, linking_mappings: LinkingMappings) -> Dict[int, int]:
         # The simplest is probably to just make a dictionary from one idx to another?
         return {
@@ -549,11 +557,16 @@ class ConditionalSuperclusterMarginals:
         marginal_term = np.empty_like(marginals)
         likelihood = 0.0
         K_l = len(self.conditioned_clusters)
+
+
+        # Find the mapping from measurement_assignent index to measurement index
+        print(self.linking_mappings.linking_measurements_to_clusters)
+
         # Sum, loop over assignments
         for measurement_assignment in measurement_assignments:
-            print(measurement_assignment)
-            weight = 1 if measurement_assignment != -1 else 1 - K_l
-            print(weight)
+            # print(measurement_assignment)
+            weight = np.prod(1 - self.num_competing_clusters_per_lmk_arr_idx[measurement_assignment == -1])
+            # print(weight)
             # Construct each term
             # Since the clusters now are independent, we simply compute the conditional marginals for each cluster and appropriately insert them into the supercluster marginal, and sum
             assignment_likelihood = 1.0
@@ -574,6 +587,8 @@ class ConditionalSuperclusterMarginals:
                 continue
 
             assignment_likelihood *= weight
+
+            # print(f"Likelihood for weight {weight} measurement delegate {measurement_assignment}: {assignment_likelihood}")
 
             marginals += marginal_term*assignment_likelihood
             likelihood += assignment_likelihood

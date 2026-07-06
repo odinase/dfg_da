@@ -214,14 +214,14 @@ class ConditionalSuperclusterMarginals:
         marg_term = np.empty_like(marginals)
         for d in assignments:
             # Signed inclusion-exclusion weight for this tuple.
+            W = 1
             if ie:
-                W = 1
                 for col, val in enumerate(d):
                     W *= weight_tables[col][int(val)]
                 if W == 0:
                     continue
-            else:
-                W = 1
+
+            # print(f"Weight: {W}")
 
             joint_lik = 1.0
             theta_terms = {}
