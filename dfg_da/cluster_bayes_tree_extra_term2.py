@@ -378,11 +378,12 @@ def multihypothesis_ehm2_meas_conditioned2(R_cluster, prior_hypotheses, meas_exi
             JPDAprobs, likelihood = EHM2.run_and_likelihood(validation_matrix, likelihood_matrix)
         else:
             JPDAprobs = np.zeros((0, mp1))
+            likelihood = 1.0
             # We need to check if some measurement has to be associated. If not, we use likelihood 1. Otherwise, 0
-            if meas_existence_mapping[:, 1].any():
-                likelihood = 0.0
-            else:
-                likelihood = 1.0
+            # if meas_existence_mapping[:, 1].any():
+            #     likelihood = 0.0
+            # else:
+            #     likelihood = 1.0
 
         # We need to concatenate the JPDAprobs with all tracks and existence probs
         non_existing_tracks_idx = np.setdiff1d(all_tracks_idx, existing_tracks_idx, assume_unique=True)
@@ -556,6 +557,7 @@ class ConditionalSuperclusterMarginals:
             # Construct each term
             # Since the clusters now are independent, we simply compute the conditional marginals for each cluster and appropriately insert them into the supercluster marginal, and sum
             assignment_likelihood = 1.0
+            valid = True
             for cluster in self.conditioned_clusters:
                 conditioned_cluster_marginal, conditioned_cluster_likelihood = cluster.meas_conditioned_marginals(measurement_assignment)
                 if not np.isfinite(conditioned_cluster_marginal).all() or not np.isfinite(conditioned_cluster_likelihood):
@@ -565,14 +567,16 @@ class ConditionalSuperclusterMarginals:
                     marginal_term[cluster_t_idxs] = conditioned_cluster_marginal
                     assignment_likelihood *= conditioned_cluster_likelihood
                 else:
-                    assignment_likelihood = 0.0
+                    valid = False
                     break
+
+            if not valid:
+                continue
 
             assignment_likelihood *= weight
 
-            if assignment_likelihood > 0.0:
-                marginals += marginal_term*assignment_likelihood
-                likelihood += assignment_likelihood
+            marginals += marginal_term*assignment_likelihood
+            likelihood += assignment_likelihood
 
         marginals: np.ndarray = marginals[t_idxs]
         marginals = marginals / marginals.sum(axis=1, keepdims=True)
