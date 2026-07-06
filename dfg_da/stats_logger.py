@@ -477,6 +477,8 @@ class MulticlusterConditionendLBPOutput:
     raised_warning: bool = False
 
 
+
+
 @dataclass(frozen=True)
 class MulticlusterApproximateOutput:
     full_output: Union[MulticlusterConditionendLBPOutput, py_dfg_da.lbp.MHLBPMulticlusterOutput]
@@ -485,6 +487,12 @@ class MulticlusterApproximateOutput:
     approx_theta_posteriors: List[np.ndarray]
     runtime: float
 
+@dataclass
+class MulticlusterConditionendLBPOutput:
+    marginals: np.ndarray
+    likelihood: float
+    theta_posteriors: Optional[Dict[int, np.ndarray]] = None
+    raised_warning: bool = False
 
 @dataclass
 class MulticlusterData:

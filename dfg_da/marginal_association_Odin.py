@@ -1006,8 +1006,8 @@ def lbp_marginal_nonexistence_alternative(
 #     return roots
 
 
-# class ExplicitHypothesisEnumerationError(Exception):
-#     pass
+class ExplicitHypothesisEnumerationError(Exception):
+    pass
 
 
 def exact_marginal(

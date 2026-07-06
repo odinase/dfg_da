@@ -56,7 +56,8 @@ class LBPMarginalsByTotalProb(MarginalsComputer):
             R_sub = R_LC[tracks-1, :]
 
             if len(tracks) > 0:
-                lbp_probs, it_from_lbp, converged, _ = lbp_marginal(R_sub)
+                _d = lbp_marginal(R_sub)
+                lbp_probs, it_from_lbp, converged = _d["prob"], _d["it"], _d["converged"]
             else:
                 # Williams LBP returns wonky stuff for empty hypotheses, set sepcific values
                 lbp_probs = np.empty((0, R_LC.shape[1]))
@@ -151,7 +152,10 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
             bethe_loglikelihood = 0
 
             if len(tracks) > 0:
-                lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                _d = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = (
+                    _d["prob"], _d["it"], _d["converged"], _d["loglikelihood"],
+                    _d["a2b_msg"], _d["b2a_msg"], _d["w_nmd"])
                 F_b_psuedo = self.bethe_constant(w_nmd, mu, nu)
                 bethe_loglikelihood = -F_b_psuedo
                 bethe_loglikelihood += R_sub[:, 0].sum() # Rescale again with misdetection probabilities
@@ -217,7 +221,10 @@ class LBPMarginalsByTotalProbPHD(MarginalsComputer):
             phd_constant = 1.0
 
             if len(tracks) > 0:
-                lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                _d = lbp_marginal(R_sub, return_mu_nu_w_nmd=True)
+                lbp_probs, it_from_lbp, converged, bethe_log_lc, mu, nu, w_nmd = (
+                    _d["prob"], _d["it"], _d["converged"], _d["loglikelihood"],
+                    _d["a2b_msg"], _d["b2a_msg"], _d["w_nmd"])
                 phd_constant = self.PHD_normalizing_constant_approximation(R_sub)
             
             # We need to concatenate the JPDAprobs with all tracks and existence probs
