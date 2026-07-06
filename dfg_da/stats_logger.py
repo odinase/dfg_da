@@ -500,6 +500,7 @@ class MulticlusterData:
     mc_bethe_output: Optional[MulticlusterConditionendLBPOutput] = None
     mc_phd_output: Optional[MulticlusterConditionendLBPOutput] = None
     mc_mhlbp_output: Optional[MulticlusterConditionendLBPOutput] = None
+    mc_lbp_ie_output: Optional[MulticlusterConditionendLBPOutput] = None
     exact_output: Optional[MulticlusterExactOutput] = None
     
     explicit_hypothesis_enumeration_error: bool = False

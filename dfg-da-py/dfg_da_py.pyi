@@ -7,6 +7,7 @@ import numpy.typing
 import typing
 __all__ = [
     "cluster_tracks",
+    "ehm2_run_and_likelihood",
     "lbp_marginal",
     "lbp_single_cluster_bethe",
 ]
@@ -19,6 +20,18 @@ def cluster_tracks(clusters: numpy.typing.NDArray[numpy.uint64], clusters_card: 
     contiguous ``np.uint64`` arrays; they are borrowed zero-copy and cast to
     ``usize`` internally. Returns ``cluster -> sorted track numbers`` (cluster
     index 0-based).
+    """
+
+def ehm2_run_and_likelihood(validation_matrix: numpy.typing.NDArray[numpy.int32], likelihood_matrix: numpy.typing.NDArray[numpy.float64]) -> tuple[numpy.typing.NDArray[numpy.float64], builtins.float]:
+    r"""
+    Exact EHM2 marginal association probabilities + loglikelihood (pyehm fork).
+    
+    Args:
+      validation_matrix: (n, m+1) int32 gating mask (column 0 = missed detection).
+      likelihood_matrix: (n, m+1) float64 association likelihoods, same shape.
+    
+    Returns:
+      (association_matrix (n, m+1) float64, loglikelihood).
     """
 
 def lbp_marginal(llr: numpy.typing.NDArray[numpy.float64]) -> tuple[numpy.typing.NDArray[numpy.float64], builtins.float]: ...

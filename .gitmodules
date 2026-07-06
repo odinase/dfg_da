@@ -1,3 +1,6 @@
 [submodule "3rdparty/pybind11"]
 	path = pybindings/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "third_party/pyehm"]
+	path = third_party/pyehm
+	url = https://github.com/odinase/pyehm

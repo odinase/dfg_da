@@ -6,6 +6,6 @@ pub struct Cluster {
 
 impl Cluster {
     pub fn new() -> Self {
-        
+        todo!()
     }
 }

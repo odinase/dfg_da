@@ -38,7 +38,10 @@ fn main() {
 
     // --- Link: the static C API + the C++ runtime it needs ---
     println!("cargo:rustc-link-search=native={}", cmake_build.display());
+    // dfg_da_c must precede pyehm_core: its ehm2.cpp references pyehm_core symbols
+    // (the linker resolves left-to-right).
     println!("cargo:rustc-link-lib=static=dfg_da_c");
+    println!("cargo:rustc-link-lib=static=pyehm_core");
     // macOS/clang uses libc++; Linux/gcc uses libstdc++.
     let cxx_runtime = if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         "c++"
@@ -51,7 +54,9 @@ fn main() {
     for rel in [
         "dfg_da_c/CMakeLists.txt",
         "dfg_da_c/src/lbp_c.cpp",
+        "dfg_da_c/src/ehm2.cpp",
         "dfg_da_c/include/dfg_da_c/lbp.h",
+        "dfg_da_c/include/dfg_da_c/ehm2.h",
         "src/hypothesis.cpp",
         "src/lbp.cpp",
         "include/dfg_da/lbp.h",
@@ -60,11 +65,12 @@ fn main() {
         println!("cargo:rerun-if-changed={}", repo_root.join(rel).display());
     }
 
-    // --- bindgen: raw FFI from the C API header ---
-    let header = c_api_dir.join("include/dfg_da_c/lbp.h");
+    // --- bindgen: raw FFI from the C API headers ---
+    let include_dir = c_api_dir.join("include");
     let bindings = bindgen::Builder::default()
-        .header(header.to_str().unwrap())
-        .clang_arg(format!("-I{}", c_api_dir.join("include").display()))
+        .header(include_dir.join("dfg_da_c/lbp.h").to_str().unwrap())
+        .header(include_dir.join("dfg_da_c/ehm2.h").to_str().unwrap())
+        .clang_arg(format!("-I{}", include_dir.display()))
         .allowlist_function("dfg_.*")
         .allowlist_type("Dfg.*")
         .opaque_type("Dfg.*_s")

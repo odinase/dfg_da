@@ -72,6 +72,29 @@ fn cluster_tracks(
     Ok(clustering.to_vecs())
 }
 
+/// Exact EHM2 marginal association probabilities + loglikelihood (pyehm fork).
+///
+/// Args:
+///   validation_matrix: (n, m+1) int32 gating mask (column 0 = missed detection).
+///   likelihood_matrix: (n, m+1) float64 association likelihoods, same shape.
+///
+/// Returns:
+///   (association_matrix (n, m+1) float64, loglikelihood).
+#[gen_stub_pyfunction]
+#[pyfunction]
+fn ehm2_run_and_likelihood<'py>(
+    py: Python<'py>,
+    validation_matrix: PyReadonlyArray2<'py, i32>,
+    likelihood_matrix: PyReadonlyArray2<'py, f64>,
+) -> PyResult<(Bound<'py, PyArray2<f64>>, f64)> {
+    let validation = validation_matrix.as_array();
+    let likelihood = likelihood_matrix.as_array();
+    let (assoc, loglik) = py
+        .detach(|| dfg_da_rs::ehm2_run_and_likelihood(validation, likelihood))
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    Ok((assoc.into_pyarray(py), loglik))
+}
+
 #[pymodule]
 fn dfg_da_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lbp_single_cluster_bethe, m)?)?;
@@ -79,6 +102,8 @@ fn dfg_da_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lbp_marginal, m)?)?;
 
     m.add_function(wrap_pyfunction!(cluster_tracks, m)?)?;
+
+    m.add_function(wrap_pyfunction!(ehm2_run_and_likelihood, m)?)?;
 
     Ok(())
 }

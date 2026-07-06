@@ -4,9 +4,7 @@ import dfg_da.cluster_bayes_tree as cbt
 import dfg_da.stats_logger as sl
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
 from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP, MulticlusterConditionendLBPOutput
-
-from dfg_da.cluster_bayes_tree_extra_term2 import MulticlusterEfficientMarginals2
-
+from dfg_da.cluster_conditioning_lbp_ie import MulticlusterEfficientMarginalsLBPInclusionExclusion
 
 import matplotlib.pyplot as plt
 from glob import glob
@@ -82,6 +80,7 @@ def loop_func(pmbm_file):
     assocLocal = mat_data.ws["assocLocal"].copy()
     explicit_hypothesis_enumeration_error = False
     exact_output = None
+    exact_computer = mc.MulticlusterExactEHM2()
 
     try:
         start = time.time()
@@ -101,9 +100,8 @@ def loop_func(pmbm_file):
     mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD(), cluster_links=mc_bethe.cluster_links)
     mc_phd_output = mc_phd.compute_marginals_likelihood()
 
-    new_ie_based = MulticlusterEfficientMarginals2(
-            deepcopy(R_LC), deepcopy(prior_hypotheses_per_cluster), deepcopy(assocLocal)
-        )
+    mc_lbp_ie = MulticlusterEfficientMarginalsLBPInclusionExclusion(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_bethe.cluster_links)
+    mc_lbp_ie_output = mc_lbp_ie.compute_marginals_likelihood()
 
 
     cluster_data = sl.MulticlusterData(
@@ -117,6 +115,7 @@ def loop_func(pmbm_file):
         mc_phd_output=mc_phd_output,
         mc_bethe_output=mc_bethe_output,
         mc_mhlbp_output=mc_mhlbp_output,
+        mc_lbp_ie_output=mc_lbp_ie_output,
         exact_output=exact_output,
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )
@@ -129,7 +128,6 @@ if __name__ == "__main__":
 
     pmbm_files = sorted(pmbm_files)
     num_files = len(pmbm_files)
-    exact_computer = mc.MulticlusterExactEHM2()
 
     print(len(pmbm_files))
 

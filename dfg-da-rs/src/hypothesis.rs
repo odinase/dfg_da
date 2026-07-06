@@ -6,4 +6,3 @@ pub struct Hypothesis {
 pub struct Hypotheseses {
     hypotheseses: Vec<Hypothesis>
 }
-
