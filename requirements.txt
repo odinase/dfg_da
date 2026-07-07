@@ -10,10 +10,10 @@
 # Pinned to the proven working set (Python 3.12, numpy 2.x).
 
 # Core numerics / plotting used by the eval + plotting scripts
-numpy==2.5.0
-scipy==1.18.0
-matplotlib==3.11.0
-networkx==3.6.1
+numpy==2.2.6
+scipy==1.15.3
+matplotlib==3.10.9
+networkx==3.4.2
 tqdm==4.68.3
 
 # C++ extension build-time (pybind11 headers); harmless at runtime

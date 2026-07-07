@@ -27,7 +27,7 @@ option(ENABLE_TESTS "Enable tests" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
 
 
-find_package(GTSAM REQUIRED)
+# find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 find_package(matioCpp)
@@ -59,19 +59,19 @@ target_include_directories(hypothesis PUBLIC
 )
 
 target_link_libraries(hypothesis
-    gtsam
+    # gtsam
     Eigen3::Eigen 
 )
 
 add_library(${PROJECT_NAME} SHARED
-    src/factor_graph.cpp
-    src/nodes.cpp
+    # src/factor_graph.cpp
+    # src/nodes.cpp
     src/lbp.cpp
 )
 
 
 target_link_libraries(${PROJECT_NAME}
-    gtsam
+    # gtsam
     Eigen3::Eigen
     hypothesis
 )
@@ -89,7 +89,7 @@ add_executable(discrete_factor_graph
 )
 
 target_link_libraries(discrete_factor_graph
-    gtsam
+    # gtsam
     ${PROJECT_NAME}
     Eigen3::Eigen
 )
@@ -107,34 +107,34 @@ add_executable(at612_reader
 )
 
 target_link_libraries(at612_reader
-    gtsam
+    # gtsam
     ${PROJECT_NAME}
     Eigen3::Eigen
     matioCpp::matioCpp
 )
 endif (matioCpp_FOUND)
 
-add_executable(test_fg_lbp
-    fg_lbp.cpp
-)
+# add_executable(test_fg_lbp
+#     fg_lbp.cpp
+# )
 
-target_link_libraries(test_fg_lbp
-    gtsam
-    hypothesis
-    ${PROJECT_NAME}
-    Eigen3::Eigen
-)
+# target_link_libraries(test_fg_lbp
+#     # gtsam
+#     hypothesis
+#     ${PROJECT_NAME}
+#     Eigen3::Eigen
+# )
 
 
-if(glog_FOUND)
-target_link_libraries(test_fg_lbp
-  glog::glog
-)
-endif()
+# if(glog_FOUND)
+# target_link_libraries(test_fg_lbp
+#   glog::glog
+# )
+# endif()
 
 
 set_target_properties(discrete_factor_graph PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
-set_target_properties(test_fg_lbp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+# set_target_properties(test_fg_lbp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 endif(NOT ${BUILD_PYTHON_BINDINGS})
 

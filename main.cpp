@@ -1,15 +1,15 @@
 #include <iostream>
-#include <gtsam/discrete/DiscreteConditional.h>
-#include <gtsam/discrete/DiscreteFactorGraph.h>
-#include <gtsam/discrete/DiscreteMarginals.h>
-#include <gtsam/discrete/DecisionTreeFactor.h>
-#include <gtsam/discrete/DiscreteDistribution.h>
-#include <gtsam/inference/Symbol.h>
+// #include <gtsam/discrete/DiscreteConditional.h>
+// #include <gtsam/discrete/DiscreteFactorGraph.h>
+// #include <gtsam/discrete/DiscreteMarginals.h>
+// #include <gtsam/discrete/DecisionTreeFactor.h>
+// #include <gtsam/discrete/DiscreteDistribution.h>
+// #include <gtsam/inference/Symbol.h>
 
-#include <gtsam/base/treeTraversal-inst.h>
-#include <gtsam/inference/BayesTree-inst.h>
-#include <gtsam/discrete/DiscreteEliminationTree.h>
-#include <gtsam/discrete/DiscreteJunctionTree.h>
+// #include <gtsam/base/treeTraversal-inst.h>
+// #include <gtsam/inference/BayesTree-inst.h>
+// #include <gtsam/discrete/DiscreteEliminationTree.h>
+// #include <gtsam/discrete/DiscreteJunctionTree.h>
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
@@ -23,12 +23,12 @@
 #include <cmath>
 
 #include "dfg_da/hypothesis.h"
-#include "dfg_da/factor_graph.h"
+// #include "dfg_da/factor_graph.h"
 #include "dfg_da/lbp.h"
 
-using gtsam::symbol_shorthand::A;
-using gtsam::symbol_shorthand::B;
-using gtsam::symbol_shorthand::T;
+// using gtsam::symbol_shorthand::A;
+// using gtsam::symbol_shorthand::B;
+// using gtsam::symbol_shorthand::T;
 
 constexpr bool xnor(const bool x, const bool y) { return !(x != y); }
 
@@ -279,19 +279,19 @@ int main(int argc, char **argv)
     // std::cout << exact_const << "\n";
 
 
-    auto [track_marginals, meas_marginals, theta_marginals, exact_normalization_constant] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
+    // auto [track_marginals, meas_marginals, theta_marginals, exact_normalization_constant] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(R, prior_hypotheses_per_cluster);
 
-        Eigen::MatrixXd R1(3, num_measurements + 3), R2(2, num_measurements + 2);
-    R2 << 
-        -inf, 3.0,  -0.62, -inf,
-        -inf, -0.4, -inf, -0.55;
+    //     Eigen::MatrixXd R1(3, num_measurements + 3), R2(2, num_measurements + 2);
+    // R2 << 
+    //     -inf, 3.0,  -0.62, -inf,
+    //     -inf, -0.4, -inf, -0.55;
 
-    R1 << 3.0, -inf, -0.60, -inf, -inf,
-        3.2, -inf, -inf, -0.56, -inf,
-        -3.0, 1.2, -inf, -inf, -0.46;
+    // R1 << 3.0, -inf, -0.60, -inf, -inf,
+    //     3.2, -inf, -inf, -0.56, -inf,
+    //     -3.0, 1.2, -inf, -inf, -0.46;
 
 
-    std::vector<Eigen::MatrixXd> Rs = {R1, R2};
+    // std::vector<Eigen::MatrixXd> Rs = {R1, R2};
 
     // for (size_t i = 0; i < prior_hypotheses_per_cluster.size(); i++) {
     //     const auto& ph = prior_hypotheses_per_cluster[i];
@@ -307,28 +307,28 @@ int main(int argc, char **argv)
         dfg_da::hypothesis::Hypothesis{{}, log(0.1)}
     }};
 
-    auto [track_marginalsl, meas_marginalsl, theta_marginalsl, exact_normalization_constantl] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
+    // auto [track_marginalsl, meas_marginalsl, theta_marginalsl, exact_normalization_constantl] = dfg_da::factor_graph::all_exact_marginals_and_normalization_constant(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
 
-    Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(Rl, phs);
-    std::cout << "ll\n" << ll << "\n";
+    // Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(Rl, phs);
+    // std::cout << "ll\n" << ll << "\n";
 
-    std::cout << "Track marginalsl:\n";
-    std::cout << track_marginalsl << "\n";
-    std::cout << "Meas marginalsl:\n";
-    std::cout << meas_marginalsl << "\n";
-    std::cout << "Theta marginalsl:\n";
-    for (const auto& [label, theta_marginal] : theta_marginalsl) {
-        std::cout << label << ": " << theta_marginal << "\n\n";
-    }
+    // std::cout << "Track marginalsl:\n";
+    // std::cout << track_marginalsl << "\n";
+    // std::cout << "Meas marginalsl:\n";
+    // std::cout << meas_marginalsl << "\n";
+    // std::cout << "Theta marginalsl:\n";
+    // for (const auto& [label, theta_marginal] : theta_marginalsl) {
+    //     std::cout << label << ": " << theta_marginal << "\n\n";
+    // }
 
-    auto mcmhlbp = dfg_da::lbp::lbp_multicluster(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
-    for (const auto& margs : mcmhlbp.hypotheses_marginals()) {
-        std::cout << margs.transpose() << "\n";
-    }
+    // auto mcmhlbp = dfg_da::lbp::lbp_multicluster(Rl, std::vector<dfg_da::hypothesis::Hypotheses>{phs});
+    // for (const auto& margs : mcmhlbp.hypotheses_marginals()) {
+    //     std::cout << margs.transpose() << "\n";
+    // }
 
 
 
-    // dfg_da::hypothesis::Hypotheses prior_hypotheses_posterior = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]);
+    dfg_da::hypothesis::Hypotheses prior_hypotheses_posterior = prior_hypotheses_per_cluster[0].combine(prior_hypotheses_per_cluster[1]);
     // Eigen::ArrayXd ll = dfg_da::factor_graph::hypothesis_conditioned_likelihoods(R, prior_hypotheses_posterior);
     // std::cout << ll << "\n";
 

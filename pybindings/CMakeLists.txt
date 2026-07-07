@@ -89,7 +89,7 @@ target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE
     pybind11::module
     pybind11::lto
     pybind11::windows_extras
-    gtsam
+    # gtsam
     Eigen3::Eigen
     ${PROJECT_NAME}
     hypothesis

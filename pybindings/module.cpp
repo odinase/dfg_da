@@ -9,12 +9,12 @@ PYBIND11_MAKE_OPAQUE(std::vector<dfg_da::hypothesis::Hypotheses>);
 
 
 #include <iostream>
-#include <gtsam/discrete/DiscreteConditional.h>
-#include <gtsam/discrete/DiscreteFactorGraph.h>
-#include <gtsam/discrete/DiscreteMarginals.h>
-#include <gtsam/discrete/DecisionTreeFactor.h>
-#include <gtsam/discrete/DiscreteDistribution.h>
-#include <gtsam/inference/Symbol.h>
+// #include <gtsam/discrete/DiscreteConditional.h>
+// #include <gtsam/discrete/DiscreteFactorGraph.h>
+// #include <gtsam/discrete/DiscreteMarginals.h>
+// #include <gtsam/discrete/DecisionTreeFactor.h>
+// #include <gtsam/discrete/DiscreteDistribution.h>
+// #include <gtsam/inference/Symbol.h>
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
@@ -29,42 +29,42 @@ PYBIND11_MAKE_OPAQUE(std::vector<dfg_da::hypothesis::Hypotheses>);
 #endif // GLOG_AVAILABLE
 #include <cmath>
 
-#include "dfg_da/factor_graph.h"
+// #include "dfg_da/factor_graph.h"
 #include "dfg_da/lbp.h"
 
-using gtsam::symbol_shorthand::A;
+// using gtsam::symbol_shorthand::A;
 
 
 
-void gtsam_test() {
-    gtsam::DiscreteKeys all_keys;
-    gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::build_test_factor_graph();
+// void gtsam_test() {
+//     gtsam::DiscreteKeys all_keys;
+//     gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::build_test_factor_graph();
 
-    gtsam::DiscreteFactor::Values solution = dfg.optimize();
-    gtsam::DiscreteMarginals marginals(dfg);
+//     gtsam::DiscreteFactor::Values solution = dfg.optimize();
+//     gtsam::DiscreteMarginals marginals(dfg);
 
-    for (const auto& key : all_keys) {
-        gtsam::Vector marginal = marginals.marginalProbabilities(key);
-        if (gtsam::symbolChr(key.first) == 'a') {
-        std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginal.transpose() << "\n";
-        }
-    }
+//     for (const auto& key : all_keys) {
+//         gtsam::Vector marginal = marginals.marginalProbabilities(key);
+//         if (gtsam::symbolChr(key.first) == 'a') {
+//         std::cout << "Marginals for " << gtsam::Symbol(key.first) << ": " << marginal.transpose() << "\n";
+//         }
+//     }
 
-    constexpr double inf = std::numeric_limits<double>::infinity();
-    Eigen::MatrixXd R(3, 4);
-    R << 4.78, -0.46, -inf, -inf,
-         5.37, -inf, -0.52, -inf,
-         6.58, -inf, -inf, -0.60;
+//     constexpr double inf = std::numeric_limits<double>::infinity();
+//     Eigen::MatrixXd R(3, 4);
+//     R << 4.78, -0.46, -inf, -inf,
+//          5.37, -inf, -0.52, -inf,
+//          6.58, -inf, -inf, -0.60;
 
-    dfg_da::hypothesis::Hypothesis h1({1, 2}, log(0.5));
-    dfg_da::hypothesis::Hypothesis h2({1, 3}, log(0.5));
+//     dfg_da::hypothesis::Hypothesis h1({1, 2}, log(0.5));
+//     dfg_da::hypothesis::Hypothesis h2({1, 3}, log(0.5));
 
-    dfg_da::hypothesis::Hypotheses h{{h1, h2}};
+//     dfg_da::hypothesis::Hypotheses h{{h1, h2}};
 
-    Eigen::MatrixXd probs = dfg_da::hypothesis::association_marginal_posteriors(R, h);
+//     Eigen::MatrixXd probs = dfg_da::hypothesis::association_marginal_posteriors(R, h);
 
-    std::cout << probs << "\n";
-}
+//     std::cout << probs << "\n";
+// }
 
 
 namespace py = pybind11;
@@ -91,11 +91,11 @@ PYBIND11_MODULE(py_dfg_da, m) {
 
 
 // std::tuple<Eigen::ArrayXXd, double> exact_marginals_and_normalization_constant(const Eigen::Ref<const Eigen::MatrixXd> &R, const std::vector<dfg_da::hypothesis::Hypotheses> &prior_hypotheses_per_cluster);
-    py::module_ factor_graph = m.def_submodule("factor_graph");
-    factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
-    .def("all_exact_marginals_and_normalization_constant", factor_graph::all_exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
-    // Eigen::ArrayXd hypothesis_conditioned_likelihoods(const Eigen::Ref<const Eigen::MatrixXd> &R, const dfg_da::hypothesis::Hypotheses &prior_hypotheses)
-    .def("hypothesis_conditioned_likelihoods", factor_graph::hypothesis_conditioned_likelihoods, "R"_a.noconvert(), "prior_hypotheses"_a.noconvert());
+    // py::module_ factor_graph = m.def_submodule("factor_graph");
+    // factor_graph.def("exact_marginals_and_normalization_constant", factor_graph::exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
+    // .def("all_exact_marginals_and_normalization_constant", factor_graph::all_exact_marginals_and_normalization_constant, "R"_a.noconvert(), "prior_hypotheses_per_cluster"_a.noconvert())
+    // // Eigen::ArrayXd hypothesis_conditioned_likelihoods(const Eigen::Ref<const Eigen::MatrixXd> &R, const dfg_da::hypothesis::Hypotheses &prior_hypotheses)
+    // .def("hypothesis_conditioned_likelihoods", factor_graph::hypothesis_conditioned_likelihoods, "R"_a.noconvert(), "prior_hypotheses"_a.noconvert());
 
 
     py::module_ hypothesis = m.def_submodule("hypothesis");
