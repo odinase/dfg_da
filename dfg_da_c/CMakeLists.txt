@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(dfg_da_c CXX)
 
+# Export compile_commands.json for clangd / clang-tidy linting
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # The C-API wrapper compiled together with the (GTSAM-free) dfg_da sources it
 # wraps -- mirrors the direct g++ build of the py_dfg_da extension, so this needs
 # only Eigen + the stdlib (no GTSAM, no pybind11).

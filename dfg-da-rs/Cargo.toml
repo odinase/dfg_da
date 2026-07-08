@@ -9,4 +9,5 @@ name = "dfg_da_rs"
 
 [dependencies]
 dfg-da-sys = { path = "../dfg-da-sys" }
+matfile = { version = "0.5.0", features = ["ndarray"] }
 ndarray = "0.17.2"

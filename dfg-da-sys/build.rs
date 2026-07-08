@@ -24,6 +24,17 @@ fn main() {
         .expect("failed to spawn cmake configure");
     assert!(status.success(), "cmake configure failed");
 
+    // Mirror the CMake-generated compile database to a stable, hidden location
+    // (`.build/`) that the repo-root `.clangd` points at, so clangd / clang-tidy
+    // pick it up with no build step beyond `cargo build`. Best-effort: never fail
+    // the build over the editor convenience copy.
+    let generated_db = cmake_build.join("compile_commands.json");
+    if generated_db.exists() {
+        let db_dir = repo_root.join(".build");
+        let _ = std::fs::create_dir_all(&db_dir);
+        let _ = std::fs::copy(&generated_db, db_dir.join("compile_commands.json"));
+    }
+
     let status = Command::new("cmake")
         .args([
             "--build",

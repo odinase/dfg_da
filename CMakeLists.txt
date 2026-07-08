@@ -16,6 +16,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_BUILD_TYPE Release)
 
+# Export compile_commands.json for clangd / clang-tidy linting
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # TODO(odin): Is this necessary?
 set(CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR})
 

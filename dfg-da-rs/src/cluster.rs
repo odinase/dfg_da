@@ -1,7 +1,7 @@
 use crate::hypothesis as hyp;
 
 pub struct Cluster {
-    hypos: hyp::Hypotheseses
+    hypos: hyp::Hypotheses
 }
 
 impl Cluster {
