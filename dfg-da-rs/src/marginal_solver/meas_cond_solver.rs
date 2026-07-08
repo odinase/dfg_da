@@ -1,9 +1,11 @@
-use crate::{cluster::Cluster, hypothesis::Hypotheses};
+use crate::{
+    cluster::Cluster, hypothesis::Hypotheses, marginal_solver::McMhAssociationMarginalOutput,
+};
 
 use super::{McMhAssociationSolver, MhAssociationSolver};
 use ndarray::{Array2, ArrayView2, ShapeArg};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 // Uses delegating measurements to avoid merging clusters. For each cluster, run multihypothesis solver
 pub struct MeasCondSolver {
@@ -12,7 +14,9 @@ pub struct MeasCondSolver {
 }
 
 impl McMhAssociationSolver for MeasCondSolver {
-    fn compute_marginals(&self) -> super::McMhAssociationMarginalOutput {}
+    fn compute_marginals(&self) -> McMhAssociationMarginalOutput {
+        todo!()
+    }
 }
 
 pub struct AssociationInfo {
@@ -71,11 +75,60 @@ fn find_merging_clusters(assoc_local: &ArrayView2<u8>) -> Vec<HashSet<usize>> {
 fn get_tracks_per_merging_cluster(
     merging_clusters: &[HashSet<usize>],
     prior_hypothses_per_cluster: &[Hypotheses],
-) -> Vec<Vec<usize>> {
-    let relevant_clusters: HashSet<_> = merging_clusters
-        .iter().flatten().collect();
-    
-           
+) -> HashMap<usize, BTreeSet<usize>> {
+    let relevant_clusters: HashSet<usize> = merging_clusters.iter().flatten().copied().collect();
+
+    let tracks_per_merging_cluster = relevant_clusters
+        .into_iter()
+        .map(|cluster| {
+            (
+                cluster,
+                prior_hypothses_per_cluster
+                    .get(cluster)
+                    .unwrap()
+                    .all_tracks(),
+            )
+        })
+        .collect();
+
+    tracks_per_merging_cluster
+}
+
+fn find_linking_measurements(
+    llr: &ArrayView2<f64>,
+    merging_clusters: &[HashSet<usize>],
+    tracks_per_merging_cluster: &HashMap<usize, BTreeSet<usize>>,
+) -> HashMap<usize, HashSet<usize>> {
+    let cols = llr.dim().1;
+
+    let mut m2c_map = HashMap::new();
+
+    for cluster_idxs in merging_clusters {
+        let num_clusters = cluster_idxs.len();
+        let mut gated_measurements_by_tracks_in_clusters = Vec::new();
+        for cluster in cluster_idxs.iter() {
+            // For each column in llr
+            let gated_by_clusters: Vec<bool> = (1..cols)
+                .map(|c| {
+                    tracks_per_merging_cluster
+                        .get(cluster)
+                        .unwrap()
+                        .iter()
+                        .copied()
+                        .any(|t| llr[(t - 1, c)].is_finite())
+                })
+                .collect();
+            gated_measurements_by_tracks_in_clusters.push(gated_by_clusters);
+        }
+
+        
+
+        let num_measurements = cols -1;
+        for j in 0..num_measurements {
+            let num_clusters_gated_meas = gated_measurements_by_tracks_in_clusters.iter().map(|meas_gated_by_cluster|)
+        }
+    }
+    todo!()
 }
 
 impl ClusterLinks {
