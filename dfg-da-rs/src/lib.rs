@@ -15,6 +15,7 @@ pub mod lbp;
 pub use clustering::{Clustering, ClusterError, Jagged};
 pub mod hypothesis;
 pub mod cluster;
+pub mod marginal_solver;
 
 use ndarray::{Array2, ArrayView2, ArrayBase, Data, prelude::*};
 

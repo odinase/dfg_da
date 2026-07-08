@@ -87,9 +87,11 @@ pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64
                 .unwrap()
     };
 
-    let z_bethe = bethe_loglikelihood(&psi, &mu, &nu);
+    // Since psi is normalized by psi(0) (misdetection) we need to add it back here
+    let log_misdetection_weight = llr.column(0).sum();
+    let ln_z_bethe = bethe_loglikelihood(&psi, &mu, &nu) + log_misdetection_weight;
 
-    (probs, z_bethe)
+    (probs, ln_z_bethe)
 }
 
 fn bethe_loglikelihood<D: Data<Elem = f64>>(
@@ -106,6 +108,7 @@ fn bethe_loglikelihood<D: Data<Elem = f64>>(
     let n = zt.len();
     // Bethe free energy F, then return the loglikelihood −F (matches the Python reference
     // `bethe_loglikelihood_single_cluster`).
+
     let f = (m - 1) as f64 * zt.mapv(f64::ln).sum()
         + (n - 1) as f64 * zj.mapv(f64::ln).sum()
         - ztj.mapv(f64::ln).sum();

@@ -1,5 +1,5 @@
 pub struct Hypothesis {
-    log_prob: f64,
+    log_weight: f64,
     tracks: Vec<usize>
 }
 
