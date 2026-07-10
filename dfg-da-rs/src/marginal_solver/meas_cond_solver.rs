@@ -27,7 +27,7 @@ pub struct AssociationInfo {
 }
 
 impl MeasCondSolver {
-    pub fn new(asso_info: AssociationInfo, mh_solver: Box<dyn MhAssociationSolver>, cluster_links: ClusterLinks) -> Self {
+    pub fn new(asso_info: AssociationInfo, mh_solver: Rc<dyn MhAssociationSolver>, cluster_links: ClusterLinks) -> Self {
         Self {
             asso_info,
             mh_solver,

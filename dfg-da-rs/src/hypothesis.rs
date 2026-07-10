@@ -8,10 +8,7 @@ pub struct Hypothesis {
 
 impl Hypothesis {
     pub fn new(tracks: Vec<usize>, log_weight: f64) -> Self {
-        Self {
-            tracks,
-            log_weight,
-        }
+        Self { tracks, log_weight }
     }
 }
 
@@ -22,13 +19,13 @@ pub struct Hypotheses {
 
 impl Hypotheses {
     pub fn new() -> Self {
-        Self {hypotheses: Vec::new()}
+        Self {
+            hypotheses: Vec::new(),
+        }
     }
 
     pub fn with_hypotheses(hypotheses: Vec<Hypothesis>) -> Self {
-        Self {
-            hypotheses
-        }
+        Self { hypotheses }
     }
 
     pub fn all_tracks(&self) -> BTreeSet<usize> {
@@ -37,5 +34,9 @@ impl Hypotheses {
             .flat_map(|h| h.tracks.iter())
             .copied()
             .collect()
+    }
+
+    pub fn track_as_indices(&self) -> Vec<usize> {
+        self.all_tracks().iter().map(|t| t - 1).collect()
     }
 }

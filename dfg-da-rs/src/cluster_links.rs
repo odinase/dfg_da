@@ -139,6 +139,10 @@ impl LinkingMappings {
     pub fn all_cluster_idxs(&self) -> Vec<usize> {
         self.cluster_to_linking_measurements.keys().copied().collect()
     }
+
+    pub fn all_linking_measurement_idxs(&self) -> Vec<usize> {
+        self.linking_measurement_to_clusters.keys().copied().collect()
+    }
     // pub fn new(
     //     linking_measurement_to_clusters: HashMap<usize, HashSet<usize>>,
     //     cluster_to_linking_measurements: HashMap<usize, HashSet<usize>>,
