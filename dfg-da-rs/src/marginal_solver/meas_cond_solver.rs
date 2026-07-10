@@ -6,11 +6,11 @@ use crate::{
 use super::{McMhAssociationSolver, MhAssociationSolver};
 use ndarray::{Array2, ArrayView2, ShapeArg};
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::{collections::{BTreeSet, HashMap, HashSet}, rc::Rc};
 
 // Uses delegating measurements to avoid merging clusters. For each cluster, run multihypothesis solver
 pub struct MeasCondSolver {
-    mh_solver: Box<dyn MhAssociationSolver>,
+    mh_solver: Rc<dyn MhAssociationSolver>,
     asso_info: AssociationInfo,
 }
 
