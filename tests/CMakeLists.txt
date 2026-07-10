@@ -29,12 +29,6 @@ target_link_libraries(test_dfg
 )
 
 
-if(glog_FOUND)
-target_link_libraries(test_dfg
-  glog::glog
-)
-endif()
-
 add_test(TestDFG test_dfg)
 
 

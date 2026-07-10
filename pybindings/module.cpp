@@ -24,9 +24,6 @@ PYBIND11_MAKE_OPAQUE(std::vector<dfg_da::hypothesis::Hypotheses>);
 
 
 
-#ifdef GLOG_AVAILABLE
-#include <glog/logging.h>
-#endif // GLOG_AVAILABLE
 #include <cmath>
 
 // #include "dfg_da/factor_graph.h"

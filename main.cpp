@@ -17,9 +17,6 @@
 #include <limits>
 #include <fstream>
 
-#ifdef GLOG_AVAILABLE
-#include <glog/logging.h>
-#endif // GLOG_AVAILABLE
 #include <cmath>
 
 #include "dfg_da/hypothesis.h"
@@ -171,13 +168,8 @@ constexpr bool xnor(const bool x, const bool y) { return !(x != y); }
 //     return dfg;
 // }
 
-int main(int argc, char **argv)
+int main()
 {
-#ifdef GLOG_AVAILABLE
-    google::InitGoogleLogging(argv[0]);
-    google::InstallFailureSignalHandler();
-#endif // GLOG_AVAILABLE
-
     // gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::build_test_factor_graph();
 
     // gtsam::DiscreteFactor::Values solution = dfg.optimize();

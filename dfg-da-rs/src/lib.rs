@@ -16,17 +16,9 @@ pub use clustering::{Clustering, ClusterError, Jagged};
 pub mod hypothesis;
 pub mod cluster;
 pub mod marginal_solver;
+pub mod cluster_links;
 
 use ndarray::{Array2, ArrayView2, ArrayBase, Data, prelude::*};
-
-
-// WIP: signature completed minimally so the crate compiles — finish as needed.
-pub fn find_linking_measurements<D: Data<Elem = f64>>(_llr: &ArrayBase<D, Ix2>, _cluster_idxs: &[usize]) {
-    todo!("find_linking_measurements")
-}
-
-
-
 
 
 #[inline(never)]

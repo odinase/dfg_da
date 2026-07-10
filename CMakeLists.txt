@@ -34,18 +34,8 @@ option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
 find_package(Eigen3 REQUIRED)
 
 find_package(matioCpp)
-find_package (glog)
-
-
-if (glog_FOUND)
-add_definitions(-DGLOG_AVAILABLE)
-message("Building with glog")
-else()
-message("Building without glog")
-endif()
 
 if (matioCpp_FOUND)
-# add_definitions(-DGLOG_AVAILABLE)
 message("Building with matioCpp")
 else()
 message("Building without matioCpp")
@@ -97,12 +87,6 @@ target_link_libraries(discrete_factor_graph
     Eigen3::Eigen
 )
 
-if(glog_FOUND)
-target_link_libraries(discrete_factor_graph
-  glog::glog
-)
-endif()
-
 
 if (matioCpp_FOUND)
 add_executable(at612_reader
@@ -127,13 +111,6 @@ endif (matioCpp_FOUND)
 #     ${PROJECT_NAME}
 #     Eigen3::Eigen
 # )
-
-
-# if(glog_FOUND)
-# target_link_libraries(test_fg_lbp
-#   glog::glog
-# )
-# endif()
 
 
 set_target_properties(discrete_factor_graph PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})

@@ -13,20 +13,12 @@
 #include "dfg_da/hypothesis.h"
 #include "dfg_da/factor_graph.h"
 
-#ifdef GLOG_AVAILABLE
-#include <glog/logging.h>
-#endif // GLOG_AVAILABLE
-
 
 using gtsam::symbol_shorthand::A;
 
 
 TEST(TestSuite, test_lbp)
 {
-    #ifdef GLOG_AVAILABLE
-    google::InstallFailureSignalHandler();
-    #endif // GLOG_AVAILABLE
-
     Eigen::MatrixXd R(3, 3 + 1);
     constexpr double inf = std::numeric_limits<double>::infinity();
     R << 4.78, -0.46, -inf, -inf,
@@ -51,10 +43,6 @@ TEST(TestSuite, test_lbp)
 
 TEST(TestSuite, test_hypothesis_tree)
 {
-    #ifdef GLOG_AVAILABLE
-    google::InstallFailureSignalHandler();
-    #endif // GLOG_AVAILABLE
-
     Eigen::MatrixXd R(3, 3 + 1);
     constexpr double inf = std::numeric_limits<double>::infinity();
     R << 4.78, -0.46, -inf, -inf,

@@ -7,10 +7,6 @@
 #include <gtsam/discrete/DiscreteDistribution.h>
 #include <gtsam/inference/Symbol.h>
 
-#ifdef GLOG_AVAILABLE
-#include <glog/logging.h>
-#endif // GLOG_AVAILABLE
-
 #include <cmath>
 #include <numeric>
 
@@ -18,12 +14,8 @@
 using gtsam::symbol_shorthand::A;
 
 
-int main(int argc, char **argv)
+int main()
 {
-    #ifdef GLOG_AVAILABLE
-    google::InitGoogleLogging(argv[0]);
-    google::InstallFailureSignalHandler();
-    #endif // GLOG_AVAILABLE 
 
     gtsam::DiscreteFactorGraph dfg = dfg_da::factor_graph::build_test_factor_graph();
 
