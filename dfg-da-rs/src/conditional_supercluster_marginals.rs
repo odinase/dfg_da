@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::cluster_links as cl;
 use crate::hypothesis as hyp;
@@ -64,6 +65,40 @@ impl ConditionalSuperclusterMarginals {
                 let t_idxs: Vec<_> = prior_hypotheses.track_as_indices();
                 let llr_cluster = llr.select(Axis(0), t_idxs.as_slice());
 
+                let (actual_meas_idxs, reindex_meas) = linking_measurements
+                    .iter()
+                    .copied()
+                    .map(|lm| (lm, lm2arr_idx[&lm]))
+                    .unzip();
             });
+    }
+}
+
+struct ConditionedCluster {
+    cluster_idx: usize,
+    llr_cluster: Array2<f64>,
+    prior_hypotheses: hyp::Hypotheses,
+    marginal_solver: Rc<dyn ms::MhAssociationSolver>,
+    actual_meas_idxs: Vec<usize>,
+    reindex_meas: Vec<usize>,
+}
+
+impl ConditionedCluster {
+    fn new(
+        cluster_idx: usize,
+        llr_cluster: Array2<f64>,
+        prior_hypotheses: hyp::Hypotheses,
+        marginal_solver: Rc<dyn ms::MhAssociationSolver>,
+        actual_meas_idxs: Vec<usize>,
+        reindex_meas: Vec<usize>,
+    ) -> Self {
+        Self {
+            cluster_idx,
+            llr_cluster,
+            prior_hypotheses,
+            marginal_solver,
+            actual_meas_idxs,
+            reindex_meas,
+        }
     }
 }
