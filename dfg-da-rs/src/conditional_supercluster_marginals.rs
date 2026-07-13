@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use crate::cluster_links as cl;
@@ -81,6 +82,7 @@ struct ConditionedCluster {
     marginal_solver: Rc<dyn ms::MhAssociationSolver>,
     actual_meas_idxs: Vec<usize>,
     reindex_meas: Vec<usize>,
+    cache: HashMap<Vec<bool>, ConditionedClusterMarginalOutput>, // TODO: Figure out a good type to use here
 }
 
 impl ConditionedCluster {
@@ -99,6 +101,41 @@ impl ConditionedCluster {
             marginal_solver,
             actual_meas_idxs,
             reindex_meas,
+            cache: HashMap::new(),
         }
     }
+
+    fn parse_meas_assign_to_assign_mask(&self, measurement_assigments: &[usize]) -> Vec<bool> {
+        let assigned_to_this_cluster_mask = self
+            .reindex_meas
+            .iter()
+            .map(|idx| measurement_assigments[*idx] == self.cluster_idx)
+            .collect();
+
+        assigned_to_this_cluster_mask
+    }
+
+    fn conditioned_reward_matrix(&self, assigned_to_this_cluster_mask: &[bool]) -> Array2<f64> {
+        let mut llr_conditioned = self.llr_cluster.clone();
+
+        let removed_measurements = assigned_to_this_cluster_mask
+            .iter()
+            .zip(self.actual_meas_idxs.iter())
+            .filter_map(|(assigned, meas_idx)| if !*assigned { Some(*meas_idx) } else { None });
+
+        for col in removed_measurements {
+            llr_conditioned.column_mut(col).fill(f64::NEG_INFINITY);
+        }
+
+        llr_conditioned
+    }
+
+    fn meas_conditioned_marginals(&self, measurement_assigments: &[usize]) -> () {
+
+    }
+}
+
+
+struct ConditionedClusterMarginalOutput {
+
 }
