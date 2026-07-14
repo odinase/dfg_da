@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -10,29 +11,40 @@ use crate::hypothesis as hyp;
 use crate::marginal_solver as ms;
 use ndarray as nd;
 use ndarray::prelude::*;
-use std::cell::Cell;
+use std::iter::once;
 
 pub struct ConditionalSuperclusterMarginals {
     num_tracks: usize,
     num_measurements: usize,
+    t_idxs: BTreeSet<usize>,
+    lm2arr_idx: HashMap<usize, usize>,
+    conditioned_clusters: Vec<ConditionedCluster>,
+    num_competing_clusters_per_lm_array_idx: BTreeMap<usize, usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeasurementDelegation {
+    Delegated(usize),
+    NotDelegated,
+}
+
+use MeasurementDelegation as MD;
+
+impl MeasurementDelegation {
+    pub fn is_not_delegated(&self) -> bool {
+        self == &Self::NotDelegated
+    }
 }
 
 fn compute_supercluster_track_indices(
     prior_hypotheses_per_cluster: &[hyp::Hypotheses],
     linking_mappings: &cl::LinkingMappings,
 ) -> BTreeSet<usize> {
-    let clusters_in_supercluster = linking_mappings.all_cluster_idxs();
-    prior_hypotheses_per_cluster
+    linking_mappings
+        .all_cluster_idxs()
         .iter()
-        .map(|h| h.all_tracks())
-        .flatten()
-        .filter_map(|t| {
-            if clusters_in_supercluster.contains(&t) {
-                Some(t - 1)
-            } else {
-                None
-            }
-        })
+        .flat_map(|&c| prior_hypotheses_per_cluster[c].all_tracks())
+        .map(|t| t - 1)
         .collect()
 }
 
@@ -50,6 +62,7 @@ impl ConditionalSuperclusterMarginals {
         llr: ArrayView2<f64>,
         prior_hypotheses_per_cluster: &[hyp::Hypotheses],
         linking_mappings: &cl::LinkingMappings,
+        marginal_solver: Rc<dyn ms::MhAssociationSolver>,
     ) -> Self {
         let (n, mp1) = llr.dim();
         let num_tracks = n;
@@ -63,8 +76,8 @@ impl ConditionalSuperclusterMarginals {
         let conditioned_clusters = linking_mappings
             .cluster_to_linking_measurements()
             .iter()
-            .zip(prior_hypotheses_per_cluster.iter())
-            .map(|((cluster, linking_measurements), prior_hypotheses)| {
+            .map(|(&cluster, linking_measurements)| {
+                let prior_hypotheses = &prior_hypotheses_per_cluster[cluster];
                 let t_idxs: Vec<_> = prior_hypotheses.track_as_indices();
                 let llr_cluster = llr.select(Axis(0), t_idxs.as_slice());
 
@@ -73,7 +86,51 @@ impl ConditionalSuperclusterMarginals {
                     .copied()
                     .map(|lm| (lm, lm2arr_idx[&lm]))
                     .unzip();
-            });
+
+                ConditionedCluster::new(
+                    cluster,
+                    llr_cluster,
+                    prior_hypotheses.clone().into_reindexed(),
+                    Rc::clone(&marginal_solver),
+                    actual_meas_idxs,
+                    reindex_meas,
+                )
+            })
+            .collect();
+
+        let num_competing_clusters_per_lm_array_idx = linking_mappings
+            .linking_measurement_to_clusters()
+            .iter()
+            .map(|(lnk_meas_idx, clusters)| {
+                let num_competing_meas_idx = clusters.len();
+                (lm2arr_idx[lnk_meas_idx], num_competing_meas_idx)
+            })
+            .collect();
+
+        ConditionalSuperclusterMarginals {
+            num_tracks,
+            num_measurements,
+            t_idxs,
+            lm2arr_idx,
+            conditioned_clusters,
+            num_competing_clusters_per_lm_array_idx,
+        }
+    }
+
+fn assignment_domains<'a>(
+    &'a self,
+    linking_mappings: &'a cl::LinkingMappings,
+) -> impl Iterator<Item = impl Iterator<Item = MeasurementDelegation> + Clone + 'a> + 'a {
+    linking_mappings
+        .linking_measurement_to_clusters()
+        .iter()   // BTreeMap: yields (&lm, &clusters) in ascending lm order
+        .map(|(_lm, clusters)| {
+            once(MD::NotDelegated).chain(clusters.iter().copied().map(MD::Delegated))
+        })
+}
+
+    fn compute_marginals(&self) -> (Array2<f64>, HashMap<usize, Vec<f64>, f64>) {
+        
     }
 }
 
@@ -84,7 +141,9 @@ struct ConditionedCluster {
     marginal_solver: Rc<dyn ms::MhAssociationSolver>,
     actual_meas_idxs: Vec<usize>,
     reindex_meas: Vec<usize>,
-    cache: RefCell<HashMap<Vec<bool>, ms::MhAssociationMarginalOutput>>, // TODO: Figure out a good type to use here
+    // TODO: Figure out a good type to use here
+    // Interior mutability is valid here since it doesnt change the logical behavior of the struct
+    cache: RefCell<HashMap<Vec<bool>, ms::MhAssociationMarginalOutput>>,
 }
 
 impl ConditionedCluster {
@@ -107,14 +166,14 @@ impl ConditionedCluster {
         }
     }
 
-    fn parse_meas_assign_to_assign_mask(&self, measurement_assigments: &[usize]) -> Vec<bool> {
-        let assigned_to_this_cluster_mask = self
-            .reindex_meas
+    fn parse_meas_assign_to_assign_mask(
+        &self,
+        measurement_assignments: &[MeasurementDelegation],
+    ) -> Vec<bool> {
+        self.reindex_meas
             .iter()
-            .map(|idx| measurement_assigments[*idx] == self.cluster_idx)
-            .collect();
-
-        assigned_to_this_cluster_mask
+            .map(|&idx| measurement_assignments[idx] == MD::Delegated(self.cluster_idx))
+            .collect()
     }
 
     fn conditioned_reward_matrix(&self, assigned_to_this_cluster_mask: &[bool]) -> Array2<f64> {
@@ -134,9 +193,9 @@ impl ConditionedCluster {
 
     fn meas_conditioned_marginals(
         &self,
-        measurement_assigments: &[usize],
+        measurement_assignments: &[MeasurementDelegation],
     ) -> ms::MhAssociationMarginalOutput {
-        let assign_mask = self.parse_meas_assign_to_assign_mask(measurement_assigments);
+        let assign_mask = self.parse_meas_assign_to_assign_mask(measurement_assignments);
         if let Some(cached_mh_asso_output) = self.cache.borrow().get(&assign_mask) {
             return cached_mh_asso_output.clone();
         }

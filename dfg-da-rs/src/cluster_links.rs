@@ -1,6 +1,6 @@
 use crate::hypothesis as hyp;
 use ndarray::{self as nd, s, Array2, ArrayBase, ArrayView2, Data, Ix2};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 fn unique_with_counts(data: &[u8]) -> HashMap<u8, usize> {
     let mut counts: HashMap<u8, usize> = HashMap::new();
@@ -64,10 +64,10 @@ fn find_linking_measurements(
     llr: &ArrayView2<f64>,
     merging_clusters: &[HashSet<usize>],
     tracks_per_merging_cluster: &HashMap<usize, BTreeSet<usize>>,
-) -> HashMap<usize, HashSet<usize>> {
+) -> BTreeMap<usize, BTreeSet<usize>> {
     let cols = llr.dim().1;
     let num_measurements = cols - 1;
-    let mut m2c_map: HashMap<usize, HashSet<usize>> = HashMap::new();
+    let mut m2c_map: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
 
     for cluster_idxs in merging_clusters {
         // This maps an enumeration index back to an actual cluster index
@@ -87,7 +87,7 @@ fn find_linking_measurements(
 
         for j in 0..num_measurements {
             // All clusters (by original index) that gated measurement j
-            let gating_clusters: HashSet<usize> = c_map
+            let gating_clusters: BTreeSet<usize> = c_map
                 .iter()
                 .zip(&gated)
                 .filter(|(_, cluster_row)| cluster_row[j])
@@ -109,8 +109,8 @@ fn find_linking_measurements(
     m2c_map
 }
 
-fn invert_lm2c_map(lm2c_map: &HashMap<usize, HashSet<usize>>) -> HashMap<usize, HashSet<usize>> {
-    let mut c2m_map: HashMap<usize, HashSet<usize>> = HashMap::new();
+fn invert_lm2c_map(lm2c_map: &BTreeMap<usize, BTreeSet<usize>>) -> BTreeMap<usize, BTreeSet<usize>> {
+    let mut c2m_map: BTreeMap<usize, BTreeSet<usize>>= BTreeMap::new();
 
     for (&meas, cluster_set) in lm2c_map {
         for &cluster in cluster_set {
@@ -123,16 +123,16 @@ fn invert_lm2c_map(lm2c_map: &HashMap<usize, HashSet<usize>>) -> HashMap<usize, 
 
 #[derive(Debug, Clone)]
 pub struct LinkingMappings {
-    linking_measurement_to_clusters: HashMap<usize, HashSet<usize>>,
-    cluster_to_linking_measurements: HashMap<usize, HashSet<usize>>,
+    linking_measurement_to_clusters: BTreeMap<usize, BTreeSet<usize>>,
+    cluster_to_linking_measurements: BTreeMap<usize, BTreeSet<usize>>,
 }
 
 impl LinkingMappings {
-    pub fn linking_measurement_to_clusters(&self) -> &HashMap<usize, HashSet<usize>> {
+    pub fn linking_measurement_to_clusters(&self) -> &BTreeMap<usize, BTreeSet<usize>> {
         &self.linking_measurement_to_clusters
     }
 
-    pub fn cluster_to_linking_measurements(&self) -> &HashMap<usize, HashSet<usize>> {
+    pub fn cluster_to_linking_measurements(&self) -> &BTreeMap<usize, BTreeSet<usize>> {
         &self.cluster_to_linking_measurements
     }
 
@@ -287,7 +287,7 @@ mod tests {
             &assoc_local,
         );
 
-        let expected_mapping: HashMap<_, _> = HashMap::from([(2, HashSet::from([0, 1]))]);
+        let expected_mapping: BTreeMap<_, _> = BTreeMap::from([(2, BTreeSet::from([0, 1]))]);
 
         assert_eq!(
             &expected_mapping,
@@ -337,8 +337,8 @@ mod tests {
             &assoc_local,
         );
 
-        let expected_mapping: HashMap<_, _> =
-            HashMap::from([(1, HashSet::from([0, 1, 2])), (2, HashSet::from([1, 2]))]);
+        let expected_mapping: BTreeMap<_, _> =
+            BTreeMap::from([(1, BTreeSet::from([0, 1, 2])), (2, BTreeSet::from([1, 2]))]);
 
         assert_eq!(
             &expected_mapping,
@@ -408,15 +408,15 @@ mod tests {
             &assoc_local,
         );
 
-        let expected_mapping: HashMap<_, _> = HashMap::from([
-            (1, HashSet::from([0, 1, 4])),
-            (3, HashSet::from([2, 3])),
-            (4, HashSet::from([2, 3])),
+        let expected_mapping: BTreeMap<_, _> = BTreeMap::from([
+            (1, BTreeSet::from([0, 1, 4])),
+            (3, BTreeSet::from([2, 3])),
+            (4, BTreeSet::from([2, 3])),
         ]);
 
         assert_eq!(
             &expected_mapping,
-            cluster_links.linking_measurement_to_clusters()
+            cluster_links.linking_mappings().linking_measurement_to_clusters()
         );
     }
 }
