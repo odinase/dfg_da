@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -9,6 +10,7 @@ use crate::hypothesis as hyp;
 use crate::marginal_solver as ms;
 use ndarray as nd;
 use ndarray::prelude::*;
+use std::cell::Cell;
 
 pub struct ConditionalSuperclusterMarginals {
     num_tracks: usize,
@@ -82,7 +84,7 @@ struct ConditionedCluster {
     marginal_solver: Rc<dyn ms::MhAssociationSolver>,
     actual_meas_idxs: Vec<usize>,
     reindex_meas: Vec<usize>,
-    cache: HashMap<Vec<bool>, ConditionedClusterMarginalOutput>, // TODO: Figure out a good type to use here
+    cache: RefCell<HashMap<Vec<bool>, ms::MhAssociationMarginalOutput>>, // TODO: Figure out a good type to use here
 }
 
 impl ConditionedCluster {
@@ -101,7 +103,7 @@ impl ConditionedCluster {
             marginal_solver,
             actual_meas_idxs,
             reindex_meas,
-            cache: HashMap::new(),
+            cache: RefCell::new(HashMap::new()),
         }
     }
 
@@ -130,12 +132,26 @@ impl ConditionedCluster {
         llr_conditioned
     }
 
-    fn meas_conditioned_marginals(&self, measurement_assigments: &[usize]) -> () {
+    fn meas_conditioned_marginals(
+        &self,
+        measurement_assigments: &[usize],
+    ) -> ms::MhAssociationMarginalOutput {
+        let assign_mask = self.parse_meas_assign_to_assign_mask(measurement_assigments);
+        if let Some(cached_mh_asso_output) = self.cache.borrow().get(&assign_mask) {
+            return cached_mh_asso_output.clone();
+        }
 
+        let llr_conditioned = self.conditioned_reward_matrix(assign_mask.as_slice());
+        let mh_asso_output = self
+            .marginal_solver
+            .compute_marginals(llr_conditioned.view(), &self.prior_hypotheses);
+
+        self.cache
+            .borrow_mut()
+            .insert(assign_mask, mh_asso_output.clone());
+
+        mh_asso_output
     }
 }
 
-
-struct ConditionedClusterMarginalOutput {
-
-}
+struct ConditionedClusterMarginalOutput {}
