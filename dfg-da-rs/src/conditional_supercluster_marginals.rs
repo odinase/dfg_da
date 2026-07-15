@@ -76,8 +76,11 @@ impl ConditionalSuperclusterMarginals {
 
         // Global track idx -> compact row in the supercluster marginals array.
         // t_idxs is sorted (BTreeSet), so the rank in the set is the row.
-        let t_idx_to_row: HashMap<usize, usize> =
-            t_idxs.iter().enumerate().map(|(row, &t)| (t, row)).collect();
+        let t_idx_to_row: HashMap<usize, usize> = t_idxs
+            .iter()
+            .enumerate()
+            .map(|(row, &t)| (t, row))
+            .collect();
 
         let conditioned_clusters = linking_mappings
             .cluster_to_linking_measurements()
@@ -163,9 +166,23 @@ impl ConditionalSuperclusterMarginals {
 
         // Sum over all ways to delegate the linking measurements. Conditioned on a
         // delegation the clusters are independent, so each term is a product of
-        // per-cluster conditional marginals.
-        for measurement_assignment in self.assignment_domains().multi_cartesian_product() {
+        // per-cluster conditional marginals. Undelegated measurements would be double
+        // counted across delegations, so each term carries an inclusion-exclusion
+        // weight of (1 - #competing clusters) per undelegated measurement.
+        'measurement_assignment: for measurement_assignment in
+            self.assignment_domains().multi_cartesian_product()
+        {
+            let weight: f64 = measurement_assignment
+                .iter()
+                .enumerate()
+                .filter(|(_, delegation)| delegation.is_not_delegated())
+                .map(|(arr_idx, _)| {
+                    1.0 - self.num_competing_clusters_per_lm_array_idx[&arr_idx] as f64
+                })
+                .product();
+
             let mut assignment_likelihood = 1.0;
+            // let mut valid = true;
             let mut cluster_outputs = Vec::with_capacity(self.conditioned_clusters.len());
             for cluster in &self.conditioned_clusters {
                 let output = cluster.meas_conditioned_marginals(&measurement_assignment);
@@ -173,30 +190,37 @@ impl ConditionalSuperclusterMarginals {
                     assignment_likelihood *= output.likelihood();
                     cluster_outputs.push((cluster, output));
                 } else {
-                    assignment_likelihood = 0.0;
-                    break;
+                    // valid = false;
+                    // break;
+                    break 'measurement_assignment;
                 }
             }
 
-            if assignment_likelihood > 0.0 {
-                for (cluster, output) in &cluster_outputs {
-                    let cluster_marginals = output.marginals();
-                    for (i, &row) in cluster.supercluster_rows.iter().enumerate() {
-                        marginal_term.row_mut(row).assign(&cluster_marginals.row(i));
-                    }
+            // if !valid {
+            //     continue;
+            // }
 
-                    let term = output.theta_posteriors();
-                    let acc = theta_posteriors
-                        .entry(cluster.cluster_idx)
-                        .or_insert_with(|| vec![0.0; term.len()]);
-                    for (a, &p) in acc.iter_mut().zip(term.iter()) {
-                        *a += p * assignment_likelihood;
-                    }
+            // The weight can be negative (inclusion-exclusion), so accumulate
+            // unconditionally once the assignment is valid.
+            assignment_likelihood *= weight;
+
+            for (cluster, output) in &cluster_outputs {
+                let cluster_marginals = output.marginals();
+                for (i, &row) in cluster.supercluster_rows.iter().enumerate() {
+                    marginal_term.row_mut(row).assign(&cluster_marginals.row(i));
                 }
 
-                marginals.scaled_add(assignment_likelihood, &marginal_term);
-                likelihood += assignment_likelihood;
+                let term = output.theta_posteriors();
+                let acc = theta_posteriors
+                    .entry(cluster.cluster_idx)
+                    .or_insert_with(|| vec![0.0; term.len()]);
+                for (a, &p) in acc.iter_mut().zip(term.iter()) {
+                    *a += p * assignment_likelihood;
+                }
             }
+
+            marginals.scaled_add(assignment_likelihood, &marginal_term);
+            likelihood += assignment_likelihood;
         }
 
         // Normalize marginals row-wise and theta posteriors to sum to one.
@@ -302,5 +326,3 @@ impl ConditionedCluster {
         mh_asso_output
     }
 }
-
-struct ConditionedClusterMarginalOutput {}

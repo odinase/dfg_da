@@ -52,7 +52,9 @@ fn log_normalize(mut hypotheses: Vec<Hypothesis>) -> Vec<Hypothesis> {
         .ln();
     let logsumexp = log_weight_max + log_exp_neg_max;
 
-    hypotheses.iter_mut().map(|h| h.log_weight -= logsumexp);
+    for h in &mut hypotheses {
+        h.log_weight -= logsumexp;
+    }
 
     hypotheses
 }

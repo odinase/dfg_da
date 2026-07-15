@@ -8,7 +8,7 @@ use ndarray::{Array2, ArrayView2};
 
 #[derive(Debug, Clone)]
 pub struct McMhAssociationMarginalOutput {
-    cluster_marginals: Vec<MhAssociationMarginalOutput>,
+    pub(crate) cluster_marginals: Vec<MhAssociationMarginalOutput>,
 }
 
 // Association solver that works on multiple clusters and multiple hypotheseses
@@ -18,8 +18,8 @@ pub trait McMhAssociationSolver {
 
 #[derive(Debug, Clone)]
 pub struct MhAssociationMarginalOutput {
-    marginals: AssociationMarginalOutput,
-    theta_posteriors: Vec<f64>,
+    pub(crate) marginals: AssociationMarginalOutput,
+    pub(crate) theta_posteriors: Vec<f64>,
 }
 
 impl MhAssociationMarginalOutput {
@@ -43,8 +43,8 @@ pub trait MhAssociationSolver {
 
 #[derive(Debug, Clone)]
 pub struct AssociationMarginalOutput {
-    marginals: Array2<f64>,
-    likelihood: f64,
+    pub(crate) marginals: Array2<f64>,
+    pub(crate) likelihood: f64,
 }
 
 // Association solver that works on a single cluster and a single hypothesis
