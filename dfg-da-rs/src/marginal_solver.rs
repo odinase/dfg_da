@@ -2,6 +2,7 @@ pub mod lbp;
 pub mod mcmh_lbp;
 pub mod meas_cond_solver;
 pub mod mh_lbp;
+pub mod hyp_cond_solver;
 
 use crate::hypothesis as hyp;
 use ndarray::{Array2, ArrayView2};
@@ -49,5 +50,5 @@ pub struct AssociationMarginalOutput {
 
 // Association solver that works on a single cluster and a single hypothesis
 pub trait AssociationSolver {
-    fn compute_marginals(&self) -> AssociationMarginalOutput;
+    fn compute_marginals(&self, llr: ArrayView2<f64>) -> AssociationMarginalOutput;
 }

@@ -22,6 +22,14 @@ impl Hypothesis {
         self.reindex(old2new);
         self
     }
+
+    pub fn tracks(&self) -> &[usize] {
+        self.tracks.as_slice()
+    }
+
+    pub fn probability(&self) -> f64 {
+        self.log_weight.exp()
+    }
 }
 
 fn log_normalize(mut hypotheses: Vec<Hypothesis>) -> Vec<Hypothesis> {
@@ -71,9 +79,17 @@ impl Hypotheses {
         }
     }
 
-    pub fn with_hypotheses(hypotheses: Vec<Hypothesis>) -> Self {
-        Self { hypotheses }
+    pub fn num_hypotheses(&self) -> usize {
+        self.hypotheses.len()
     }
+
+    pub fn hypotheses(&self) -> &[Hypothesis] {
+        self.hypotheses.as_slice()
+    }
+
+    // pub fn with_hypotheses(hypotheses: Vec<Hypothesis>) -> Self {
+    //     Self { hypotheses }
+    // }
 
     pub fn all_tracks(&self) -> BTreeSet<usize> {
         self.hypotheses

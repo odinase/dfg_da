@@ -190,15 +190,9 @@ impl ConditionalSuperclusterMarginals {
                     assignment_likelihood *= output.likelihood();
                     cluster_outputs.push((cluster, output));
                 } else {
-                    // valid = false;
-                    // break;
-                    break 'measurement_assignment;
+                    continue 'measurement_assignment;
                 }
             }
-
-            // if !valid {
-            //     continue;
-            // }
 
             // The weight can be negative (inclusion-exclusion), so accumulate
             // unconditionally once the assignment is valid.

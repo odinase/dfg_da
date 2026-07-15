@@ -1,7 +1,22 @@
 use std::mem::MaybeUninit;
+use crate::marginal_solver as ms;
 
 use ndarray::Zip;
 use ndarray::{prelude::*, s, Array2, ArrayBase, Data, Ix2};
+
+// Add parameters here later?
+pub struct Lbp;
+
+impl ms::AssociationSolver for Lbp {
+    fn compute_marginals(&self, llr: ArrayView2<f64>) -> ms::AssociationMarginalOutput {
+        let (marginals, loglikelihood) = lbp_marginal(&llr);
+        ms::AssociationMarginalOutput {
+            marginals,
+            likelihood: loglikelihood.exp()
+        }
+    }
+}
+
 
 pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64>, f64) {
     let (n, mp1) = llr.dim();
