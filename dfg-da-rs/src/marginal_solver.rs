@@ -22,6 +22,20 @@ pub struct MhAssociationMarginalOutput {
     theta_posteriors: Vec<f64>,
 }
 
+impl MhAssociationMarginalOutput {
+    pub fn marginals(&self) -> &Array2<f64> {
+        &self.marginals.marginals
+    }
+
+    pub fn likelihood(&self) -> f64 {
+        self.marginals.likelihood
+    }
+
+    pub fn theta_posteriors(&self) -> &[f64] {
+        &self.theta_posteriors
+    }
+}
+
 // Association solver that works on a single cluster and multiple hypotheseses
 pub trait MhAssociationSolver {
     fn compute_marginals(&self, llr: ArrayView2<f64>, prior_hypotheses: &hyp::Hypotheses) -> MhAssociationMarginalOutput;

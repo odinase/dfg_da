@@ -20,6 +20,7 @@ pub struct ConditionalSuperclusterMarginals {
     lm2arr_idx: HashMap<usize, usize>,
     conditioned_clusters: Vec<ConditionedCluster>,
     num_competing_clusters_per_lm_array_idx: BTreeMap<usize, usize>,
+    linking_mappings: cl::LinkingMappings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +74,11 @@ impl ConditionalSuperclusterMarginals {
 
         let lm2arr_idx = remap_linking_measurements(linking_mappings);
 
+        // Global track idx -> compact row in the supercluster marginals array.
+        // t_idxs is sorted (BTreeSet), so the rank in the set is the row.
+        let t_idx_to_row: HashMap<usize, usize> =
+            t_idxs.iter().enumerate().map(|(row, &t)| (t, row)).collect();
+
         let conditioned_clusters = linking_mappings
             .cluster_to_linking_measurements()
             .iter()
@@ -80,6 +86,10 @@ impl ConditionalSuperclusterMarginals {
                 let prior_hypotheses = &prior_hypotheses_per_cluster[cluster];
                 let t_idxs: Vec<_> = prior_hypotheses.track_as_indices();
                 let llr_cluster = llr.select(Axis(0), t_idxs.as_slice());
+
+                // Row i of this cluster's marginal output goes into row
+                // supercluster_rows[i] of the compact supercluster array.
+                let supercluster_rows = t_idxs.iter().map(|t| t_idx_to_row[t]).collect();
 
                 let (actual_meas_idxs, reindex_meas) = linking_measurements
                     .iter()
@@ -90,10 +100,11 @@ impl ConditionalSuperclusterMarginals {
                 ConditionedCluster::new(
                     cluster,
                     llr_cluster,
-                    prior_hypotheses.clone().into_reindexed(),
+                    prior_hypotheses.clone(),
                     Rc::clone(&marginal_solver),
                     actual_meas_idxs,
                     reindex_meas,
+                    supercluster_rows,
                 )
             })
             .collect();
@@ -114,33 +125,107 @@ impl ConditionalSuperclusterMarginals {
             lm2arr_idx,
             conditioned_clusters,
             num_competing_clusters_per_lm_array_idx,
+            linking_mappings: linking_mappings.clone(),
         }
     }
 
-fn assignment_domains<'a>(
-    &'a self,
-    linking_mappings: &'a cl::LinkingMappings,
-) -> impl Iterator<Item = impl Iterator<Item = MeasurementDelegation> + Clone + 'a> + 'a {
-    linking_mappings
-        .linking_measurement_to_clusters()
-        .iter()   // BTreeMap: yields (&lm, &clusters) in ascending lm order
-        .map(|(_lm, clusters)| {
-            once(MD::NotDelegated).chain(clusters.iter().copied().map(MD::Delegated))
-        })
-}
+    // Lazily built domain of each linking measurement: unassigned or delegated to one
+    // of its competing clusters. The BTreeMap yields clusters in ascending lm order,
+    // which matches the lm array idx order assigned by remap_linking_measurements, so
+    // the domain at position k belongs to the measurement with array idx k.
+    fn assignment_domains(
+        &self,
+    ) -> impl Iterator<Item = impl Iterator<Item = MeasurementDelegation> + Clone + '_> + '_ {
+        self.linking_mappings
+            .linking_measurement_to_clusters()
+            .values()
+            .map(|clusters| {
+                once(MD::NotDelegated).chain(clusters.iter().copied().map(MD::Delegated))
+            })
+    }
 
-    fn compute_marginals(&self) -> (Array2<f64>, HashMap<usize, Vec<f64>, f64>) {
-        
+    /// Sorted global track indices covered by this supercluster; row k of the marginals
+    /// returned by [`Self::compute_marginals`] corresponds to the k-th index here.
+    pub fn supercluster_t_idxs(&self) -> &BTreeSet<usize> {
+        &self.t_idxs
+    }
+
+    pub fn compute_marginals(&self) -> (Array2<f64>, BTreeMap<usize, Vec<f64>>, f64) {
+        // Compact allocation: only the supercluster's tracks, in sorted t_idxs order.
+        let num_supercluster_tracks = self.t_idxs.len();
+        let cols = self.num_measurements + 2; // misdetection + measurements + nonexistence
+
+        let mut marginals = Array2::<f64>::zeros((num_supercluster_tracks, cols));
+        // All rows are written each accepted iteration, so reuse across iterations.
+        let mut marginal_term = Array2::<f64>::zeros((num_supercluster_tracks, cols));
+        let mut theta_posteriors: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
+        let mut likelihood = 0.0;
+
+        // Sum over all ways to delegate the linking measurements. Conditioned on a
+        // delegation the clusters are independent, so each term is a product of
+        // per-cluster conditional marginals.
+        for measurement_assignment in self.assignment_domains().multi_cartesian_product() {
+            let mut assignment_likelihood = 1.0;
+            let mut cluster_outputs = Vec::with_capacity(self.conditioned_clusters.len());
+            for cluster in &self.conditioned_clusters {
+                let output = cluster.meas_conditioned_marginals(&measurement_assignment);
+                if output.likelihood() > 0.0 {
+                    assignment_likelihood *= output.likelihood();
+                    cluster_outputs.push((cluster, output));
+                } else {
+                    assignment_likelihood = 0.0;
+                    break;
+                }
+            }
+
+            if assignment_likelihood > 0.0 {
+                for (cluster, output) in &cluster_outputs {
+                    let cluster_marginals = output.marginals();
+                    for (i, &row) in cluster.supercluster_rows.iter().enumerate() {
+                        marginal_term.row_mut(row).assign(&cluster_marginals.row(i));
+                    }
+
+                    let term = output.theta_posteriors();
+                    let acc = theta_posteriors
+                        .entry(cluster.cluster_idx)
+                        .or_insert_with(|| vec![0.0; term.len()]);
+                    for (a, &p) in acc.iter_mut().zip(term.iter()) {
+                        *a += p * assignment_likelihood;
+                    }
+                }
+
+                marginals.scaled_add(assignment_likelihood, &marginal_term);
+                likelihood += assignment_likelihood;
+            }
+        }
+
+        // Normalize marginals row-wise and theta posteriors to sum to one.
+        for mut row in marginals.rows_mut() {
+            let row_sum = row.sum();
+            row /= row_sum;
+        }
+        for posterior in theta_posteriors.values_mut() {
+            let sum: f64 = posterior.iter().sum();
+            for p in posterior.iter_mut() {
+                *p /= sum;
+            }
+        }
+
+        (marginals, theta_posteriors, likelihood)
     }
 }
 
 struct ConditionedCluster {
+    t_idxs: Vec<usize>,
     cluster_idx: usize,
     llr_cluster: Array2<f64>,
     prior_hypotheses: hyp::Hypotheses,
     marginal_solver: Rc<dyn ms::MhAssociationSolver>,
     actual_meas_idxs: Vec<usize>,
     reindex_meas: Vec<usize>,
+    // Row i of this cluster's marginal output belongs in row supercluster_rows[i]
+    // of the compact supercluster marginals array.
+    supercluster_rows: Vec<usize>,
     // TODO: Figure out a good type to use here
     // Interior mutability is valid here since it doesnt change the logical behavior of the struct
     cache: RefCell<HashMap<Vec<bool>, ms::MhAssociationMarginalOutput>>,
@@ -154,14 +239,19 @@ impl ConditionedCluster {
         marginal_solver: Rc<dyn ms::MhAssociationSolver>,
         actual_meas_idxs: Vec<usize>,
         reindex_meas: Vec<usize>,
+        supercluster_rows: Vec<usize>,
     ) -> Self {
+        let t_idxs = prior_hypotheses.track_as_indices();
+        let prior_hypotheses = prior_hypotheses.into_reindexed();
         Self {
+            t_idxs,
             cluster_idx,
             llr_cluster,
             prior_hypotheses,
             marginal_solver,
             actual_meas_idxs,
             reindex_meas,
+            supercluster_rows,
             cache: RefCell::new(HashMap::new()),
         }
     }
