@@ -6,6 +6,7 @@ pub mod hyp_cond_solver;
 
 use crate::hypothesis as hyp;
 use ndarray::{Array2, ArrayView2};
+use ndarray::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct McMhAssociationMarginalOutput {
@@ -20,20 +21,20 @@ pub trait McMhAssociationSolver {
 #[derive(Debug, Clone)]
 pub struct MhAssociationMarginalOutput {
     pub(crate) marginals: AssociationMarginalOutput,
-    pub(crate) theta_posteriors: Vec<f64>,
+    pub(crate) theta_posteriors: Array1<f64>,
 }
 
 impl MhAssociationMarginalOutput {
-    pub fn marginals(&self) -> &Array2<f64> {
-        &self.marginals.marginals
+    pub fn marginals(&self) -> ArrayView2<'_, f64> {
+        self.marginals.marginals.view()
     }
 
     pub fn likelihood(&self) -> f64 {
         self.marginals.likelihood
     }
 
-    pub fn theta_posteriors(&self) -> &[f64] {
-        &self.theta_posteriors
+    pub fn theta_posteriors(&self) -> ArrayView1<'_, f64> {
+        self.theta_posteriors.view()
     }
 }
 

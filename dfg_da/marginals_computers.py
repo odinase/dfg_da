@@ -132,7 +132,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
         n, mp1 = R_LC.shape
         m = mp1 - 1
         all_tracks_idx = np.arange(n)
-        
+
         lbp_marginal_total = np.zeros((n, m + 1 + 1))
 
         conditioned_marginals = np.empty((n, m + 2))

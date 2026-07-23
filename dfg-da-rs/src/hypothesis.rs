@@ -73,9 +73,9 @@ pub struct Hypotheses {
 }
 
 impl Hypotheses {
-    pub fn new(hypotheses: Vec<Hypothesis>) -> Self {
+    pub fn new() -> Self {
         Self {
-            hypotheses: log_normalize(hypotheses),
+            hypotheses: Vec::new(),
         }
     }
 
@@ -87,9 +87,9 @@ impl Hypotheses {
         self.hypotheses.as_slice()
     }
 
-    // pub fn with_hypotheses(hypotheses: Vec<Hypothesis>) -> Self {
-    //     Self { hypotheses }
-    // }
+    pub fn with_hypotheses(hypotheses: Vec<Hypothesis>) -> Self {
+        Self { hypotheses: log_normalize(hypotheses) }
+    }
 
     pub fn all_tracks(&self) -> BTreeSet<usize> {
         self.hypotheses

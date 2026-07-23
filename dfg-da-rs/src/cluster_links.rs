@@ -1,5 +1,5 @@
 use crate::hypothesis as hyp;
-use ndarray::{self as nd, s, Array2, ArrayBase, ArrayView2, Data, Ix2};
+use ndarray::{self as nd, Array2, ArrayBase, ArrayView2, Data, Ix2, s};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 fn unique_with_counts(data: &[u8]) -> HashMap<u8, usize> {
@@ -109,8 +109,10 @@ fn find_linking_measurements(
     m2c_map
 }
 
-fn invert_lm2c_map(lm2c_map: &BTreeMap<usize, BTreeSet<usize>>) -> BTreeMap<usize, BTreeSet<usize>> {
-    let mut c2m_map: BTreeMap<usize, BTreeSet<usize>>= BTreeMap::new();
+fn invert_lm2c_map(
+    lm2c_map: &BTreeMap<usize, BTreeSet<usize>>,
+) -> BTreeMap<usize, BTreeSet<usize>> {
+    let mut c2m_map: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
 
     for (&meas, cluster_set) in lm2c_map {
         for &cluster in cluster_set {
@@ -137,12 +139,19 @@ impl LinkingMappings {
     }
 
     pub fn all_cluster_idxs(&self) -> Vec<usize> {
-        self.cluster_to_linking_measurements.keys().copied().collect()
+        self.cluster_to_linking_measurements
+            .keys()
+            .copied()
+            .collect()
     }
 
     pub fn all_linking_measurement_idxs(&self) -> Vec<usize> {
-        self.linking_measurement_to_clusters.keys().copied().collect()
+        self.linking_measurement_to_clusters
+            .keys()
+            .copied()
+            .collect()
     }
+
     // pub fn new(
     //     linking_measurement_to_clusters: HashMap<usize, HashSet<usize>>,
     //     cluster_to_linking_measurements: HashMap<usize, HashSet<usize>>,
@@ -210,14 +219,6 @@ impl ClusterLinks {
         &self.clusters_that_merge
     }
 
-    // pub fn linking_measurement_to_clusters(&self) -> &HashMap<usize, HashSet<usize>> {
-    //     &self.linking_measurement_to_clusters
-    // }
-
-    // pub fn cluster_to_linking_measurements(&self) -> &HashMap<usize, HashSet<usize>> {
-    //     &self.cluster_to_linking_measurements
-    // }
-
     pub fn linking_mappings(&self) -> &LinkingMappings {
         &self.linking_mappings
         // LinkingMappings {
@@ -225,6 +226,26 @@ impl ClusterLinks {
         //     cluster_to_linking_measurements: self.cluster_to_linking_measurements.clone(),
         // }
     }
+
+    pub fn linking_mappings_per_merging_clusters(&self) -> Vec<LinkingMappings> {
+        self.merging_clusters.iter().map(|clusters| {
+            let c2lm = clusters
+                .iter()
+                .copied()
+                .map(|c| {
+                    (
+                        c,
+                        self.linking_mappings.cluster_to_linking_measurements()[&c],
+                    )
+                })
+                .collect();
+
+        })
+    }
+}
+
+fn invert_c2lm_map(cluster_to_linking_measurements: &BTreeMap<usize, BTreeSet<usize>>) -> BTreeMap<usize, BTreeSet<usize>> {
+    let measurements: BTreeSet<_> = cluster_to_linking_measurements.
 }
 
 fn edmund_to_lc<D: Data<Elem = f64>>(llr_edmund: &ArrayBase<D, Ix2>) -> Array2<f64> {
@@ -291,7 +312,9 @@ mod tests {
 
         assert_eq!(
             &expected_mapping,
-            cluster_links.linking_mappings().linking_measurement_to_clusters()
+            cluster_links
+                .linking_mappings()
+                .linking_measurement_to_clusters()
         );
     }
 
@@ -342,7 +365,9 @@ mod tests {
 
         assert_eq!(
             &expected_mapping,
-            cluster_links.linking_mappings().linking_measurement_to_clusters()
+            cluster_links
+                .linking_mappings()
+                .linking_measurement_to_clusters()
         );
     }
 
@@ -416,7 +441,9 @@ mod tests {
 
         assert_eq!(
             &expected_mapping,
-            cluster_links.linking_mappings().linking_measurement_to_clusters()
+            cluster_links
+                .linking_mappings()
+                .linking_measurement_to_clusters()
         );
     }
 }
