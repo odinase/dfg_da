@@ -38,7 +38,10 @@ impl<T> Jagged<T> {
         }
         let total = *offsets.last().unwrap();
         if total != values.len() {
-            return Err(ClusterError::CardMismatch { sum_card: total, n_values: values.len() });
+            return Err(ClusterError::CardMismatch {
+                sum_card: total,
+                n_values: values.len(),
+            });
         }
         Ok(Self { offsets, values })
     }
@@ -82,10 +85,9 @@ impl fmt::Display for ClusterError {
                 f,
                 "malformed jagged array: sum(card)={sum_card} != len(values)={n_values}"
             ),
-            ClusterError::HypothesisIdOutOfRange { id, n_hypotheses } => write!(
-                f,
-                "hypothesis id {id} out of range 1..={n_hypotheses}"
-            ),
+            ClusterError::HypothesisIdOutOfRange { id, n_hypotheses } => {
+                write!(f, "hypothesis id {id} out of range 1..={n_hypotheses}")
+            }
         }
     }
 }
@@ -149,7 +151,10 @@ impl Clustering {
             }
         }
 
-        Ok(Self { cluster_tracks, track_of })
+        Ok(Self {
+            cluster_tracks,
+            track_of,
+        })
     }
 
     /// Number of clusters.

@@ -27,9 +27,11 @@ fn main() {
     // 1. Build the extension and install it (editable) into the active env.
     eprintln!("==> maturin develop  (interpreter: {})", python.display());
     run(
-        Command::new(&maturin)
-            .current_dir(&repo_root)
-            .args(["develop", "--manifest-path", "dfg-da-py/Cargo.toml"]),
+        Command::new(&maturin).current_dir(&repo_root).args([
+            "develop",
+            "--manifest-path",
+            "dfg-da-py/Cargo.toml",
+        ]),
         "maturin develop",
     );
 
@@ -89,7 +91,11 @@ fn resolve_python() -> PathBuf {
 }
 
 fn maturin_path(bindir: &Path) -> PathBuf {
-    let name = if cfg!(windows) { "maturin.exe" } else { "maturin" };
+    let name = if cfg!(windows) {
+        "maturin.exe"
+    } else {
+        "maturin"
+    };
     bindir.join(name)
 }
 
@@ -98,7 +104,10 @@ fn ensure_maturin(python: &Path, bindir: &Path) {
     if maturin_path(bindir).exists() {
         return;
     }
-    eprintln!("==> maturin not found in {}; installing via pip", bindir.display());
+    eprintln!(
+        "==> maturin not found in {}; installing via pip",
+        bindir.display()
+    );
     run(
         Command::new(python).args(["-m", "pip", "install", "maturin"]),
         "pip install maturin",

@@ -12,16 +12,15 @@ use dfg_da_sys as sys;
 pub mod clustering;
 pub mod lbp;
 
-pub use clustering::{Clustering, ClusterError, Jagged};
-pub mod hypothesis;
+pub use clustering::{ClusterError, Clustering, Jagged};
 pub mod cluster;
-pub mod marginal_solver;
 pub mod cluster_links;
 pub mod conditional_supercluster_marginals;
+pub mod hypothesis;
+pub mod marginal_solver;
 pub mod utils;
 
-use ndarray::{Array2, ArrayView2, ArrayBase, Data, prelude::*};
-
+use ndarray::{Array2, ArrayBase, ArrayView2, Data, prelude::*};
 
 #[inline(never)]
 pub fn lbp_marginal_f64(llr: ArrayView2<f64>) -> (Array2<f64>, f64) {
@@ -172,8 +171,12 @@ pub fn ehm2_run_and_likelihood(
     // The C API wants row-major contiguous input.
     let validation = validation.as_standard_layout();
     let likelihood = likelihood.as_standard_layout();
-    let val = validation.as_slice().expect("standard layout is contiguous");
-    let lik = likelihood.as_slice().expect("standard layout is contiguous");
+    let val = validation
+        .as_slice()
+        .expect("standard layout is contiguous");
+    let lik = likelihood
+        .as_slice()
+        .expect("standard layout is contiguous");
 
     let mut assoc = Array2::<f64>::zeros((rows, cols));
     let mut loglik = 0.0_f64;

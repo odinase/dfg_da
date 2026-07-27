@@ -9,6 +9,8 @@ from cluster_partition.partitioning import MulticlusterPartitionedMarginals
 import numpy as np
 from copy import deepcopy
 import py_dfg_da as pdd
+from dfg_da.marginals_computers import LBPMarginalsByTotalProbBethe
+from dfg_da.cluster_conditioning_lbp_ie import MulticlusterEfficientMarginalsLBPInclusionExclusion
 
 
 def test_case3():
@@ -49,23 +51,34 @@ if __name__ == "__main__":
     R, prior_hypotheses_per_cluster, assocLocal = test_case3()
     R_LC = edmund_to_lc(R)
 
+    mc_lbp_ie = MulticlusterEfficientMarginalsLBPInclusionExclusion(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=LBPMarginalsByTotalProbBethe())
+
     computers = [
-        MulticlusterEfficientMarginals(
-            deepcopy(R_LC), deepcopy(prior_hypotheses_per_cluster), deepcopy(assocLocal)
-        ),
-        MulticlusterEfficientMarginals2(
-            deepcopy(R_LC), deepcopy(prior_hypotheses_per_cluster), deepcopy(assocLocal)
-        ),
-        MulticlusterPartitionedMarginals(
-            R_LC=deepcopy(R_LC),
-            prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster),
-            assocLocal=deepcopy(assocLocal),
-        ),
+        mc_lbp_ie
+        # MulticlusterEfficientMarginals(
+        #     deepcopy(R_LC), deepcopy(prior_hypotheses_per_cluster), deepcopy(assocLocal)
+        # ),
+        # MulticlusterEfficientMarginals2(
+        #     deepcopy(R_LC), deepcopy(prior_hypotheses_per_cluster), deepcopy(assocLocal)
+        # ),
+        # MulticlusterPartitionedMarginals(
+        #     R_LC=deepcopy(R_LC),
+        #     prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster),
+        #     assocLocal=deepcopy(assocLocal),
+        # ),
     ]
 
     for computer in computers:
         out = computer.compute_marginals_likelihood()
-        exact_marginals, exact_likelihood = out[0], out[-1]
+        # @dataclass
+        # class MulticlusterConditionendLBPOutput:
+        #     marginals: np.ndarray
+        #     likelihood: float
+        #     theta_posteriors: Optional[Dict[int, np.ndarray]] = None
+        #     raised_warning: bool = False
+
+
+        exact_marginals, exact_likelihood = out.marginals, out.likelihood
 
         with np.printoptions(suppress=True, precision=7, linewidth=180):
             print(exact_marginals)

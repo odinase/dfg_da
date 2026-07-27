@@ -153,7 +153,7 @@ impl ConditionalSuperclusterMarginals {
         &self.t_idxs
     }
 
-    pub fn compute_marginals(&self) -> (Array2<f64>, BTreeMap<usize, Vec<f64>>, f64) {
+    pub fn compute_marginals(&self) -> (Array2<f64>, BTreeMap<usize, Array1<f64>>, f64) {
         // Compact allocation: only the supercluster's tracks, in sorted t_idxs order.
         let num_supercluster_tracks = self.t_idxs.len();
         let cols = self.num_measurements + 2; // misdetection + measurements + nonexistence
@@ -161,7 +161,7 @@ impl ConditionalSuperclusterMarginals {
         let mut marginals = Array2::<f64>::zeros((num_supercluster_tracks, cols));
         // All rows are written each accepted iteration, so reuse across iterations.
         let mut marginal_term = Array2::<f64>::zeros((num_supercluster_tracks, cols));
-        let mut theta_posteriors: BTreeMap<usize, Vec<f64>> = BTreeMap::new();
+        let mut theta_posteriors: BTreeMap<usize, Array1<f64>> = BTreeMap::new();
         let mut likelihood = 0.0;
 
         // Sum over all ways to delegate the linking measurements. Conditioned on a
@@ -207,7 +207,7 @@ impl ConditionalSuperclusterMarginals {
                 let term = output.theta_posteriors();
                 let acc = theta_posteriors
                     .entry(cluster.cluster_idx)
-                    .or_insert_with(|| vec![0.0; term.len()]);
+                    .or_insert_with(|| Array1::zeros(term.len()));
                 for (a, &p) in acc.iter_mut().zip(term.iter()) {
                     *a += p * assignment_likelihood;
                 }

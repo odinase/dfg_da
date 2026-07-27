@@ -2,11 +2,11 @@
 //! single-cluster LBP through a C API). Built as a Python extension module with
 //! maturin: `cd dfg-da-py && maturin develop`.
 
-use dfg_da_rs::{lbp_single_cluster, Clustering, Hypotheses, lbp};
+use dfg_da_rs::{lbp, lbp_single_cluster, Clustering, Hypotheses};
+use numpy::{IntoPyArray, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
-use numpy::{IntoPyArray, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 
 /// Run single-cluster LBP+Bethe and return the normalization constant.
 ///

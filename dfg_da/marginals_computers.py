@@ -11,12 +11,12 @@ from cluster_data_asso import lc_to_edmund
 
 
 class MarginalsComputer(ABC):
-    def __call__(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> np.ndarray:
+    def __call__(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, np.ndarray, Optional[Tuple]]:
         return self.compute_marginals(R_LC, prior_hypotheses, **kwargs)
 
     @abstractmethod
-    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
-        return None
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: PriorHypotheses, **kwargs) -> Tuple[np.ndarray, np.ndarray, Optional[Tuple]]:
+        raise NotImplementedError()
 
 
 class LBPMarginalsByTotalProb(MarginalsComputer):
@@ -128,7 +128,7 @@ class LBPMarginalsByTotalProbBethe(MarginalsComputer):
 
         return F_B_pseudo
 
-    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, Optional[Tuple]]:
+    def compute_marginals(self, R_LC: np.ndarray, prior_hypotheses: pdd.hypothesis.Hypotheses, **kwargs) -> Tuple[np.ndarray, np.ndarray, Optional[Tuple]]:
         n, mp1 = R_LC.shape
         m = mp1 - 1
         all_tracks_idx = np.arange(n)

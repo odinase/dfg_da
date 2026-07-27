@@ -88,7 +88,9 @@ impl Hypotheses {
     }
 
     pub fn with_hypotheses(hypotheses: Vec<Hypothesis>) -> Self {
-        Self { hypotheses: log_normalize(hypotheses) }
+        Self {
+            hypotheses: log_normalize(hypotheses),
+        }
     }
 
     pub fn all_tracks(&self) -> BTreeSet<usize> {

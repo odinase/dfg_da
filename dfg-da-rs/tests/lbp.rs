@@ -2,7 +2,7 @@
 // The exact numeric cross-check against py_dfg_da is done at the Python level
 // (dfg-da-py) where both the compiled extension and this Rust path are callable.
 
-use dfg_da_rs::{lbp_single_cluster, Hypotheses};
+use dfg_da_rs::{Hypotheses, lbp_single_cluster};
 
 #[test]
 fn single_cluster_runs() {
@@ -24,5 +24,8 @@ fn single_cluster_runs() {
 
     let out = lbp_single_cluster(&reward, rows, cols, &hyps, 300).unwrap();
     let z = out.bethe_norm_const();
-    assert!(z.is_finite() && z > 0.0, "expected finite positive Z, got {z}");
+    assert!(
+        z.is_finite() && z > 0.0,
+        "expected finite positive Z, got {z}"
+    );
 }

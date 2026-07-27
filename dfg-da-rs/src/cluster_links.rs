@@ -10,7 +10,7 @@ fn unique_with_counts(data: &[u8]) -> HashMap<u8, usize> {
     counts
 }
 
-fn find_merging_clusters(assoc_local: &ArrayView2<u8>) -> Vec<HashSet<usize>> {
+fn find_merging_clusters(assoc_local: ArrayView2<u8>) -> Vec<HashSet<usize>> {
     let cluster_idxs_might_merge = &assoc_local.row(0) - 1;
     let master_clusters_with_counts =
         unique_with_counts(cluster_idxs_might_merge.as_slice().unwrap());
@@ -175,11 +175,11 @@ pub struct ClusterLinks {
 
 impl ClusterLinks {
     pub fn from_parsed_mat_file(
-        llr: &ArrayView2<'_, f64>,
+        llr: ArrayView2<'_, f64>,
         prior_hypotheses_per_cluster: &[hyp::Hypotheses],
-        assoc_local: &Array2<u8>,
+        assoc_local: ArrayView2<u8>,
     ) -> Self {
-        let merging_clusters = find_merging_clusters(&assoc_local.view());
+        let merging_clusters = find_merging_clusters(assoc_local);
         let tracks_per_merging_cluster = get_tracks_per_merging_cluster(
             merging_clusters.as_slice(),
             prior_hypotheses_per_cluster,
@@ -228,39 +228,51 @@ impl ClusterLinks {
     }
 
     pub fn linking_mappings_per_merging_clusters(&self) -> Vec<LinkingMappings> {
-        self.merging_clusters.iter().map(|clusters| {
-            let c2lm = clusters
-                .iter()
-                .copied()
-                .map(|c| {
-                    (
-                        c,
-                        self.linking_mappings.cluster_to_linking_measurements()[&c],
-                    )
-                })
-                .collect();
+        self.merging_clusters
+            .iter()
+            .map(|clusters| {
+                let c2lm = clusters
+                    .iter()
+                    .copied()
+                    .map(|c| {
+                        (
+                            c,
+                            self.linking_mappings.cluster_to_linking_measurements()[&c].clone(),
+                        )
+                    })
+                    .collect();
 
-        })
+                let lm2c = invert_c2lm_map(&c2lm);
+                LinkingMappings {
+                    cluster_to_linking_measurements: c2lm,
+                    linking_measurement_to_clusters: lm2c,
+                }
+            })
+            .collect()
     }
 }
 
-fn invert_c2lm_map(cluster_to_linking_measurements: &BTreeMap<usize, BTreeSet<usize>>) -> BTreeMap<usize, BTreeSet<usize>> {
-    let measurements: BTreeSet<_> = cluster_to_linking_measurements.
-}
+fn invert_c2lm_map(
+    cluster_to_linking_measurements: &BTreeMap<usize, BTreeSet<usize>>,
+) -> BTreeMap<usize, BTreeSet<usize>> {
+    let measurements: BTreeSet<_> = cluster_to_linking_measurements
+        .values()
+        .flatten()
+        .copied()
+        .collect();
+    let mut lm2c_map = BTreeMap::new();
+    for &m in &measurements {
+        for (&cluster, measurement_set) in cluster_to_linking_measurements.iter() {
+            if measurement_set.contains(&m) {
+                lm2c_map
+                    .entry(m)
+                    .or_insert_with(|| BTreeSet::new())
+                    .insert(cluster);
+            }
+        }
+    }
 
-fn edmund_to_lc<D: Data<Elem = f64>>(llr_edmund: &ArrayBase<D, Ix2>) -> Array2<f64> {
-    let (n, mpn) = llr_edmund.dim();
-    let m = mpn - n;
-    let mp1 = m + 1;
-    let misdetection_block = llr_edmund.slice(s![.., m..]);
-    let right_diag = misdetection_block.diag();
-    let mut llr_lc = Array2::zeros((n, mp1));
-    llr_lc.column_mut(0).assign(&right_diag);
-    llr_lc
-        .slice_mut(s![.., 1..])
-        .assign(&llr_edmund.slice(s![.., ..m]));
-
-    llr_lc
+    lm2c_map
 }
 
 #[cfg(test)]
@@ -269,6 +281,7 @@ mod tests {
     use std::vec;
 
     use super::*;
+    use crate::utils::edmund_to_lc;
 
     #[test]
     fn test_measurement_to_cluster_map() {
@@ -303,9 +316,9 @@ mod tests {
         ];
 
         let cluster_links = ClusterLinks::from_parsed_mat_file(
-            &llr.view(),
+            llr.view(),
             prior_hypotheses_per_cluster.as_slice(),
-            &assoc_local,
+            assoc_local.view(),
         );
 
         let expected_mapping: BTreeMap<_, _> = BTreeMap::from([(2, BTreeSet::from([0, 1]))]);
@@ -355,9 +368,9 @@ mod tests {
         ];
 
         let cluster_links = ClusterLinks::from_parsed_mat_file(
-            &llr.view(),
+            llr.view(),
             prior_hypotheses_per_cluster.as_slice(),
-            &assoc_local,
+            assoc_local.view(),
         );
 
         let expected_mapping: BTreeMap<_, _> =
@@ -428,9 +441,9 @@ mod tests {
         ];
 
         let cluster_links = ClusterLinks::from_parsed_mat_file(
-            &llr.view(),
+            llr.view(),
             prior_hypotheses_per_cluster.as_slice(),
-            &assoc_local,
+            assoc_local.view(),
         );
 
         let expected_mapping: BTreeMap<_, _> = BTreeMap::from([

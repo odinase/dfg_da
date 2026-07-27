@@ -1,4 +1,4 @@
-use ndarray::{Array, ArrayBase, Axis, Data, DataMut, Dimension};
+use ndarray::{Array, ArrayBase, Axis, Data, DataMut, Dimension, prelude::*};
 
 /// Normalizes each lane along the last axis in place so it sums to 1.
 ///
@@ -44,4 +44,19 @@ where
     let mut out = mat.to_owned();
     normalize_rows_inplace(&mut out);
     out
+}
+
+pub fn edmund_to_lc<D: Data<Elem = f64>>(llr_edmund: &ArrayBase<D, Ix2>) -> Array2<f64> {
+    let (n, mpn) = llr_edmund.dim();
+    let m = mpn - n;
+    let mp1 = m + 1;
+    let misdetection_block = llr_edmund.slice(s![.., m..]);
+    let right_diag = misdetection_block.diag();
+    let mut llr_lc = Array2::zeros((n, mp1));
+    llr_lc.column_mut(0).assign(&right_diag);
+    llr_lc
+        .slice_mut(s![.., 1..])
+        .assign(&llr_edmund.slice(s![.., ..m]));
+
+    llr_lc
 }

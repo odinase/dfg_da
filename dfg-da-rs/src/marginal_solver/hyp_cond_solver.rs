@@ -7,6 +7,12 @@ pub struct HypCondSolver {
     solver: rc::Rc<dyn ms::AssociationSolver>,
 }
 
+impl HypCondSolver {
+    pub fn new(solver: rc::Rc<dyn ms::AssociationSolver>) -> Self {
+        Self { solver }
+    }
+}
+
 impl ms::MhAssociationSolver for HypCondSolver {
     fn compute_marginals(
         &self,

@@ -1,8 +1,8 @@
-use std::mem::MaybeUninit;
 use crate::marginal_solver as ms;
+use std::mem::MaybeUninit;
 
 use ndarray::Zip;
-use ndarray::{prelude::*, s, Array2, ArrayBase, Data, Ix2};
+use ndarray::{Array2, ArrayBase, Data, Ix2, prelude::*, s};
 
 // Add parameters here later?
 pub struct Lbp;
@@ -12,11 +12,10 @@ impl ms::AssociationSolver for Lbp {
         let (marginals, loglikelihood) = lbp_marginal(&llr);
         ms::AssociationMarginalOutput {
             marginals,
-            likelihood: loglikelihood.exp()
+            likelihood: loglikelihood.exp(),
         }
     }
 }
-
 
 pub fn lbp_marginal<S: Data<Elem = f64>>(llr: &ArrayBase<S, Ix2>) -> (Array2<f64>, f64) {
     let (n, mp1) = llr.dim();
@@ -115,17 +114,14 @@ fn bethe_loglikelihood<D: Data<Elem = f64>>(
     nu: &ArrayBase<D, Ix2>,
 ) -> f64 {
     let zt = compute_zt(psi, nu);
-    let zj = compute_zj(
-      mu  
-    );
+    let zj = compute_zj(mu);
     let ztj = compute_ztj(psi, mu, nu);
     let m = zj.len();
     let n = zt.len();
     // Bethe free energy F, then return the loglikelihood −F (matches the Python reference
     // `bethe_loglikelihood_single_cluster`).
 
-    let f = (m - 1) as f64 * zt.mapv(f64::ln).sum()
-        + (n - 1) as f64 * zj.mapv(f64::ln).sum()
+    let f = (m - 1) as f64 * zt.mapv(f64::ln).sum() + (n - 1) as f64 * zj.mapv(f64::ln).sum()
         - ztj.mapv(f64::ln).sum();
     -f
 }
