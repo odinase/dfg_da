@@ -11,7 +11,7 @@
 use std::rc::Rc;
 
 use ndarray::Array2;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use dfg_da_rs::cluster_links::ClusterLinks;
 use dfg_da_rs::hypothesis::{Hypotheses, Hypothesis};
