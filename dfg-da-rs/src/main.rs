@@ -10,12 +10,64 @@ use std::rc::Rc;
 use dfg_da_rs::utils;
 use ndarray::{self as na, array, prelude::*};
 
+use anyhow::Result;
 use dfg_da_rs::cluster_links as cl;
 use dfg_da_rs::hypothesis::{Hypotheses, Hypothesis};
 use dfg_da_rs::marginal_solver::hyp_cond_solver::HypCondSolver;
 use dfg_da_rs::marginal_solver::lbp::Lbp;
 use dfg_da_rs::marginal_solver::meas_cond_solver as mcs;
 use dfg_da_rs::marginal_solver::{AssociationSolver, McMhAssociationSolver, MhAssociationSolver};
+use ndarray::ShapeBuilder;
+use std::fs::{self, File};
+use std::io::{self, BufRead, BufReader};
+use std::path;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[error("Failed to lookup name {0}")]
+struct FailedLookupError(&'static str);
+
+/// Looks up `$field` in the workspace and copies it into an `Array2<$elem>`.
+///
+/// This bridges through `matfile`'s raw `NumericData` (`$variant`) rather than
+/// its `TryInto` impls: `matfile` links `ndarray` 0.16 while this crate uses
+/// 0.17, so its `TryInto` targets a different `Array2` type. `matfile` stores
+/// column-major, hence `.f()` on the shape.
+macro_rules! find_array_in_ws {
+    ($ws:expr, $field:expr, $variant:ident, $elem:ty) => {{
+        let field: &'static str = $field;
+        (|| -> Result<Array2<$elem>, FailedLookupError> {
+            let arr = $ws.find_by_name(field).ok_or(FailedLookupError(field))?;
+            let size = arr.size();
+            let &[rows, cols] = size.as_slice() else {
+                return Err(FailedLookupError(field));
+            };
+            match arr.data() {
+                matfile::NumericData::$variant { real, imag: _ } => {
+                    Array2::from_shape_vec((rows, cols).f(), real.clone())
+                        .map_err(|_| FailedLookupError(field))
+                }
+                _ => Err(FailedLookupError(field)),
+            }
+        })()
+    }};
+}
+
+fn load_matfile_into_asso_parts(
+    matfile_path: impl AsRef<path::Path>,
+) -> Result<(Array2<f64>, Vec<Hypotheses>, Array2<u8>)> {
+    let ws = matfile::MatFile::parse(BufReader::new(File::open(matfile_path)?))?;
+
+    let llr_edmund: Array2<f64> = find_array_in_ws!(ws, "gainMatPostC", Double, f64)?;
+    let _track_file: Array2<u8> = find_array_in_ws!(ws, "trackFile", UInt8, u8)?;
+    let _measurements: Array2<u8> = find_array_in_ws!(ws, "measurements", UInt8, u8)?;
+
+    let llr = utils::edmund_to_lc(&llr_edmund);
+    let (_n, _mp1) = llr.dim();
+
+    // TODO: derive prior_hypotheses_per_cluster + assoc_local from trackFile/measurements
+    todo!("build Vec<Hypotheses> and assocLocal from the workspace")
+}
 
 fn run_hypo_solver() {
     // Log-likelihood-ratio matrix: one row per track, column 0 is misdetection

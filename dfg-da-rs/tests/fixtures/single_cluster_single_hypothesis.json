@@ -1,0 +1,56 @@
+{
+  "name": "single_cluster_single_hypothesis",
+  "R_LC": [
+    [
+      0.0,
+      1.0,
+      null
+    ],
+    [
+      0.0,
+      null,
+      1.0
+    ]
+  ],
+  "prior_hypotheses_per_cluster": [
+    [
+      {
+        "tracks": [
+          1,
+          2
+        ],
+        "log_weight": 0.0
+      }
+    ]
+  ],
+  "assoc_local": [
+    [
+      1
+    ],
+    [
+      1
+    ]
+  ],
+  "expected": {
+    "marginals": [
+      [
+        0.2689414213699951,
+        0.7310585786300049,
+        0.0,
+        0.0
+      ],
+      [
+        0.2689414213699951,
+        0.0,
+        0.7310585786300049,
+        0.0
+      ]
+    ],
+    "likelihood": 13.825619755848747,
+    "theta_posteriors": [
+      [
+        1.0
+      ]
+    ]
+  }
+}

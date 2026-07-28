@@ -8,7 +8,12 @@ description = "Safe Rust wrappers over the dfg_da C API"
 name = "dfg_da_rs"
 
 [dependencies]
+anyhow = "1.0.104"
 dfg-da-sys = { path = "../dfg-da-sys" }
 itertools = "0.15.0"
 matfile = { version = "0.5.0", features = ["ndarray"] }
 ndarray = "0.17.2"
+thiserror = "2.0.19"
+
+[dev-dependencies]
+serde_json = "1"
