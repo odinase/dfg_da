@@ -24,19 +24,11 @@ fn main() {
     ensure_maturin(&python, &bindir);
     let maturin = maturin_path(&bindir);
 
-    // 1. Build the extension and install it (editable) into the active env.
-    eprintln!("==> maturin develop  (interpreter: {})", python.display());
-    run(
-        Command::new(&maturin).current_dir(&repo_root).args([
-            "develop",
-            "--manifest-path",
-            "dfg-da-py/Cargo.toml",
-        ]),
-        "maturin develop",
-    );
-
-    // 2. Regenerate dfg_da_py.pyi. The stub_gen binary links libpython but embeds no
-    //    rpath, so point the dynamic loader at the interpreter's lib dir for this child.
+    // 1. Regenerate dfg_da_py.pyi *first*, so the subsequent `maturin develop` copies
+    //    the fresh stub into site-packages (as dfg_da_py/__init__.pyi). If this ran
+    //    after develop, the installed stub would always be one build stale.
+    //    The stub_gen binary links libpython but embeds no rpath, so point the dynamic
+    //    loader at the interpreter's lib dir for this child.
     let libdir = capture(
         Command::new(&python).args([
             "-c",
@@ -60,6 +52,18 @@ fn main() {
         }
     }
     run(&mut stub, "stub_gen");
+
+    // 2. Build the extension and install it (editable) into the active env. maturin
+    //    picks up the freshly generated dfg-da-py/dfg_da_py.pyi and installs it.
+    eprintln!("==> maturin develop  (interpreter: {})", python.display());
+    run(
+        Command::new(&maturin).current_dir(&repo_root).args([
+            "develop",
+            "--manifest-path",
+            "dfg-da-py/Cargo.toml",
+        ]),
+        "maturin develop",
+    );
 
     eprintln!(
         "\n✓ built + installed dfg_da_py into {} and refreshed {}",

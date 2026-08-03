@@ -10,6 +10,8 @@ __all__ = [
     "ehm2_run_and_likelihood",
     "lbp_marginal",
     "lbp_single_cluster_bethe",
+    "solve_placeholder",
+    "testtt",
 ]
 
 def cluster_tracks(clusters: numpy.typing.NDArray[numpy.uint64], clusters_card: numpy.typing.NDArray[numpy.uint64], hypos: numpy.typing.NDArray[numpy.uint64], hypos_card: numpy.typing.NDArray[numpy.uint64]) -> builtins.list[builtins.list[builtins.int]]:
@@ -47,4 +49,12 @@ def lbp_single_cluster_bethe(reward: typing.Sequence[builtins.float], rows: buil
             local track ids as the C++ kernel expects.
       max_iters: LBP iteration cap.
     """
+
+def solve_placeholder(x: builtins.float) -> builtins.float:
+    r"""
+    Placeholder wrapper — replace with the real solver entry points once
+    `dfg_da_rs::marginal_solvers` grows them.
+    """
+
+def testtt(x: builtins.int) -> None: ...
 

@@ -95,17 +95,115 @@ fn ehm2_run_and_likelihood<'py>(
     Ok((assoc.into_pyarray(py), loglik))
 }
 
+/// Register declarative PyO3 submodules in `sys.modules`.
+///
+/// Nested `#[pymodule]` submodules are reachable by attribute access
+/// (`parent.sub`) out of the box, but `import parent.sub` and
+/// `from parent.sub import x` only work if the submodule is also present in
+/// `sys.modules`. This macro generates that wiring for every listed submodule
+/// under its full dotted path.
+///
+/// It expands to a block expression of type `PyResult<()>`, so drop it in as the
+/// body of the parent module's `#[pymodule_init]` hook. (It can't emit the
+/// `#[pymodule_init] fn` itself: `#[pymodule]` scans the module body for that
+/// attribute *before* function-like macros expand, so a generated one is never
+/// seen — you write the tiny shell, the macro fills the tedious part.) The first
+/// argument is the init hook's `&Bound<PyModule>`; then list each submodule by
+/// its dotted path relative to the parent (nested submodules included):
+///
+/// ```ignore
+/// #[pymodule]
+/// mod dfg_da_py {
+///     #[pymodule] mod linalg { #[pymodule] mod decomp {} }
+///     #[pymodule] mod clustering {}
+///
+///     #[pymodule_init]
+///     fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+///         register_pysubmodules!(m, linalg, linalg.decomp, clustering)
+///     }
+/// }
+/// ```
+///
+/// The `sys.modules` key is built as `<user-facing package>.<dotted ident path>`.
+/// The package base is the module's `__package__` when maturin wraps the
+/// extension (e.g. `dfg_da_py`, even though the extension itself is installed as
+/// `dfg_da_py.dfg_da_py`), falling back to the module's own `__name__` when it is
+/// top-level. This works whether a submodule was declared inline (PyO3 gives it a
+/// dotted `__name__`) or imported from a file via `#[pymodule_export]` (which
+/// keeps its bare ident name). Each submodule's `__name__` is also updated to its
+/// importable path so introspection is consistent.
+#[allow(unused_macros)]
+macro_rules! register_pysubmodules {
+    ( $m:expr, $( $head:ident $(.$rest:ident)* ),+ $(,)? ) => {{
+        use ::pyo3::prelude::*;
+        let __m: &::pyo3::Bound<'_, ::pyo3::types::PyModule> = $m;
+        let __sys = __m.py().import("sys")?.getattr("modules")?;
+        let __pkg: ::std::string::String = {
+            let p: ::std::option::Option<::std::string::String> =
+                __m.getattr("__package__")?.extract()?;
+            match p {
+                ::std::option::Option::Some(p) if !p.is_empty() => p,
+                _ => __m.name()?.extract()?,
+            }
+        };
+        $(
+            {
+                let __obj: ::pyo3::Bound<'_, ::pyo3::PyAny> = __m
+                    .getattr(::core::stringify!($head))
+                    $( .and_then(|__o| __o.getattr(::core::stringify!($rest))) )*?;
+                let mut __name = __pkg.clone();
+                __name.push('.');
+                __name.push_str(::core::stringify!($head));
+                $(
+                    __name.push('.');
+                    __name.push_str(::core::stringify!($rest));
+                )*
+                __obj.setattr("__name__", &__name)?;
+                __sys.set_item(&__name, &__obj)?;
+            }
+        )+
+        ::pyo3::PyResult::Ok(())
+    }};
+}
+
+pub mod marginal_solvers;
+
 #[pymodule]
-fn dfg_da_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(lbp_single_cluster_bethe, m)?)?;
+mod dfg_da_py {
+    use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
-    m.add_function(wrap_pyfunction!(lbp_marginal, m)?)?;
+    #[pymodule_export]
+    use super::lbp_single_cluster_bethe;
 
-    m.add_function(wrap_pyfunction!(cluster_tracks, m)?)?;
+    #[pymodule_export]
+    use super::lbp_marginal;
 
-    m.add_function(wrap_pyfunction!(ehm2_run_and_likelihood, m)?)?;
+    #[pymodule_export]
+    use super::cluster_tracks;
 
-    Ok(())
+    #[pymodule_export]
+    use super::ehm2_run_and_likelihood;
+
+    // Export the `#[pymodule]` item from the file module. Its Rust ident is
+    // `r#impl`, but its `#[pyo3(name = "marginal_solvers")]` makes it appear in
+    // Python as `dfg_da_py.marginal_solvers`.
+    #[pymodule_export]
+    use super::marginal_solvers::r#impl;
+
+    #[gen_stub_pyfunction]
+    #[pyfunction]
+    fn testtt(x: u32) {
+        println!("Received {x}");
+    }
+
+    // Register submodules in sys.modules so `import dfg_da_py.marginal_solvers`
+    // (and `from dfg_da_py.marginal_solvers import ...`) work, not just attribute
+    // access. Add more comma-separated paths here as submodules are added.
+    #[pymodule_init]
+    fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        register_pysubmodules!(m, marginal_solvers)
+    }
 }
 
 // Gathers the `#[gen_stub_*]`-annotated items so the `stub_gen` binary can emit

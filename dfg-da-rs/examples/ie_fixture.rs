@@ -8,7 +8,7 @@
 //! and emits `{"marginals": [[..]], "likelihood": f, "theta_posteriors": [[..]]}`.
 //! The Python parity test drives this and compares against the Python reference.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use ndarray::Array2;
 use serde_json::{Value, json};
@@ -97,8 +97,8 @@ fn main() {
     let cluster_links =
         ClusterLinks::from_parsed_mat_file(llr.view(), priors.as_slice(), assoc_local.view());
 
-    let lbp: Rc<dyn AssociationSolver> = Rc::new(Lbp);
-    let mh_solver: Rc<dyn MhAssociationSolver> = Rc::new(HypCondSolver::new(lbp));
+    let lbp: Arc<dyn AssociationSolver> = Arc::new(Lbp);
+    let mh_solver: Arc<dyn MhAssociationSolver> = Arc::new(HypCondSolver::new(lbp));
     let asso_info = AssociationInfo::new(llr, priors);
     let solver = MeasCondSolver::new(asso_info, mh_solver, cluster_links);
 

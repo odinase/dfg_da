@@ -1,14 +1,14 @@
 use crate::{hypothesis as hyp, marginal_solver as ms, utils};
 use ndarray::{self as nd, prelude::*};
-use std::rc;
+use std::sync::Arc;
 
 // Single cluster solver that takes in a single hypothesis solver and conditiones over prior hypotheses and computes the marginals with total probability
 pub struct HypCondSolver {
-    solver: rc::Rc<dyn ms::AssociationSolver>,
+    solver: Arc<dyn ms::AssociationSolver>,
 }
 
 impl HypCondSolver {
-    pub fn new(solver: rc::Rc<dyn ms::AssociationSolver>) -> Self {
+    pub fn new(solver: Arc<dyn ms::AssociationSolver>) -> Self {
         Self { solver }
     }
 }

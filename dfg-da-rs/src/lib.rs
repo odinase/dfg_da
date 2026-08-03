@@ -18,6 +18,7 @@ pub mod cluster_links;
 pub mod conditional_supercluster_marginals;
 pub mod hypothesis;
 pub mod marginal_solver;
+pub mod marginal_solvers;
 pub mod utils;
 
 use ndarray::{Array2, ArrayBase, ArrayView2, Data, prelude::*};

@@ -5,7 +5,7 @@
 //! Everything below just calls into the public library API — edit `main` freely.
 
 use core::f64;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use dfg_da_rs::utils;
 use ndarray::{self as na, array, prelude::*};
@@ -197,7 +197,7 @@ fn run_hypo_solver() {
     ]);
 
     // Single-cluster solver: LBP per hypothesis, conditioned over the prior.
-    let solver: Rc<dyn AssociationSolver> = Rc::new(Lbp);
+    let solver: Arc<dyn AssociationSolver> = Arc::new(Lbp);
     let hyp_cond_solver = HypCondSolver::new(solver);
 
     let output = hyp_cond_solver.compute_marginals(llr.view(), &prior_hypotheses);
@@ -311,8 +311,8 @@ fn run_multicluster_hypo_solver(
 
     let asso_info = mcs::AssociationInfo::new(llr, prior_hypotheses_per_cluster);
 
-    let solver: Rc<dyn AssociationSolver> = Rc::new(Lbp);
-    let mh_solver: Rc<dyn MhAssociationSolver> = Rc::new(HypCondSolver::new(solver));
+    let solver: Arc<dyn AssociationSolver> = Arc::new(Lbp);
+    let mh_solver: Arc<dyn MhAssociationSolver> = Arc::new(HypCondSolver::new(solver));
 
     let mcmh_solver = mcs::MeasCondSolver::new(asso_info, mh_solver, cluster_links);
 

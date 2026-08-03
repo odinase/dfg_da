@@ -35,7 +35,7 @@ impl McMhAssociationMarginalOutput {
 }
 
 // Association solver that works on multiple clusters and multiple hypotheseses
-pub trait McMhAssociationSolver {
+pub trait McMhAssociationSolver: Send + Sync {
     fn compute_marginals(&self) -> McMhAssociationMarginalOutput;
 }
 
@@ -60,7 +60,7 @@ impl MhAssociationMarginalOutput {
 }
 
 // Association solver that works on a single cluster and multiple hypotheseses
-pub trait MhAssociationSolver {
+pub trait MhAssociationSolver: Send + Sync {
     fn compute_marginals(
         &self,
         llr: ArrayView2<f64>,
@@ -75,6 +75,6 @@ pub struct AssociationMarginalOutput {
 }
 
 // Association solver that works on a single cluster and a single hypothesis
-pub trait AssociationSolver {
+pub trait AssociationSolver: Send + Sync {
     fn compute_marginals(&self, llr: ArrayView2<f64>) -> AssociationMarginalOutput;
 }

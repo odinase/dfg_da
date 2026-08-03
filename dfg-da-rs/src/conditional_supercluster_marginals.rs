@@ -1,10 +1,9 @@
 use itertools::Itertools;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use crate::cluster_links as cl;
 use crate::hypothesis as hyp;
@@ -63,7 +62,7 @@ impl ConditionalSuperclusterMarginals {
         llr: ArrayView2<f64>,
         prior_hypotheses_per_cluster: &[hyp::Hypotheses],
         linking_mappings: &cl::LinkingMappings,
-        marginal_solver: Rc<dyn ms::MhAssociationSolver>,
+        marginal_solver: Arc<dyn ms::MhAssociationSolver>,
     ) -> Self {
         let (n, mp1) = llr.dim();
         let num_tracks = n;
@@ -104,7 +103,7 @@ impl ConditionalSuperclusterMarginals {
                     cluster,
                     llr_cluster,
                     prior_hypotheses.clone(),
-                    Rc::clone(&marginal_solver),
+                    Arc::clone(&marginal_solver),
                     actual_meas_idxs,
                     reindex_meas,
                     supercluster_rows,
@@ -238,7 +237,7 @@ struct ConditionedCluster {
     cluster_idx: usize,
     llr_cluster: Array2<f64>,
     prior_hypotheses: hyp::Hypotheses,
-    marginal_solver: Rc<dyn ms::MhAssociationSolver>,
+    marginal_solver: Arc<dyn ms::MhAssociationSolver>,
     actual_meas_idxs: Vec<usize>,
     reindex_meas: Vec<usize>,
     // Row i of this cluster's marginal output belongs in row supercluster_rows[i]
@@ -246,7 +245,7 @@ struct ConditionedCluster {
     supercluster_rows: Vec<usize>,
     // TODO: Figure out a good type to use here
     // Interior mutability is valid here since it doesnt change the logical behavior of the struct
-    cache: RefCell<HashMap<Vec<bool>, ms::MhAssociationMarginalOutput>>,
+    cache: Mutex<HashMap<Vec<bool>, ms::MhAssociationMarginalOutput>>,
 }
 
 impl ConditionedCluster {
@@ -254,7 +253,7 @@ impl ConditionedCluster {
         cluster_idx: usize,
         llr_cluster: Array2<f64>,
         prior_hypotheses: hyp::Hypotheses,
-        marginal_solver: Rc<dyn ms::MhAssociationSolver>,
+        marginal_solver: Arc<dyn ms::MhAssociationSolver>,
         actual_meas_idxs: Vec<usize>,
         reindex_meas: Vec<usize>,
         supercluster_rows: Vec<usize>,
@@ -270,7 +269,7 @@ impl ConditionedCluster {
             actual_meas_idxs,
             reindex_meas,
             supercluster_rows,
-            cache: RefCell::new(HashMap::new()),
+            cache: Mutex::new(HashMap::new()),
         }
     }
 
@@ -304,9 +303,12 @@ impl ConditionedCluster {
         measurement_assignments: &[MeasurementDelegation],
     ) -> ms::MhAssociationMarginalOutput {
         let assign_mask = self.parse_meas_assign_to_assign_mask(measurement_assignments);
-        if let Some(cached_mh_asso_output) = self.cache.borrow().get(&assign_mask) {
-            return cached_mh_asso_output.clone();
-        }
+        {
+            let cache = self.cache.lock().unwrap();
+            if let Some(cached_mh_asso_output) = cache.get(&assign_mask) {
+                return cached_mh_asso_output.clone();
+            }
+        } // lock released here; Mutex is not reentrant, so it must not be held across the insert below
 
         let llr_conditioned = self.conditioned_reward_matrix(assign_mask.as_slice());
         let mh_asso_output = self
@@ -314,7 +316,8 @@ impl ConditionedCluster {
             .compute_marginals(llr_conditioned.view(), &self.prior_hypotheses);
 
         self.cache
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .insert(assign_mask, mh_asso_output.clone());
 
         mh_asso_output

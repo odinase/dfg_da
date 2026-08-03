@@ -7,11 +7,11 @@ use crate::{
 use super::{McMhAssociationSolver, MhAssociationSolver};
 use ndarray::{Array1, Array2, Axis};
 
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap, sync::Arc};
 
 // Uses delegating measurements to avoid merging clusters. For each cluster, run multihypothesis solver
 pub struct MeasCondSolver {
-    mh_solver: Rc<dyn MhAssociationSolver>,
+    mh_solver: Arc<dyn MhAssociationSolver>,
     asso_info: AssociationInfo,
     superclusters: Vec<ConditionalSuperclusterMarginals>,
     cluster_links: ClusterLinks,
@@ -104,7 +104,7 @@ impl AssociationInfo {
 impl MeasCondSolver {
     pub fn new(
         asso_info: AssociationInfo,
-        mh_solver: Rc<dyn MhAssociationSolver>,
+        mh_solver: Arc<dyn MhAssociationSolver>,
         cluster_links: ClusterLinks,
     ) -> Self {
         let superclusters = cluster_links
@@ -115,7 +115,7 @@ impl MeasCondSolver {
                     asso_info.llr.view(),
                     asso_info.prior_hypotheses_per_cluster.as_slice(),
                     linking_mappings,
-                    Rc::clone(&mh_solver),
+                    Arc::clone(&mh_solver),
                 )
             })
             .collect();
