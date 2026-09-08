@@ -5,6 +5,7 @@ import dfg_da.stats_logger as sl
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
 from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP, MulticlusterConditionendLBPOutput
 from dfg_da.cluster_conditioning_lbp_ie import MulticlusterEfficientMarginalsLBPInclusionExclusion
+from dfg_da.murty_marginals import murty_sweep
 
 import matplotlib.pyplot as plt
 from glob import glob
@@ -23,6 +24,7 @@ from pathlib import Path
 import py_dfg_da
 
 def warning_handler(pmbm_file, function_flags):
+    Path('./warnings').mkdir(parents=True, exist_ok=True)
     with open(f'./warnings/{pmbm_file}.log', 'a') as f:
         for function_name, flag in function_flags:
             f.write(f"{function_name}: {flag}\n")
@@ -103,6 +105,16 @@ def loop_func(pmbm_file):
     mc_lbp_ie = MulticlusterEfficientMarginalsLBPInclusionExclusion(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_bethe.cluster_links)
     mc_lbp_ie_output = mc_lbp_ie.compute_marginals_likelihood()
 
+    # Murty baseline over the nHypoTotalMax sweep. Guarded: this runs under Pool.map over
+    # all 1397 scans and the branch-and-bound carries iteration caps, so one bad scan must
+    # not take the pool down with it.
+    try:
+        mc_murty_outputs = murty_sweep(mat_data.ws, mat_data.num_tracks,
+                                       mat_data.num_measurements)
+    except Exception as e:
+        mc_murty_outputs = None
+        warning_handler(pmbm_filename, [("murty_sweep", repr(e))])
+
 
     cluster_data = sl.MulticlusterData(
         mcmhlbp_output=sl.MulticlusterApproximateOutput(
@@ -117,6 +129,7 @@ def loop_func(pmbm_file):
         mc_mhlbp_output=mc_mhlbp_output,
         mc_lbp_ie_output=mc_lbp_ie_output,
         exact_output=exact_output,
+        mc_murty_outputs=mc_murty_outputs,
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )
 

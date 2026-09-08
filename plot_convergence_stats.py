@@ -31,14 +31,18 @@ import dfg_da.stats_logger as sl
 
 STATS_DIR = "./ravens_output_multicluster_convergence"
 
-# One shared method list + colors so every figure overlays the same 5 methods.
-# (label, MulticlusterData attribute, marginals attr, Z attr, color)
+# One shared method list + colors so every figure overlays the same methods.
+# (label, MulticlusterData attribute, marginals attr, Z attr, color, dict key)
+# The last element is None for the methods stored as a single output object, and the
+# nHypoTotalMax truncation depth for Murty, whose attribute holds a {K: output} dict.
 METHODS = [
-    ("MCMH-LBP", "mcmhlbp_output", "approx_marginals", "approx_normalization_constant", "C0"),
-    ("Bethe",    "mc_bethe_output", "marginals", "likelihood", "C1"),
-    ("MHLBP",    "mc_mhlbp_output", "marginals", "likelihood", "C2"),
-    ("PHD",      "mc_phd_output",   "marginals", "likelihood", "C3"),
-    ("IE",       "mc_lbp_ie_output", "marginals", "likelihood", "C4"),
+    ("MCMH-LBP", "mcmhlbp_output", "approx_marginals", "approx_normalization_constant", "C0", None),
+    ("Bethe",    "mc_bethe_output", "marginals", "likelihood", "C1", None),
+    ("MHLBP",    "mc_mhlbp_output", "marginals", "likelihood", "C2", None),
+    ("PHD",      "mc_phd_output",   "marginals", "likelihood", "C3", None),
+    ("IE",       "mc_lbp_ie_output", "marginals", "likelihood", "C4", None),
+    ("Murty-10",  "mc_murty_outputs", "marginals", "likelihood", "C5", 10),
+    ("Murty-150", "mc_murty_outputs", "marginals", "likelihood", "C6", 150),
 ]
 
 
@@ -100,8 +104,10 @@ def collect(files: List[str]) -> Collected:
         exact_M = sl.Marginals(exact_marg_arr)
         z_ex = float(exact_out.exact_normalization_constant)
         self_used = False
-        for label, attr, marg_attr, z_attr, _color in METHODS:
+        for label, attr, marg_attr, z_attr, _color, key in METHODS:
             out = getattr(d, attr, None)
+            if key is not None:
+                out = out.get(key) if out else None
             if out is None:
                 continue
             approx_arr = getattr(out, marg_attr)
@@ -149,7 +155,7 @@ def _save(fig, out: Path, name: str):
 # --- A. Marginal accuracy --------------------------------------------------- #
 def a1_survival(c: Collected, out: Path):
     fig, ax = plt.subplots(figsize=(8, 5))
-    for label, *_ , color in METHODS:
+    for label, *_, color, _key in METHODS:
         _survival(ax, c.abs_err[label], label, color)
     ax.set_xscale("symlog", linthresh=1e-6)
     ax.set_yscale("log")
@@ -166,7 +172,7 @@ def a2_histograms(c: Collected, out: Path):
     lo, hi = -0.5, 0.5
     sbins = np.linspace(lo, hi, 80)
     abins = np.linspace(0, 0.5, 60)
-    for label, *_ , color in METHODS:
+    for label, *_, color, _key in METHODS:
         r = c.raw_err[label]; r = r[np.isfinite(r)]
         a = c.abs_err[label]; a = a[np.isfinite(a)]
         if r.size:
@@ -186,7 +192,7 @@ def a3_components(c: Collected, out: Path):
     comps = [("misdetection", c.misdet_err), ("detection", c.det_err), ("nonexistence", c.nonexist_err)]
     fig, axes = plt.subplots(1, 3, figsize=(16, 5), sharey=True)
     for ax, (name, data) in zip(axes, comps):
-        for label, *_ , color in METHODS:
+        for label, *_, color, _key in METHODS:
             _survival(ax, data[label], label, color)
         ax.set_xscale("symlog", linthresh=1e-6)
         ax.set_yscale("log")
@@ -203,7 +209,7 @@ def a4_heatmaps(c: Collected, out: Path):
     n = len(METHODS)
     fig, axes = plt.subplots(1, n, figsize=(4 * n, 4.2))
     bins = np.linspace(0, 1, 60)
-    for ax, (label, *_ , _color) in zip(axes, METHODS):
+    for ax, (label, *_, _color, _key) in zip(axes, METHODS):
         ex, ap = c.marg_exact[label], c.marg_approx[label]
         m = np.isfinite(ex) & np.isfinite(ap)
         h = ax.hist2d(ap[m], ex[m], bins=bins, norm=LogNorm(), cmap="Reds")
@@ -224,7 +230,7 @@ def a5_max_error(c: Collected, out: Path):
     labels = [m[0] for m in METHODS]
     data = [c.max_err_per_scan[l][np.isfinite(c.max_err_per_scan[l])] for l in labels]
     bp = ax.boxplot(data, tick_labels=labels, showfliers=False, patch_artist=True)
-    for patch, (*_ , color) in zip(bp["boxes"], METHODS):
+    for patch, (*_, color, _key) in zip(bp["boxes"], METHODS):
         patch.set_facecolor(color); patch.set_alpha(0.5)
     ax.set_ylabel("max per-track marginal error per scan")
     ax.set_title("Worst-case marginal error per scan")
@@ -236,7 +242,7 @@ def a5_max_error(c: Collected, out: Path):
 def b1_scatter(c: Collected, out: Path):
     fig, ax = plt.subplots(figsize=(7, 7))
     zex = c.z_exact
-    for label, *_ , color in METHODS:
+    for label, *_, color, _key in METHODS:
         za = c.z_approx[label]
         m = np.isfinite(za) & np.isfinite(zex) & (za > 0) & (zex > 0)
         ax.scatter(zex[m], za[m], s=8, alpha=0.35, color=color, label=label)
@@ -267,7 +273,7 @@ def b2_relerror_box(c: Collected, out: Path):
     labels = [m[0] for m in METHODS]
     data = [err[l][err[l] > 0] for l in labels]
     bp = ax.boxplot(data, tick_labels=labels, showfliers=False, patch_artist=True)
-    for patch, (*_ , color) in zip(bp["boxes"], METHODS):
+    for patch, (*_, color, _key) in zip(bp["boxes"], METHODS):
         patch.set_facecolor(color); patch.set_alpha(0.5)
     ax.set_yscale("log")
     ax.set_ylabel(r"relative $Z$ error  $|Z_a - Z_e| / Z_e$")
@@ -280,7 +286,7 @@ def b3_signed_hist(c: Collected, out: Path):
     fig, ax = plt.subplots(figsize=(8, 5))
     err = _rel_z_err(c, signed=True)
     bins = np.linspace(-1, 1, 80)
-    for label, *_ , color in METHODS:
+    for label, *_, color, _key in METHODS:
         e = err[label][np.isfinite(err[label])]
         if e.size:
             ax.hist(np.clip(e, -1, 1), bins=bins, histtype="step", label=label, color=color)

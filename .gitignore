@@ -36,3 +36,6 @@ py_dfg_da.cpython-39-x86_64-linux-gnu.so
 # Rust build artifacts
 /target
 Cargo.lock
+
+# Octave reference output for the Murty parity test (regenerate with octave/murty_reference.m)
+octave_murty_reference/

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
 from .marginals_computers import MarginalsComputer, ExactMarginals, MulticlusterExactOutput
+from .murty_marginals import MulticlusterMurtyOutput
 import pickle
 import pickletools
 import asyncio
@@ -502,7 +503,10 @@ class MulticlusterData:
     mc_mhlbp_output: Optional[MulticlusterConditionendLBPOutput] = None
     mc_lbp_ie_output: Optional[MulticlusterConditionendLBPOutput] = None
     exact_output: Optional[MulticlusterExactOutput] = None
-    
+
+    # Murty baseline, one entry per nHypoTotalMax truncation depth (murty_marginals.K_SWEEP).
+    mc_murty_outputs: Optional[Dict[int, MulticlusterMurtyOutput]] = None
+
     explicit_hypothesis_enumeration_error: bool = False
 
     def save_data(self, path):
