@@ -16,9 +16,13 @@ from tqdm import tqdm
 
 from copy import deepcopy
 
+from collections import Counter
 from multiprocessing import Pool
 import multiprocessing
+import os
+import sys
 import time
+import traceback
 from pathlib import Path
 
 import py_dfg_da
@@ -33,7 +37,43 @@ def warning_handler(pmbm_file, function_flags):
 OUTPUT_PATH_BASE = "./ravens_output_multicluster"
 PMBM_DATA_PATH = "./data/pmbm_output_files"
 
-NUM_DONE = 0
+# Progress reporting when stderr is not a terminal (run redirected to a log file):
+# a tqdm bar would fill the log with carriage returns, so print a discrete line
+# every PROGRESS_EVERY files or every PROGRESS_INTERVAL_S seconds, whichever
+# comes first.
+PROGRESS_EVERY = 25
+PROGRESS_INTERVAL_S = 60.0
+
+
+class _ProgressPrinter:
+    """Line-based progress for non-tty output. Call ``update(n_done)`` per file."""
+
+    def __init__(self, total, every=PROGRESS_EVERY, interval_s=PROGRESS_INTERVAL_S):
+        self.total = total
+        self.every = every
+        self.interval_s = interval_s
+        self.start = time.time()
+        self.last_print = self.start
+        self.last_n = 0
+
+    def update(self, n_done, **extra):
+        now = time.time()
+        due = (n_done - self.last_n >= self.every) or (now - self.last_print >= self.interval_s)
+        if not due and n_done != self.total:
+            return
+        self.last_print = now
+        self.last_n = n_done
+        self._emit(n_done, now, extra)
+
+    def _emit(self, n_done, now, extra):
+        elapsed = now - self.start
+        rate = n_done / elapsed if elapsed > 0 else 0.0
+        eta = (self.total - n_done) / rate if rate > 0 else float("nan")
+        pct = 100.0 * n_done / self.total if self.total else 100.0
+        suffix = "".join(f", {k}={v}" for k, v in extra.items() if v)
+        print(f"[{time.strftime('%H:%M:%S')}] {n_done}/{self.total} ({pct:5.1f}%) "
+              f"elapsed {elapsed/60:.1f} min, {rate:.2f} files/s, "
+              f"eta {eta/60:.1f} min{suffix}", flush=True)
 
 
 def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
@@ -57,7 +97,7 @@ def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     return prior_hypotheses_per_cluster_posterior
 
 
-def loop_func(pmbm_file):
+def _process_file(pmbm_file):
     mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file, use_cpp=True)
 
     R = np.asfortranarray(mat_data.reward_matrix_edmund)
@@ -74,7 +114,7 @@ def loop_func(pmbm_file):
 
     num_clusters = len(prior_hypotheses_per_cluster)
     if num_clusters == 0:
-        return
+        return "empty"
 
     start = time.time()
     mcmhlbp = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
@@ -135,6 +175,26 @@ def loop_func(pmbm_file):
 
     cluster_data.save_data(save_path)
 
+    return "ok"
+
+
+def loop_func(pmbm_file):
+    """Worker entry point. Returns ``(kind, filename)`` with kind in ok/empty/failed.
+
+    A single unreadable or pathological scan must not take the whole pool down and
+    lose the hours of work already queued behind it, so every non-exit exception is
+    logged under ./warnings/ and reported back to the driver instead of propagating.
+    """
+    pmbm_file_path = Path(pmbm_file)
+    pmbm_filename = pmbm_file_path.name[:-len(pmbm_file_path.suffix)]
+    try:
+        kind = _process_file(pmbm_file)
+    except Exception as e:
+        warning_handler(pmbm_filename, [("loop_func", repr(e)),
+                                        ("traceback", traceback.format_exc())])
+        return "failed", pmbm_filename
+    return kind, pmbm_filename
+
 
 if __name__ == "__main__":
     pmbm_files = glob(PMBM_DATA_PATH + "/*.mat")
@@ -142,46 +202,43 @@ if __name__ == "__main__":
     pmbm_files = sorted(pmbm_files)
     num_files = len(pmbm_files)
 
-    print(len(pmbm_files))
+    if num_files == 0:
+        raise ValueError(f"No .mat files found under {PMBM_DATA_PATH}")
 
-    # if len(pmbm_files) != 10_000:
-    #     raise ValueError()
+    n_workers = int(os.environ.get("EVAL_WORKERS", multiprocessing.cpu_count()))
+    print(f"Computing {num_files} files with {n_workers} workers...", flush=True)
 
-    # pmbm_files = pmbm_files[:1000]
-    # pmbm_files = ["./data/pmbm_output_files/priorLikelihood_iMC10k100.mat"]
+    counts = Counter()
+    failed_files = []
+    is_tty = sys.stderr.isatty()
+    printer = None if is_tty else _ProgressPrinter(num_files)
 
-    print(f"Computing {len(pmbm_files)} files...")
-
-    num_processes = multiprocessing.cpu_count()  # Use the number of available CPU cores
-    pool = multiprocessing.Pool(processes=num_processes)
-
-    print("Starting pool")
     start = time.time()
-    with Pool() as p:
-        p.map(loop_func, pmbm_files)
-    # with tqdm(total=len(pmbm_files)) as pbar:
-    #     for i, result in enumerate(pool.imap_unordered(loop_func, pmbm_files)):
-    #         pbar.update(1)
-    #         pbar.set_description(f"Progress: {i+1}/{len(pmbm_files)}, {(i+1)/len(pmbm_files)*100.0:.2f}%")
-
-    # with Pool() as pool:
-    #     results = []
-    #     with tqdm(total=len(pmbm_files)) as pbar:
-    #         for file in pmbm_files:
-    #             result = pool.apply_async(loop_func, (file,))
-    #             results.append(result)
-
-    #         for result in results:
-    #             try:
-    #                 result.get()  # Get the result of the async task
-    #             except Exception as e:
-    #                 # Handle the exception for the specific file
-    #                 print(f"Error processing file: {e}")
-
-    #             pbar.update(1)
-    #             pbar.set_description(f"Progress: {pbar.n}/{pbar.total}, {(pbar.n/pbar.total)*100.0:.2f}%")
+    with Pool(processes=n_workers) as pool:
+        # chunksize=1: per-file runtime spans milliseconds to minutes, so the default
+        # chunking both stalls the bar and unbalances the workers.
+        results = pool.imap_unordered(loop_func, pmbm_files, chunksize=1)
+        with tqdm(total=num_files, disable=not is_tty) as pbar:
+            for n_done, (kind, name) in enumerate(results, start=1):
+                counts[kind] += 1
+                if kind == "failed":
+                    failed_files.append(name)
+                pbar.update(1)
+                pbar.set_postfix(empty=counts["empty"], failed=counts["failed"])
+                if printer is not None:
+                    printer.update(n_done, empty=counts["empty"], failed=counts["failed"])
     stop = time.time()
+
     print("Pools done")
+    print(f"{counts['ok']} ok, {counts['empty']} empty, {counts['failed']} failed")
+    if failed_files:
+        for name in failed_files[:20]:
+            print(f"  failed: {name}")
+        if len(failed_files) > 20:
+            print(f"  ... and {len(failed_files) - 20} more; see ./warnings/ for details")
+        else:
+            print("  see ./warnings/ for details")
+
     duration_s = stop - start
     duration_min = duration_s / 60.0
     duration_h = duration_min / 60.0
