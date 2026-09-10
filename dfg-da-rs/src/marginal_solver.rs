@@ -3,6 +3,7 @@ pub mod lbp;
 pub mod mcmh_lbp;
 pub mod meas_cond_solver;
 pub mod mh_lbp;
+pub mod ehm2;
 
 use crate::hypothesis as hyp;
 use ndarray::prelude::*;
