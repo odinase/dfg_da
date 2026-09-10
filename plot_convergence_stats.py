@@ -46,7 +46,7 @@ STATS_DIR = "./ravens_output_multicluster_convergence"
 # Costs recorded on MulticlusterTimings that belong to the harness rather than to any
 # single method. Reported next to the per-method medians so the method timings can be
 # read against the fixed overhead they sit on top of.
-HARNESS_COSTS = ("parse", "cluster_links", "exact_theta_posteriors")
+HARNESS_COSTS = ("parse", "cluster_links", "exact_theta_posteriors", "graph_stats")
 
 
 class Method(NamedTuple):

@@ -10,6 +10,7 @@ import dfg_da.marginals_computers as mc
 import dfg_da.prior_hypothesis as phs
 import dfg_da.cluster_bayes_tree as cbt
 import dfg_da.stats_logger as sl
+import dfg_da.graph_stats as gs
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
 from dfg_da.cluster_conditioning_lbp import MulticlusterEfficientMarginalsLBP, MulticlusterConditionendLBPOutput
 from dfg_da.cluster_conditioning_lbp_ie import MulticlusterEfficientMarginalsLBPInclusionExclusion
@@ -74,6 +75,13 @@ DEFAULT_TIMEOUT_S = 0.0
 # Once the budget expires the alarm repeats at this interval until the step is left,
 # so a swallowed ScanTimeout cannot let a scan run past its budget unbounded.
 TIMER_RETRY_INTERVAL_S = 5.0
+
+# Cap on the merged-cluster hypotheses whose conditioned graph we are willing to build when
+# the exact solver did not run and its merge is therefore not available to reuse. One
+# conditioned graph costs on the order of 80 us, so this bounds the fallback at a few seconds
+# on a scan that has already proved pathological. Above it, per_merged_cluster is left empty
+# with merged_skipped_reason = "enumeration_cap"; the prior-cluster numbers are unaffected.
+MAX_MERGED_HYPOTHESES = 100_000
 
 
 class ScanTimeout(BaseException):
@@ -187,6 +195,20 @@ def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     return prior_hypotheses_per_cluster_posterior
 
 
+def merged_enumeration_size(prior_hypotheses_per_cluster, assocLocal):
+    """Total hypotheses over the merged clusters, i.e. how many conditioned graphs the
+    merged pass would have to build. Merging is a Cartesian product over the member
+    clusters, so this is the number that explodes."""
+    total = 0
+    for members in gs.merged_cluster_members(assocLocal):
+        size = 1
+        for cluster in members:
+            size *= len(prior_hypotheses_per_cluster[cluster])
+        total += size
+
+    return total
+
+
 def _timed(factory):
     """Construct and solve one conditioning-LBP method under a single timer.
 
@@ -229,6 +251,7 @@ def _process_file(pmbm_file, timeout_s=None, n_workers=0):
     mc_phd_output = None
     mc_lbp_ie_output = None
     mc_murty_outputs = None
+    graph_stats = None
     explicit_hypothesis_enumeration_error = False
     timed_out_label = None
 
@@ -237,6 +260,7 @@ def _process_file(pmbm_file, timeout_s=None, n_workers=0):
     dur_parse = float("nan")
     dur_cluster_links = float("nan")
     dur_exact_thetas = float("nan")
+    dur_graph_stats = float("nan")
 
     try:
         with deadline.step("parse"):
@@ -253,6 +277,16 @@ def _process_file(pmbm_file, timeout_s=None, n_workers=0):
 
         if num_clusters == 0:
             return "empty", None
+
+        # Cyclomatic numbers of the association graphs the solvers are about to run on.
+        # Taken before any of them, because the scans a budget cuts short are exactly the
+        # loopy ones whose topology we most want recorded. The merged-cluster half is left
+        # for the end of the scan; until it runs the record says so.
+        with deadline.step("graph_stats"):
+            start = time.perf_counter()
+            graph_stats = gs.multicluster_graph_stats(
+                R_LC, prior_hypotheses_per_cluster, merged_skipped_reason="timeout")
+            dur_graph_stats = time.perf_counter() - start
 
         # Marginal and Z extraction is inside the timer: it is part of "inputs in hand ->
         # marginals + Z in hand", the boundary every method here is measured on.
@@ -327,6 +361,33 @@ def _process_file(pmbm_file, timeout_s=None, n_workers=0):
                 mc_murty_outputs = None
                 warning_handler(pmbm_filename, [("murty_sweep", repr(e))])
 
+        # Merged clusters are what MulticlusterExactEHM2 conditions on hypothesis for
+        # hypothesis. Done last so it can never take budget from a method, and reusing the
+        # exact solver's own merge when there is one: that is free, and it is exactly the
+        # partition the exact numbers were computed over.
+        with deadline.step("graph_stats_merged"):
+            start = time.perf_counter()
+            merged_clusters = None
+            if exact_output is not None:
+                merged_clusters = exact_output.cluster_hypotheses_posterior.prior_hypotheses_per_cluster_posterior
+            elif merged_enumeration_size(prior_hypotheses_per_cluster, assocLocal) <= MAX_MERGED_HYPOTHESES:
+                merged_hypotheses = deepcopy(prior_hypotheses_per_cluster)
+                merged_clusters = mc.ClusterHypothesesPosterior(
+                    assocLocal=assocLocal.copy(),
+                    prior_hypotheses_per_cluster=merged_hypotheses,
+                ).prior_hypotheses_per_cluster_posterior
+
+            if merged_clusters is None:
+                graph_stats.merged_skipped_reason = "enumeration_cap"
+            else:
+                graph_stats.per_merged_cluster = [
+                    gs.cluster_graph_stats(R_LC, hypotheses, members)
+                    for hypotheses, members in zip(merged_clusters,
+                                                   gs.merged_cluster_members(assocLocal))
+                ]
+                graph_stats.merged_skipped_reason = ""
+            dur_graph_stats += time.perf_counter() - start
+
     except ScanTimeout as e:
         timed_out_label = e.label
         warning_handler(pmbm_filename, [("timeout", str(e))])
@@ -343,10 +404,12 @@ def _process_file(pmbm_file, timeout_s=None, n_workers=0):
         mc_lbp_ie_output=mc_lbp_ie_output,
         exact_output=exact_output,
         mc_murty_outputs=mc_murty_outputs,
+        graph_stats=graph_stats,
         timings=sl.MulticlusterTimings(
             parse=dur_parse,
             cluster_links=dur_cluster_links,
             exact_theta_posteriors=dur_exact_thetas,
+            graph_stats=dur_graph_stats,
             n_workers=n_workers,
             blas_threads=int(os.environ["OMP_NUM_THREADS"]),
         ),

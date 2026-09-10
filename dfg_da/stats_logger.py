@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import loadmat
-from typing import Dict, Any, List, TypeVar, FrozenSet, Optional, Union
+from typing import Dict, Any, List, Tuple, TypeVar, FrozenSet, Optional, Union
 from dataclasses import dataclass
 from scipy.special import logsumexp
 from .prior_hypothesis import PriorHypothesis, PriorHypotheses
@@ -512,9 +512,75 @@ class MulticlusterTimings:
     parse: float = float("nan")                   # MatFileParser
     cluster_links: float = float("nan")           # shared topology setup, charged to no method
     exact_theta_posteriors: float = float("nan")  # excluded from exact_output.runtime
+    graph_stats: float = float("nan")             # association-graph topology, charged to no method
     n_workers: int = 0
     blas_threads: int = 0
     clock: str = "perf_counter"
+
+
+@dataclass
+class ClusterGraphStats:
+    """Cyclomatic numbers of the association graphs of one cluster.
+
+    ``mu = E - V + C`` counts the independent cycles of a graph: ``mu = 0`` iff it
+    is a forest, which is exactly when LBP is exact on it. Two graphs are
+    measured, both built in ``dfg_da.graph_stats``, which documents them:
+
+    * ``mu_multihypothesis`` -- the graph ``lbp_single_cluster`` /
+      ``lbp_multicluster`` message-pass on, tracks and gated measurements plus the
+      hypothesis (theta) factor node wired to every track of the cluster;
+    * ``mu_conditioned`` -- one value per prior hypothesis, for the bipartite graph
+      that exact EHM2 and the Williams LBP see once the hypothesis fixes which
+      tracks exist.
+
+    ``mu_bipartite`` is ``mu_multihypothesis`` with the theta node deleted, so the
+    difference between the two is the loopiness contributed by the hypothesis
+    factor alone.
+
+    Instances are built for both cluster partitions: the prior clusters
+    ``lbp_multicluster`` is handed, and the merged (posterior) clusters
+    ``MulticlusterExactEHM2`` conditions on. ``member_prior_clusters`` is empty for
+    the former and lists the merged-in prior clusters for the latter.
+    """
+
+    track_ids: Optional[np.ndarray] = None          # 1-indexed, sorted; row t - 1 of R_LC
+    member_prior_clusters: Tuple[int, ...] = ()
+    n_tracks: int = 0
+    n_gated_measurements: int = 0
+    n_edges: int = 0
+    n_hypotheses: int = 0
+
+    mu_multihypothesis: int = 0                     # == n_edges - n_gated_measurements
+    mu_bipartite: int = 0                           # theta deleted, isolated vertices dropped
+
+    mu_conditioned: Optional[np.ndarray] = None     # int32, one per hypothesis, hypothesis order
+    mu_conditioned_max: int = 0
+    mu_conditioned_mean: float = float("nan")
+    mu_conditioned_prior_mean: float = float("nan")  # weighted by hypothesis.probability()
+    tree_hypothesis_fraction: float = float("nan")   # share of hypotheses with mu == 0
+
+
+@dataclass
+class MulticlusterGraphStats:
+    """Association-graph topology of one scan, over both cluster partitions.
+
+    ``per_merged_cluster`` is None when the merged clusters were unavailable --
+    the exact solver did not run and rebuilding them would have meant enumerating
+    more hypotheses than the driver's cap allows. ``merged_skipped_reason`` says
+    which, and is "" when they are present.
+    """
+
+    per_prior_cluster: Optional[List[ClusterGraphStats]] = None
+    per_merged_cluster: Optional[List[ClusterGraphStats]] = None
+
+    # Whole-scan rollups. ``mu_scan_multihypothesis`` is the real graph
+    # lbp_multicluster runs on (all clusters, one theta each, measurement nodes
+    # shared); ``mu_scan_bipartite`` is the legacy per-scan number the CSV-based
+    # scripts report through ravens_parser_parallell_multicluster.cyclomatic_number.
+    mu_scan_multihypothesis: int = 0
+    mu_scan_bipartite: int = 0
+
+    merged_skipped_reason: str = ""                 # "", "enumeration_cap", "timeout"
 
 
 @dataclass
@@ -531,6 +597,9 @@ class MulticlusterData:
 
     # Shared setup costs and the conditions the per-method runtimes were measured under.
     timings: Optional[MulticlusterTimings] = None
+
+    # Cyclomatic numbers of the association graphs each method ran on.
+    graph_stats: Optional[MulticlusterGraphStats] = None
 
     explicit_hypothesis_enumeration_error: bool = False
 

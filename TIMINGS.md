@@ -41,9 +41,16 @@ Work that belongs to no single method is recorded separately, in
 | `parse` | `MatFileParser` on the `.mat` file |
 | `cluster_links` | the shared `ClusterLinks` build, hoisted out of all four conditioning-LBP methods |
 | `exact_theta_posteriors` | `compute_theta_posteriors()`, excluded from `exact_output.runtime` |
+| `graph_stats` | building the association graphs and their cyclomatic numbers, both passes, charged to no method |
 | `n_workers` | pool size the scan was measured under |
 | `blas_threads` | value of `OMP_NUM_THREADS` in the worker |
 | `clock` | `"perf_counter"` |
+
+`graph_stats` covers both halves of `MulticlusterData.graph_stats`: the prior-cluster pass,
+taken before any solver runs so a scan the budget cuts short still records its topology, and
+the merged-cluster pass, taken after every solver so it can never take budget from one. The
+merged pass reuses the exact solver's own `cluster_hypotheses_posterior` whenever there is
+one, so on a scan with an exact solve it costs only the graph work itself.
 
 `cluster_links` is hoisted rather than built inside Bethe. Bethe used to build it
 implicitly and hand it to PHD and inclusion-exclusion for free, which made those two read

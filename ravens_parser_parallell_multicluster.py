@@ -2,6 +2,7 @@ import dfg_da.marginals_computers as mc
 import dfg_da.prior_hypothesis as phs
 import dfg_da.cluster_bayes_tree as cbt
 import dfg_da.stats_logger as sl
+import dfg_da.graph_stats as graph_stats
 from dfg_da.marginal_association_Odin import ExplicitHypothesisEnumerationError
 
 import matplotlib
@@ -18,7 +19,6 @@ import csv
 import time
 from pathlib import Path
 
-import networkx as nx
 import py_dfg_da
 
 # Inclusion-exclusion (overlapping event space, thesis Sec. 7.5.1) marginalization
@@ -168,16 +168,14 @@ def cyclomatic_number(R_LC):
     Isolated vertices (tracks whose only feasible event is misdetection) do not
     change ``mu`` (they add one to both ``V`` and ``C``), so the graph is built
     from the feasible track-measurement edges only.
+
+    The implementation now lives in ``dfg_da.graph_stats``, which also builds the
+    per-cluster and hypothesis-conditioned variants saved into the ``*_stats``
+    files. Kept here under the old name because
+    ``accuracy_metrics_multicluster.py`` and ``chapter10_plots.py`` call it as
+    ``ev.cyclomatic_number``.
     """
-    meas = np.asarray(R_LC)[:, 1:]
-    track_idx, meas_idx = np.where(np.isfinite(meas))
-    if track_idx.size == 0:
-        return 0
-    G = nx.Graph()
-    G.add_edges_from(zip((f"t{i}" for i in track_idx),
-                         (f"m{j}" for j in meas_idx)))
-    return int(G.number_of_edges() - G.number_of_nodes()
-               + nx.number_connected_components(G))
+    return graph_stats.cyclomatic_number(R_LC)
 
 
 def enumeration_product(R_LC, prior_hypotheses_per_cluster, assocLocal):
