@@ -1,3 +1,11 @@
+# Pin the BLAS/OpenMP thread pools to one thread each, before anything imports numpy.
+# numpy here links scipy-openblas, which would otherwise start a thread pool per worker on
+# top of Pool(cpu_count()) -- oversubscribing the machine and making the per-method timings
+# below both noisy and unattributable. setdefault, so an explicit override still wins.
+import os
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import dfg_da.marginals_computers as mc
 import dfg_da.prior_hypothesis as phs
 import dfg_da.cluster_bayes_tree as cbt
@@ -19,13 +27,17 @@ from copy import deepcopy
 from collections import Counter
 from multiprocessing import Pool
 import multiprocessing
-import os
 import sys
 import time
 import traceback
 from pathlib import Path
 
 import py_dfg_da
+
+def _n_workers():
+    """Worker count, resolved the same way in the pool and in each worker's timing record."""
+    return int(os.environ.get("EVAL_WORKERS", multiprocessing.cpu_count()))
+
 
 def warning_handler(pmbm_file, function_flags):
     Path('./warnings').mkdir(parents=True, exist_ok=True)
@@ -97,8 +109,24 @@ def merge_clusters(assocLocal, prior_hypotheses_per_cluster):
     return prior_hypotheses_per_cluster_posterior
 
 
+def _timed(factory):
+    """Construct and solve one conditioning-LBP method under a single timer.
+
+    The measured boundary is the same one every other method is held to: inputs in hand ->
+    marginals + Z in hand. The caller's ``deepcopy`` is already done by the time we start,
+    so that harness cost is not charged to the method.
+    """
+    start = time.perf_counter()
+    computer = factory()
+    out = computer.compute_marginals_likelihood()
+    out.runtime = time.perf_counter() - start
+    return computer, out
+
+
 def _process_file(pmbm_file):
+    start = time.perf_counter()
     mat_data: sl.MatFileParser = sl.MatFileParser(pmbm_file, use_cpp=True)
+    dur_parse = time.perf_counter() - start
 
     R = np.asfortranarray(mat_data.reward_matrix_edmund)
     R_LC = np.asfortranarray(mat_data.reward_matrix_lc)
@@ -116,34 +144,56 @@ def _process_file(pmbm_file):
     if num_clusters == 0:
         return "empty"
 
-    start = time.time()
+    # Marginal and Z extraction is inside the timer: it is part of "inputs in hand -> marginals
+    # + Z in hand", the boundary every method here is measured on. hypotheses_marginals() is
+    # left outside, matching the exact path, since theta posteriors are not part of that.
+    start = time.perf_counter()
     mcmhlbp = py_dfg_da.lbp.lbp_multicluster(R, prior_hypotheses_per_cluster)
-    dur_mcmhlbp = time.time() - start
+    mcmhlbp_marginals = mcmhlbp.track_association_marginals().T
+    mcmhlbp_normalization_constant = mcmhlbp.bethe_pseudodual_normalization_constant()
+    dur_mcmhlbp = time.perf_counter() - start
+    mcmhlbp_theta_posteriors = mcmhlbp.hypotheses_marginals()
+
     assocLocal = mat_data.ws["assocLocal"].copy()
     explicit_hypothesis_enumeration_error = False
     exact_output = None
+    dur_exact_thetas = float("nan")
     exact_computer = mc.MulticlusterExactEHM2()
 
     try:
-        start = time.time()
+        start = time.perf_counter()
         exact_output: mc.MulticlusterExactOutput = exact_computer(R_LC, prior_hypotheses_per_cluster, assocLocal=assocLocal.copy())
-        dur_exact = time.time() - start
-        exact_output.runtime = dur_exact
+        exact_output.runtime = time.perf_counter() - start
+
+        start = time.perf_counter()
         exact_output.theta_posteriors = exact_output.compute_theta_posteriors()
+        dur_exact_thetas = time.perf_counter() - start
     except ExplicitHypothesisEnumerationError:
         explicit_hypothesis_enumeration_error = True
 
-    mc_bethe = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe())
-    mc_bethe_output = mc_bethe.compute_marginals_likelihood()
+    # Cluster links are shared topology, not any one method's work. Bethe used to build them
+    # implicitly and hand them to PHD and IE for free, which made those two look cheaper than
+    # they are and left MHLBP rebuilding its own; hoisting the build charges it to nobody and
+    # drops the redundant rebuild. Only read downstream, and no reference to the hypotheses is
+    # retained, so one instance is safe to share across all four.
+    links_hypotheses = deepcopy(prior_hypotheses_per_cluster)
+    start = time.perf_counter()
+    cluster_links = cbt.ClusterLinks(R_LC=R_LC, prior_hypotheses_per_cluster=links_hypotheses, assocLocal=assocLocal.copy())
+    dur_cluster_links = time.perf_counter() - start
 
-    mc_mhlbp = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP())
-    mc_mhlbp_output = mc_mhlbp.compute_marginals_likelihood()
+    # The deepcopy is required, not defensive: ConditionedCluster.__init__ calls
+    # prior_hypotheses.reindex_tracks(), which mutates. It is taken outside each timer.
+    bethe_hypotheses = deepcopy(prior_hypotheses_per_cluster)
+    mc_bethe, mc_bethe_output = _timed(lambda: MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=bethe_hypotheses, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=cluster_links))
 
-    mc_phd = MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD(), cluster_links=mc_bethe.cluster_links)
-    mc_phd_output = mc_phd.compute_marginals_likelihood()
+    mhlbp_hypotheses = deepcopy(prior_hypotheses_per_cluster)
+    mc_mhlbp, mc_mhlbp_output = _timed(lambda: MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=mhlbp_hypotheses, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsFullAssociationCPP(), cluster_links=cluster_links))
 
-    mc_lbp_ie = MulticlusterEfficientMarginalsLBPInclusionExclusion(R_LC=R_LC, prior_hypotheses_per_cluster=deepcopy(prior_hypotheses_per_cluster), assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=mc_bethe.cluster_links)
-    mc_lbp_ie_output = mc_lbp_ie.compute_marginals_likelihood()
+    phd_hypotheses = deepcopy(prior_hypotheses_per_cluster)
+    mc_phd, mc_phd_output = _timed(lambda: MulticlusterEfficientMarginalsLBP(R_LC=R_LC, prior_hypotheses_per_cluster=phd_hypotheses, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbPHD(), cluster_links=cluster_links))
+
+    ie_hypotheses = deepcopy(prior_hypotheses_per_cluster)
+    mc_lbp_ie, mc_lbp_ie_output = _timed(lambda: MulticlusterEfficientMarginalsLBPInclusionExclusion(R_LC=R_LC, prior_hypotheses_per_cluster=ie_hypotheses, assocLocal=assocLocal.copy(), lbp_solver=mc.LBPMarginalsByTotalProbBethe(), cluster_links=cluster_links))
 
     # Murty baseline over the nHypoTotalMax sweep. Guarded: this runs under Pool.map over
     # all 1397 scans and the branch-and-bound carries iteration caps, so one bad scan must
@@ -158,9 +208,9 @@ def _process_file(pmbm_file):
 
     cluster_data = sl.MulticlusterData(
         mcmhlbp_output=sl.MulticlusterApproximateOutput(
-            approx_marginals=mcmhlbp.track_association_marginals().T,
-            approx_normalization_constant=mcmhlbp.bethe_pseudodual_normalization_constant(),
-            approx_theta_posteriors=mcmhlbp.hypotheses_marginals(),
+            approx_marginals=mcmhlbp_marginals,
+            approx_normalization_constant=mcmhlbp_normalization_constant,
+            approx_theta_posteriors=mcmhlbp_theta_posteriors,
             full_output=mcmhlbp,
             runtime=dur_mcmhlbp
         ),
@@ -170,6 +220,13 @@ def _process_file(pmbm_file):
         mc_lbp_ie_output=mc_lbp_ie_output,
         exact_output=exact_output,
         mc_murty_outputs=mc_murty_outputs,
+        timings=sl.MulticlusterTimings(
+            parse=dur_parse,
+            cluster_links=dur_cluster_links,
+            exact_theta_posteriors=dur_exact_thetas,
+            n_workers=_n_workers(),
+            blas_threads=int(os.environ["OMP_NUM_THREADS"]),
+        ),
         explicit_hypothesis_enumeration_error=explicit_hypothesis_enumeration_error
     )
 
@@ -205,15 +262,16 @@ if __name__ == "__main__":
     if num_files == 0:
         raise ValueError(f"No .mat files found under {PMBM_DATA_PATH}")
 
-    n_workers = int(os.environ.get("EVAL_WORKERS", multiprocessing.cpu_count()))
-    print(f"Computing {num_files} files with {n_workers} workers...", flush=True)
+    n_workers = _n_workers()
+    print(f"Computing {num_files} files with {n_workers} workers, "
+          f"{os.environ['OMP_NUM_THREADS']} BLAS thread(s) each...", flush=True)
 
     counts = Counter()
     failed_files = []
     is_tty = sys.stderr.isatty()
     printer = None if is_tty else _ProgressPrinter(num_files)
 
-    start = time.time()
+    start = time.perf_counter()
     with Pool(processes=n_workers) as pool:
         # chunksize=1: per-file runtime spans milliseconds to minutes, so the default
         # chunking both stalls the bar and unbalances the workers.
@@ -227,7 +285,7 @@ if __name__ == "__main__":
                 pbar.set_postfix(empty=counts["empty"], failed=counts["failed"])
                 if printer is not None:
                     printer.update(n_done, empty=counts["empty"], failed=counts["failed"])
-    stop = time.time()
+    stop = time.perf_counter()
 
     print("Pools done")
     print(f"{counts['ok']} ok, {counts['empty']} empty, {counts['failed']} failed")

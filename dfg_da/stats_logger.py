@@ -477,7 +477,14 @@ class MulticlusterConditionendLBPOutput:
     theta_posteriors: Optional[Dict[int, np.ndarray]] = None
     raised_warning: bool = False
 
-
+    # Seconds, time.perf_counter. ``runtime`` is the fair total stamped by the driver --
+    # construction (incl. superclusters) plus solve, measured on the same boundary as every
+    # other method; ``solve_runtime`` is self-timed by compute_marginals_likelihood(), so the
+    # difference is the setup cost. Plain scalar defaults, not field(default_factory=...):
+    # pickles written before these fields existed restore __dict__ without calling __init__,
+    # and only a plain default installs the class attribute they fall through to.
+    runtime: float = float("nan")
+    solve_runtime: float = float("nan")
 
 
 @dataclass(frozen=True)
@@ -488,12 +495,27 @@ class MulticlusterApproximateOutput:
     approx_theta_posteriors: List[np.ndarray]
     runtime: float
 
+
 @dataclass
-class MulticlusterConditionendLBPOutput:
-    marginals: np.ndarray
-    likelihood: float
-    theta_posteriors: Optional[Dict[int, np.ndarray]] = None
-    raised_warning: bool = False
+class MulticlusterTimings:
+    """Costs belonging to the harness rather than to any one method, plus the conditions the
+    per-method runtimes were measured under. Seconds, time.perf_counter.
+
+    One documented asymmetry: the conditioning-LBP methods build and normalize their theta
+    posteriors inside compute_marginals_likelihood(), so that work sits inside their
+    ``runtime``, while the exact and MCMH-LBP equivalents are measured outside theirs (see
+    ``exact_theta_posteriors``). The LBP-side cost is a normalization loop over an
+    already-built dict and is negligible next to the solves; separating it would mean
+    restructuring both copies of the class.
+    """
+
+    parse: float = float("nan")                   # MatFileParser
+    cluster_links: float = float("nan")           # shared topology setup, charged to no method
+    exact_theta_posteriors: float = float("nan")  # excluded from exact_output.runtime
+    n_workers: int = 0
+    blas_threads: int = 0
+    clock: str = "perf_counter"
+
 
 @dataclass
 class MulticlusterData:
@@ -506,6 +528,9 @@ class MulticlusterData:
 
     # Murty baseline, one entry per nHypoTotalMax truncation depth (murty_marginals.K_SWEEP).
     mc_murty_outputs: Optional[Dict[int, MulticlusterMurtyOutput]] = None
+
+    # Shared setup costs and the conditions the per-method runtimes were measured under.
+    timings: Optional[MulticlusterTimings] = None
 
     explicit_hypothesis_enumeration_error: bool = False
 

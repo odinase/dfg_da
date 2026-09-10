@@ -6,6 +6,7 @@ import py_dfg_da as pdd
 from typing import *
 from collections import defaultdict
 
+import time
 import warnings
 
 # We can now construct the components of the "tree" (with depth 1 lol).
@@ -40,6 +41,9 @@ class MulticlusterEfficientMarginalsLBP:
 
     def compute_marginals_likelihood(self) -> MulticlusterConditionendLBPOutput:
         # Should in principle be straight forward at this level: simply query the marginals from each cluster/supercluster and concatenate
+        # Solve-only timing. The driver stamps the fair total (construction + solve) onto
+        # .runtime; the difference between the two is this method's setup cost.
+        _t0 = time.perf_counter()
         n, mp1 = self.R_LC.shape
 
         marginals = np.empty((n, mp1 + 1))
@@ -84,7 +88,8 @@ class MulticlusterEfficientMarginalsLBP:
             marginals=marginals,
             likelihood=likelihood,
             theta_posteriors=theta_posteriors_list,
-            raised_warning=runtime_warning
+            raised_warning=runtime_warning,
+            solve_runtime=time.perf_counter() - _t0
         )
 
 def print_numbers_to_chars_assignment(assignment):

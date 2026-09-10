@@ -570,6 +570,10 @@ class MulticlusterExactOutput:
     exact_normalization_constant: float
     cluster_hypotheses_posterior: ClusterHypothesesPosterior
 
+    # Seconds, time.perf_counter, stamped by the caller. Covers the merge plus the EHM2
+    # solves -- not compute_theta_posteriors(), which the driver records separately.
+    runtime: float = float("nan")
+
     def compute_theta_posteriors(self):
         """
         Given the method in 'map_prior_to_posteriors' in ClusterHypothesesPosterior, we should be able to compute all we need by looping over each prior cluster and then each hypothesis, collect the necessary hypothesis-conditioned likelihoods and then normalize in the end.
